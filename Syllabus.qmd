@@ -1,0 +1,188 @@
+---
+title: "Syllabus"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+# GVPT 728 Advanced Topics in Modeling and Political Analysis
+
+-   **Term:** Winter 2026
+-   **Credits:** 3 Hours
+-   **Meeting Time:** MTWRF from 6:00 to 8:45 PM (January 2nd through January 22rd)
+-   **Location:** Online over Zoom
+-   **Instructor:** Neil Lund
+    -   Office Hours: by appointment
+    -   Email: [nlund\@umd.edu](mailto:nlund@umd.edu) (please don’t send messages through ELMS)
+
+# Course description
+
+This course will introduce you to advanced topics in modeling and inference. Over the next three weeks, we will develop the tools to identify viable research questions, formulate hypotheses, and answer the question of what causes a social-science outcome of interest. At the conclusion of the course you will write and present a replication and extension or novel analysis that applies the skills you learned.
+
+## Required Materials
+
+**All required readings will be made available through ELMS.**
+
+In addition to materials posted on ELMS, I will occasionally recommend chapters from the following texts:
+
+-   Gujarati D. N. & Porter D. C. (2009). *Basic econometrics* (5th ed.). McGraw-Hill. ([worldcat](https://search.worldcat.org/title/Basic-econometrics/oclc/610776961))
+
+-   Fox J. (2016). *Applied regression analysis and generalized linear models* (3.). Sage. ([worldcat](https://search.worldcat.org/en/title/910592297))
+
+-   Achen C. H. (1982). *Interpreting and using regression*. Sage Publications. ([worldcat](https://search.worldcat.org/en/title/8958133 "Link"))
+
+The first two are useful reference texts, while the third is a very informative and very short monograph that is useful for anyone who wants a relatively non-technical discussion of regression modeling for social scientists. None of these are required to do well in this course and all three should be freely available through the UMD library or as used books. 
+
+## Expectations
+
+This course will be entirely online. To the greatest extent possible, you should try to treat this like a real classroom. That means at a minimum you should **have your camera on during class time** and **be awake and paying attention.** If this is an issue for you, please let me know.
+
+## Major Assignments
+
+### Assignments/Quizzes (30%)
+
+The homework assignments and quizzes will be short analyses and coding tasks that are intended to enhance your understanding of the course material. You will submit these through ELMS as a compiled and annotated markdown file. For the homework assignments, you are encouraged to collaborate with your peers, but quizzes will be completed independently.
+
+### Discussion lead/response paper (25%)
+
+Students will select two readings from the list of “Discussion Readings” and write a 1-2 page summary of each. At the following class meeting, you will come to class and briefly summarize the main research question, methodological approach, and key findings from your selected paper.
+
+### Final project (35%)
+
+Each student will select a research topic and a data set and analyze it using the skills you’ve learned in the course. You will present your findings on the final day of class, and submit a brief technical memo that details your results.
+
+The final project grade will consist of three components:
+
+-   Presentation (50%)
+-   Memo (25%)
+-   Replication code and data (25%)
+
+### Participation & Engagement (10%)
+
+Attendance is a necessary, but not sufficient, condition for full credit here. Full participation means asking or answering questions, contributing to in-class discussions and exercises, offering constructive feedback on group projects etc.
+
+(Any guided practice or group assignments we complete in class will also be counted towards this component of your grade)
+
+## Grades
+
+All assessment scores will be posted on the course ELMS page. If you would like to review any of your grades (including the exams), or have questions about how something was scored, please email me to schedule a time for us to meet and discuss. Any formal grade disputes must be submitted in writing and within one week of receiving the grade.
+
+Final letter grades are assigned based on the percentage of total assessment points earned using the following scheme:
+
+\[This is a span that has the class aside which places it in the margin without a footnote number.\]{.aside}
+
+|       |         |         |
+|-------|---------|---------|
+| Grade | From    | To      |
+| A+    | 100%    | to 100% |
+| A     | \< 100% | to 97%  |
+| A-    | \< 97%  | to 92%  |
+| B+    | \< 92%  | to 87%  |
+| B     | \< 87%  | to 84%  |
+| B-    | \< 84%  | to 80%  |
+| C+    | \< 80%  | to 77%  |
+| C     | \< 77%  | to 74%  |
+| C-    | \< 74%  | to 70%  |
+| D+    | \< 70%  | to 67%  |
+| D     | \< 67%  | to 64%  |
+| D-    | \< 64%  | to 61%  |
+| F     | \< 61%  | to 0%   |
+
+### Late Work
+
+Assignments will be due at the start of class on the listed due date unless otherwise noted. Late assignments will be accepted with a penalty of 10 points for each day past the due date. Late penalties will be waived for students who provide a [documented excuse](https://policies.umd.edu/student-affairs/university-of-maryland-policy-on-excused-absence).
+
+# Course Outline
+
+Note: This is a tentative schedule, and subject to change as necessary. In the event of a discrepancy between the information on ELMS and the information below, **consider ELMS the final authority.**
+
++----------+-------+---------------------------------------------------+------------------------------+
+| Class    |       | Topic                                             | Assignments                  |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 1  |       | Introductions                                     |                              |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 2  |       | Regression Assumptions                            |                              |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 3  |       | Significance, power, prediction, and fit          | Homework 1 due               |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 4  |       | Non-Linearity, multicollinearity and missing data | Quiz 1                       |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 5  |       | Autocorrelation                                   | Homework 2 due               |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 6  |       | Time series and panel data                        |                              |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 7  |       | Binary Dependent Variables                        | Homework 3 due               |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 8  |       | Other limited dependent variable models           | Quiz 2                       |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 9  |       | Experiments and quasi-experiments                 | Homework 4 due               |
+|          |       |                                                   |                              |
+|          |       |                                                   | Talk about project topics    |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 10 |       | Matching                                          |                              |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 12 |       | Instruments                                       |                              |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 13 |       | Difference in Differences                         | Quiz 3                       |
++----------+-------+---------------------------------------------------+------------------------------+
+| Class 14 |       | Presentations                                     | Final memo due following day |
++----------+-------+---------------------------------------------------+------------------------------+
+
+# Additional Information and Resources
+
+## Accessibility and Disability Services
+
+The University of Maryland is committed to creating and maintaining a welcoming and inclusive educational, working, and living environment for people of all abilities. The University of Maryland is also committed to the principle that no qualified individual with a disability shall, on the basis of disability, be excluded from participation in or be denied the benefits of the services, programs, or activities of the University, or be subjected to discrimination. The [**Accessibility & Disability Service (ADS)**](https://www.counseling.umd.edu/ads/) provides reasonable accommodations to qualified individuals to provide equal access to services, programs and activities. ADS cannot assist retroactively, so it is generally best to request accommodations several weeks before the semester begins or as soon as a disability becomes known. Any student who needs accommodations should contact me as soon as possible so that I have sufficient time to make arrangements.
+
+For assistance in obtaining an accommodation, contact Accessibility and Disability Service at301-314-7682, or email them at[**adsfrontdesk\@umd.edu**](mailto:adsfrontdesk@umd.edu). Information about [**sharing your accommodations with instructors**, **note taking assistance**](https://www.counseling.umd.edu/ads/currentads/) and more is available from the [**Counseling Center**](http://counseling.umd.edu/ads/).
+
+## Student Resources and Services
+
+Taking personal responsibility for your own learning means acknowledging when your performance does not match your goals and doing something about it. I hope you will come talk to me so that I can help you find the right approach to success in this course, and I encourage you to visit [**UMD’s Student Academic Support Services website**](http://tutoring.umd.edu) to learn more about the wide range of campus resources available to you.
+
+In particular, everyone can use some help sharpening their communication skills (and improving their grade) by visiting [**UMD’s Writing Center**](http://www.english.umd.edu/academics/writingcenter/schedule) and schedule an appointment with the campus Writing Center.
+
+You should also know there are a wide range of resources to support you with whatever you might need ([**UMD’s Student Resources and Services website**](https://sph.umd.edu/content/student-resources-and-services) may help). If you feel it would be helpful to have someone to talk to, visit [**UMD’s Counseling Center**](https://www.counseling.umd.edu/)or [**one of the many other mental health resources on campus**](https://tltc.umd.edu/instructors/teaching-topics/supporting-whole-student).
+
+## Names/Pronouns and Self-Identifications
+
+The University of Maryland recognizes the importance of a diverse student body, and we are committed to fostering inclusive and equitable classroom environments. I invite you, if you wish, to tell us how you want to be referred to in this class, both in terms of your name and your pronouns (he/him, she/her, they/them, etc.). Keep in mind that the pronouns someone uses are not necessarily indicative of their gender identity. Visit [trans.umd.edu](http://trans.umd.edu/) to learn more.
+
+Additionally, it is your choice whether to disclose how you identify in terms of your gender, race, class, sexuality, religion, and dis/ability, among all aspects of your identity (e.g., should it come up in classroom conversation about our experiences and perspectives) and should be self-identified, not presumed or imposed. I will do my best to address and refer to all students accordingly, and I ask you to do the same for all of your fellow Terps.
+
+The University of Maryland recognizes the importance of a diverse student body, and we are committed to fostering inclusive and equitable classroom environments. I invite you, if you wish, to tell us how you want to be referred to in this class, both in terms of your name and your pronouns (he/him, she/her, they/them, etc.). Keep in mind that the pronouns someone uses are not necessarily indicative of their gender identity. Visit [trans.umd.edu](http://trans.umd.edu/) to learn more.
+
+## Notice of Mandatory Reporting
+
+Notice of mandatory reporting of sexual assault, sexual harassment, interpersonal violence, and stalking: As a faculty member, I am designated as a “Responsible University Employee,” and I must report all disclosures of sexual assault, sexual harassment, interpersonal violence, and stalking to UMD’s Title IX Coordinator per University Policy on Sexual Harassment and Other Sexual Misconduct.
+
+If you wish to speak with someone confidentially, please contact one of UMD’s confidential resources, such as [CARE to Stop Violence](https://health.umd.edu/CARE) (located on the Ground Floor of the Health Center) at 301-741-3442 or the [Counseling Center](https://counseling.umd.edu/) (located at the Shoemaker Building) at 301-314-7651.
+
+You may also seek assistance or supportive measures from UMD’s Title IX Coordinator, Angela Nastase, by calling 301-405-1142, or emailing titleIXcoordinator\@umd.edu.
+
+To view further information on the above, please visit the [Office of Civil Rights and Sexual Misconduct’s](https://ocrsm.umd.edu/)website at [ocrsm.umd.edu](http://ocrsm.umd.edu/).
+
+## Basic Needs Security
+
+If you have difficulty affording groceries or accessing sufficient food to eat every day, or lack a safe and stable place to live, please visit [**UMD’s Division of Student Affairs website**](https://studentaffairs.umd.edu/basic-needs-security) for information about resources the campus offers you and let me know if I can help in any way.
+
+## Veteran Resources
+
+UMD provides some additional supports to our student veterans. You can access those resources at the office of [Veteran Student life](https://stamp.umd.edu/engagement/veteran_student_life) and the [Counseling Center](https://www.counseling.umd.edu/aboutus/). Veterans and active duty military personnel with special circumstances (e.g., upcoming deployments, drill requirements, disabilities) are welcome and encouraged to communicate these, in advance if possible, to the instructor.
+
+## Course Evaluation
+
+Please submit a course evaluation through Student Feedback on Course Experiences in order to help faculty and administrators improve teaching and learning at Maryland. All information submitted to Course Experiences is confidential. Campus will notify you when Student Feedback on Course Experiences is open for you to complete your evaluations at the end of the semester. Please go directly to the [**Student Feedback on Course Experiences**](http://courseexp.umd.edu/) to complete your evaluations. By completing all of your evaluations each semester, you will have the privilege of accessing through Testudo the evaluation reports for the thousands of courses for which 70% or more students submitted their evaluations.
+
+## Copyright Notice
+
+Course materials are copyrighted and may not be reproduced for anything other than personal use without written permission.
