@@ -1,0 +1,824 @@
+---
+title: "Logit and Probit and LPMs"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+code-annotations: select
+slide-level: 3
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(dataverse)
+library(modelsummary)
+
+```
+
+```{css, echo=FALSE}
+.table, th, td {
+  font-size: 0.9em;
+} 
+.table tbody td, .table thead tr {
+    white-space: nowrap;
+}
+```
+
+```{r, include=FALSE, cache=TRUE}
+library(tidyverse)
+
+
+navco <- dataverse::get_dataframe_by_name(
+  filename = 'NAVCO 1.2 Updated.tab',
+  dataset = 'doi:10.7910/DVN/0UZOTX', 
+  server = "dataverse.harvard.edu")
+
+
+navco<-navco|>
+  filter(ONGOING==FALSE)|>
+  mutate(goal_type = case_when(
+    REGCHANGE == 1 ~ "Regime Change",
+    FSELFDET == 1 ~ "Self determination",
+    SECESSION == 1 ~ "Secession",
+    OTHER == 1 ~ "Other"
+    
+  ),
+  outcome = factor(SUCCESS, labels=c('failure', 'success')),
+  percent_pop  = `PERCENTAGEPOPULARPARTICIPATION`,
+  participation_ntile = findInterval(
+    `PERCENTAGEPOPULARPARTICIPATION`,
+    
+    quantile(`PERCENTAGEPOPULARPARTICIPATION`, seq(0,.9, by=.1)))
+  )
+
+
+
+
+
+```
+
+# Limited dependent variables
+
+## The problem
+
+-   Many important outcomes in the social sciences are non-continuous
+
+    ::: incremental
+    -   Binary or categorical outcomes: vote choice, choosing to ride a bike instead of driving, or winning an election
+
+    -   Counts: number of trade agreements, number of gun deaths in a city, or number of doctor visits in a year
+
+    -   Durations: length of a military conflict, the longevity of a coalition, or the time spent on unemployment
+    :::
+
+## The problem
+
+Fitting a line to this kind of outcome often produces nonsensical results: predictions below the minimum or above the maximum and slopes that have impossible increments. Moreover, the functional form is likely incorrect even where the predictions are possible because the slope depends on the current expected value of the dependent variable.
+
+```{r, echo=FALSE}
+set.seed(1000)
+N<-100
+X<-rnorm(100)
+Y_count<-rpois(N, exp(1 + X))
+Y_binomial<-rbinom(N, 1, arm::invlogit(1+X))
+Y_duration<-rexp(N, exp(X))
+
+df<-data.frame(X, Y_count, Y_binomial, Y_duration)|>
+  pivot_longer(cols = Y_count:Y_duration, values_to="Y")
+
+ggplot(df, aes(x = X, y =Y, group=name)) + geom_point() + 
+  geom_smooth(method='lm', se=FALSE) +
+  facet_wrap(~name, scales='free') +
+  theme_minimal()
+
+```
+
+## The problem
+
+And the resulting standard errors will be non-normal and heteroskedastic by definition:
+
+```{r, echo=FALSE}
+
+
+mods<-df|>
+  split(~name)|>
+  map(\(x) lm(Y ~ X, data=x))|>
+  map(broom::augment)|>
+  bind_rows(.id='model')
+
+
+ggplot(mods, aes(x=.fitted, y=.resid)) + 
+  geom_point() + 
+  facet_wrap(~model, scales='free') +
+  geom_hline(yintercept=0, lty=2, col='red') +
+  theme_minimal()
+
+
+
+```
+
+## NAVCO data
+
+The [NAVCO](https://dataverse.harvard.edu/dataverse/navco) project collects data on "maximalist campaigns", which are defined as sustained efforts to remove a government, attain territorial independence, or make fundamental changes to an existing constitutional order. A key question motivating the project is "what sorts of tactics are effective at creating major political change?"
+
+```{r}
+navco|>select(LOCATION, CAMPAIGN, BYEAR, SUCCESS, VIOL, DURATION, REGAID, STATESUP, goal_type)|>head()
+
+
+```
+
+# Some options other than logit/probit
+
+## Solutions: contingency table methods
+
+-   For models with a **single categorical predictor and a limited number of outcome categories**, contingency table methods can give you a valid test of statistical significance
+
+    -   The $\chi^2$ and Fisher's Exact Test will work for categorical by categorical relationships.
+
+    -   Spearman's $\rho$ , Kendall's $\tau$, and Somer's $D$ can test ordered relationships.
+
+### Contingency table methods
+
+$P<.05$ in Fisher's Exact test means a less than 5% chance of getting these cell frequencies if the rows and columns are uncorrelated.
+
+```{r, echo=T}
+library(gtsummary)
+navco|>
+
+  select(outcome, goal_type)|>
+  tbl_summary(by=goal_type)|>
+  #add_p(test= outcome  ~'chisq.test') # for x^2 test
+
+  add_p(test= outcome  ~'fisher.test')
+
+
+```
+
+### Considerations: contingency table methods
+
+-   Methods like Fisher's Exact test are non-parametric and will be more conservative at smaller sample sizes compared to regression
+
+-   Only valid for categorical-by-categorical relationships
+
+## Solutions: linear probability model
+
+### Linear Probability Models
+
+::::::: columns
+::::: {.column width="50%"}
+:::: columns
+Assuming the DV is coded as 0 or 1:
+
+::: incremental
+-   The constant is the proportion of successes for the omitted category
+
+-   Each coefficient is the difference in the proportion of success compared to the constant.
+
+-   Since these are all mutually exclusive categories, none of the predictions will be above 1 or below 0.
+:::
+::::
+:::::
+
+::: {.column width="50%"}
+```{r}
+navco_lpm<-lm(SUCCESS ~  goal_type, data=navco)
+
+
+```
+
+```{r, echo=FALSE}
+
+navco_lpm<-lm(SUCCESS ~  goal_type, data=navco)
+
+modelsummary(list("LPM" =navco_lpm), 
+              coef_rename=TRUE,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ output ='kableExtra'
+             )
+```
+:::
+:::::::
+
+### Considerations: Linear Probability Model
+
+-   Good: If there is a single binary predictor, then a linear probability model is probably fine.
+
+    -   It may even be fine even for more complex models, especially if the primary goal is just identify the average effect of an IV and test for significance.
+
+-   Violates Gauss Markov assumptions
+
+-   Will generate nonsensical results (probabilities greater than 1 or less than zero)
+
+## Solutions: machine learning methods
+
+Many machine learning methods can handle all sorts of weird data structures and many of them perform better than logit/probit models when predicting binary outcomes.
+
+However! Machine learning means optimizing for prediction rather than hypothesis testing.
+
+. . .
+
+(technically, logistic regression is itself a machine learning method. The distinction here is mostly a question of research goals)
+
+### Classification trees
+
+Tree-building algorithms use a process of recursively splitting the data at different levels of the predictors to produce decision tree. The model is non-parametric and can account for all sorts of complex non-linearity and interactive relationships in the predictors.
+
+### Classification trees
+
+Most algorithms will perform automatic variable selection as part of the inference process, and a variety of modification exist to reduce the tendency for these models to become overfitted.
+
+(ideally in this case you would want to create a held-out set and compare the predictive quality of different models)
+
+```{r, echo=TRUE}
+library(rpart)
+library(rpart.plot)
+tree <- rpart(outcome ~ VIOL + STATESUP + REGAID + DEFECT  + participation_ntile, data = navco)
+rpart.plot(tree)
+
+```
+
+### Considerations: Machine Learning classifiers
+
+-   If you pick up a textbook on Machine Learning, you'll probably find some discussion of logistic regression, but the emphasis will generally be on prediction rather than hypothesis testing
+
+-   Alternative classification methods like trees, support vector machines, bagging, neural networks etc. can often handle non-linearity, overfitting, interaction effects etc. more easily than models like logit/probit, but this flexibility can also make them "black boxes" that are harder to interpret.
+
+# Logit and probit models
+
+(The following sections will deal with models for binary outcomes, but the general intuition applies to other kinds of discrete choices)
+
+## The Latent Variable Intuition
+
+::::: columns
+::: {.column width="50%"}
+One way to think about a binary outcome is as the result of some continuous latent variable that depends on the predictors:
+
+$$Y^*_i = \beta X_i + \epsilon_i $$ That generates a $1$ if $Y > 0$ and $0$ otherwise.
+
+In a logit, we assume the cumulative distribution function of $\epsilon_i$ follows a Logistic distribution. In a probit, we assume it comes from a Gaussian. Understood in this sense, this is really the only difference.
+:::
+
+::: {.column width="50%" style="fragment"}
+```{r, echo=FALSE}
+library(ggdist)
+library(tidyverse)
+library(distributional)
+
+tibble(
+  lambda = c(-3, -2,-1, 0, 1,2,3),
+  group  = factor(lambda)
+) |>
+  ggplot(aes(x = lambda)) +
+  stat_slab(aes(ydist = dist_logistic(lambda, 1), fill = after_stat(y>0)), alpha=.5, color='black', lwd=.1) +
+  geom_abline(slope=1, intercept = 0, lty=3) +
+  geom_hline(yintercept=0, lty=1, col='black', lwd=.1) +
+  labs(fill = "Y", 
+       x= 'X',
+       y= 'Y-star'
+       ) +
+  ggtitle("") +
+  theme_bw() +
+  scale_fill_manual(values=c("FALSE"='white', "TRUE" = "orange")) +
+  theme(legend.position="none")
+
+
+
+```
+:::
+:::::
+
+## The Logistic Function
+
+Changing the "intercept" term here will shift the curve to the left or the right
+
+```{r, echo=FALSE}
+logit <- function(x,beta0,beta1) {
+  1/(1+exp(-beta0 - beta1*x))
+}
+curve(logit(x,0,1),xlim=c(-10,10), lwd=2,ylab="Logistic Function", las=1)
+curve(logit(x,-2,1),xlim=c(-10,10), lwd=2, lty=2, col="red", add=TRUE)
+curve(logit(x,2,1),xlim=c(-10,10), lwd=2, lty=2, col="blue", add=TRUE)
+legend(-10,1,c(expression(paste(beta[0]," = 0")),expression(paste(beta[0]," = -2")),expression(paste(beta[0]," = 2"))), lwd=2, lty=1:3, col=c("black","red","blue"))
+
+
+
+```
+
+## The Logistic Function
+
+Changing values of the slope will make the line steeper (especially around the middle)
+
+```{r, echo=FALSE}
+curve(logit(x,0,1),xlim=c(-10,10), lwd=2,ylab="Logistic Function", las=1)
+curve(logit(x,0,2),xlim=c(-10,10), lwd=2, lty=2, col="red", add=TRUE)
+curve(logit(x,0,0.5),xlim=c(-10,10), lwd=2, lty=3, col="blue", add=TRUE)
+legend(-10,0.9,c(expression(paste(beta[1]," = 1")),expression(paste(beta[1]," = 2")),expression(paste(beta[1]," = 0.5"))), lwd=2, lty=1:3, col=c("black","red","blue"))
+
+```
+
+::: notes
+The real difference in logit and probit models lies in their assumptions about that error term. Logistic assumes it follows a standard logit. Probit assumes it follows a standard normal. In practice, this should matter very little.
+:::
+
+## Maximum likelihood
+
+-   OLS tries to minimize the sum of squared errors, but we can't actually infer that here
+
+-   Instead, maximum likelihood methods attempt to identify the function that maximizes the likelihood of the observed data.
+
+-   There's no "closed form solution", so MLE methods use optimization algorithms to fit models
+
+## Maximum likelihood
+
+$$
+\ln L(\beta_0,\beta_1) = \sum_{i=1}^N \{ y_i \ln p(x_i; \beta_0,\beta_1) + (1-y_i) \ln [1-p(x_i;\beta_0,\beta_1)]
+$$
+
+. . .
+
+(technically optimization algorithms will minimize the inverse of this function)
+
+## Maximum Likelihood
+
+```{r}
+set.seed(400) 
+N <-5000 
+alpha <- 0
+beta <- 1
+d<-tibble(
+  X = rnorm(N), # random IVs 
+  y_star = alpha + X * beta,  # a latent variable
+  Y = as.numeric((y_star + rlogis(N)) >0) # 1s and 0s (This is what we can observe!)
+)
+
+# the negative log likelihood function for the logistic model: 
+neg_log_likelihood = function(beta, x, y){
+  theta = beta * x
+  p <- exp(theta) / (1 + exp(theta))
+  val = -sum(y * log(p) + (1-y)*log(1-p)) 
+  return(val)
+}
+
+
+
+```
+
+## Maximum Likelihood
+
+Note that the negative log likelihood is minimized at the the correct value of $\beta_1$:
+
+```{r, echo=FALSE}
+
+likelihoods<-tibble(
+  beta = seq(-10, 10, by=.1), 
+  neg_ll = sapply(beta, function(b) (expr = neg_log_likelihood(b, d$X, d$Y)))
+  )
+
+ggplot(likelihoods, aes(x=beta, y=neg_ll)) +
+  geom_line() +
+  geom_vline(xintercept=1, col='red', lty=2) +
+  theme_bw() +
+  ylab("Negative Log-Likelihood")
+
+```
+
+The only thing you really need to know here, though, is that this is the thing we're optimizing instead of minimizing the RSS. Maximizing this likelihood is non-deterministic, so it has to be approximated using an iterative process. This means it can fail to converge in some situations (usually small samples or lots of covariates)
+
+## Logit vs. Probit
+
+The only real distinction here is that logistic models assume a logistic error, and probit models assume a Gaussian error. The interpretation of the coefficients will be different, but once they're converted to predicted probabilities and marginal effects they should return very similar results.
+
+::::: columns
+::: {.column width="50%"}
+```{r, echo=T}
+
+set.seed(100)
+N<-1000
+X<-rnorm(N, 0, 1)
+ystar<-X * 2 
+# the probit link
+y_probit<-(ystar + rnorm(N))>0
+# the logit link 
+y_logit <-(ystar + rlogis(N))>0
+probit<-glm(y_probit ~ X, family=binomial(link = probit))
+logit<-glm(y_logit ~ X, family=binomial(link = logit))
+
+```
+:::
+
+::: {.column width="50%"}
+```{r, echo=FALSE}
+
+modelsummary(list("logit" =logit, 
+                  'probit' = probit
+                  ), 
+              coef_rename=TRUE,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ output ='kableExtra'
+             )
+```
+:::
+:::::
+
+## Interpretation
+
+The way we solve this is ultimately less important than how it changes interpretations. There's a few key differences here when compared to OLS
+
+:::::: columns
+:::: {.column width="50%"}
+::: incremental
+1.  The effect of a one unit increase in X is not constant. It's smaller toward 1 and 0, and steeper around p=.5
+2.  Slope coefficients aren't especially meaningful on their own, and aren't comparable across models
+3.  Everything impacts everything else. Unobserved heterogeneity impacts the estimate of $\beta$
+4.  Metrics like $R^2$ no longer really work (although other measures of model fit are available)
+:::
+::::
+
+::: {.column width="50%"}
+```{r, echo=FALSE}
+
+df<-bind_rows(tibble('Pr(Y=1)' = sort(unique(predict(logit, type='response'))), 
+                     'X' =sort(X),
+                     'link' = 'logit'
+                     ),
+              tibble('Pr(Y=1)' = sort(unique(predict(probit, type='response'))), 
+                     'X' =sort(X),
+                    'link' = 'probit')
+              )
+               
+ggplot(data=df, aes(x=X, y=`Pr(Y=1)`, color=link))  + geom_line(lwd=1.4) + 
+  theme_bw()
+
+
+```
+:::
+::::::
+
+## Side note: uncontrolled heterogeneity matters here
+
+```{r, echo=T}
+set.seed(100)
+N<-1000
+X<-rnorm(N, 0, 1)
+Z<- rnorm(N, 0 ,1)
+ystar<-X * 4  + Z * 2
+y_logit <- (ystar + rlogis(N))>0
+model1<-glm(y_logit ~ X, family=binomial(link = logit))
+model2<-glm(y_logit ~ X + Z, family=binomial(link = logit))
+```
+
+```{r, echo=FALSE}
+
+
+modelsummary(list("model 1" =model1, 
+                  'model 2' = model2
+                  ), 
+              coef_rename=TRUE,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ output ='kableExtra'
+             )
+
+```
+
+## Applying the model
+
+```{r}
+
+navco_logit<-glm(SUCCESS ~  goal_type, data=navco, family=binomial(link='logit'))
+
+navco_probit<-glm(SUCCESS ~  goal_type, data=navco, family=binomial(link='probit'))
+
+```
+
+```{r}
+
+modelsummary(list(
+  "navco LPM" =  navco_lpm,
+  "navco logit" =navco_logit,
+  "navco probit"= navco_probit
+                  
+                  ), 
+              coef_rename=TRUE,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ output ='kableExtra'
+             )
+
+
+```
+
+## Interpretation: logit intercept
+
+For logit, the coefficients are $ln \frac{p}{1-p}$ of Y=1. So exponentiation can give you some sense for the probabilities if you're used to thinking in those terms. After exponentiation, the intercept is the log odds when everything = 0.
+
+```{r, echo=T}
+# exponentiated coefficent
+exp(coef(navco_logit))
+
+#  Pr(Y=1) at viol = 0 
+pr<-mean(navco$SUCCESS[which(navco$VIOL==0)])
+pr
+# expressed as an odds ratio = the exponentiated intercept
+orat<-pr/(1-pr)
+orat
+```
+
+## Interpretation: logit coefficient
+
+And the slope coefficient is the impact of a one unit change in X on the relative odds ratio compared to the baseline.
+
+```{r, echo=T}
+
+# exponentiated coefficent
+exp(coef(navco_logit))
+
+#  Pr(Y=1) at viol = 1
+pr_viol<-mean(navco$SUCCESS[which(navco$VIOL==1)])
+
+pr_viol
+# the odds ratio
+orat_viol<-pr_viol/(1-pr_viol)
+
+# the relative odds ratio compared to the baseline
+orat_viol/orat
+
+
+```
+
+(Probit coefficients don't work this way, which is probably why they're less popular)
+
+## Interpretation: predicted probabilities and marginal effects
+
+Rather than try to interpret logit/probit coefficients in their untransformed states, its almost always better to convert them to predicted probabilities and marginal effects at some meaningful levels of the coefficients.
+
+. . .
+
+-   Predicted probability is just the model prediction for Y=1 at some level of the independent variables
+
+-   Marginal effect is just the predicted effect of a one unit change in X on the predicted probability of Y
+
+    -   In a linear model the marginal effect is the same thing as the coefficient, but in logit/probit, the marginal effect is different in different places. So we will have to talk about marginal effects *at* some specific point along the curve.
+
+::: notes
+Odds ratios are for casinos.
+:::
+
+### Predicted probability: logit
+
+In a logit model, the predicted probability for some observation is just the inverse logistic of the predicted linear value of y. Or
+
+$$
+P = \frac{1}{1+e^-(B_0+B_1X_1+B_2X_2 +...)}
+$$
+
+(less complicated than it looks.)
+
+In plain English, you just take the same plug-in-numbers approach you take to get a prediction from OLS, and then do this:
+
+```{r, echo=T}
+
+# the inverse logit 
+inverse_logit<-function(x){ 
+  exp(x)/(1+exp(x))
+  }
+
+coef(navco_logit)
+
+# success probabilty for non-violent movements
+inverse_logit(0.2947995)
+mean(navco$SUCCESS[which(navco$VIOL==0)])
+
+```
+
+### Marginal effects: logit
+
+To get the marginal effect from a given point, you just need to see what happens with a one unit change in X for some unit. So the marginal effect of moving from a non-violent campaign to a violent campaign is :
+
+```{r, echo=T}
+
+coef(navco_logit)
+
+# success probability for violent movement - success for non-violent
+inverse_logit(0.2947995 + -1.1522498 ) - inverse_logit(0.2947995)
+
+
+```
+
+### Using Predict
+
+Fortunately, we can just get the predictions using the predict function with a slight modification (and this works for probit models as well)
+
+```{r, echo=T}
+
+table(predict(navco_logit, type='response'))
+table(predict(navco_probit, type='response')) # virtually identical!
+
+```
+
+### Using Predict
+
+To get a marginal effect for some other hypothetical value, we can use the newdata argument and create a new data set with specific values assigned to each predictor
+
+```{r, echo=T}
+
+navco_mod2<-glm(SUCCESS ~  VIOL +  SECESSION + percent_pop, data=navco, family='binomial')
+
+# pr success for a non-violent secessionist movement that has 1% popular participation
+case_0 <- predict(navco_mod2, type='response', newdata=data.frame("VIOL" = 0,
+                                                        "SECESSION" = 1,
+                                                         "percent_pop" = .01
+                                                        ))
+# pr success for a violent secessionist movement that has 2% participation
+case_1 <- predict(navco_mod2, type='response', newdata=data.frame("VIOL" = 0,
+                                                        "SECESSION" = 1,
+                                                        "percent_pop" =.02
+                                                        ))
+
+
+case_1 - case_0
+
+```
+
+### Using Predict
+
+Note that the marginal effect of a one unit increase in a variable is higher or lower depending on our location along the probability curve: as we approach probabilities of zero and one, the slope gets more shallow.
+
+```{r, echo=FALSE}
+
+
+df<-tibble("VIOL" = 0,
+       "SECESSION" = 1, 
+       "percent_pop" = seq(-1, 1, by=.01)
+       )
+df$predict <- predict(navco_mod2, type='response', newdata=df)
+df$mfx <- df$predict - lag(df$predict)
+# sequence of effects from 0 to 1
+ggplot(df, aes(x=predict, y=mfx)) + 
+  geom_line() +
+  theme_bw() +
+  xlab("Pr(success)") +
+  ylab("Marginal Effect of percent pop +1")
+
+
+
+```
+
+### Marginal effects and standard errors
+
+Getting a standard error by hand is a bit of a pain here. We could bootstrap! However, most statistical software will default to using the faster [delta method](https://bookdown.org/ts_robinson1994/10EconometricTheorems/dm.html).
+
+![Designing Women star Delta Burke, who (I assume) invented the Delta method](https://grantland.com/wp-content/uploads/2015/05/delta-burke-tv-guide.jpg?w=1200)
+
+### Packages for GLM interpretation
+
+The [`ggeffects`](https://strengejacke.github.io/ggeffects/) package automates a lot of the process here:
+
+### Predictions
+
+We can get adjusted predictions and confidence intervals with one function:
+
+```{r,echo=T}
+library(ggeffects)
+
+
+preds<-predict_response(navco_mod2, 
+                        terms="percent_pop[all]",  # prediction at all values of percent_pop
+                 condition =c("SECESSION" = 1, "VIOL"=1))  # with these values at 1 and 1
+
+preds
+
+
+```
+
+## Predictions
+
+And automatically generate a nice plot for the predicted results:
+
+```{r}
+
+plot(preds, 
+     show_data = TRUE, jitter=.03)  # plot some relevant data points
+
+```
+
+### Marginal Effects
+
+And once we have a series of predicted probabilities, we can easily estimate average marginal effects across those cases:
+
+```{r, echo=T}
+
+
+mfx<-preds|>
+  test_predictions()
+
+mfx
+
+
+```
+
+### Marginal Effects
+
+Alternatively, we can generate marginal effects using the `marginaleffects` package. By default, the `avg_comparisons` function will return the average marginal effect of a one unit change in each covariate with all other covariates held at observed values:
+
+```{r}
+library(marginaleffects)
+avg_comparisons(navco_mod2)
+
+```
+
+### Marginal effects plots
+
+```{r, echo=T}
+
+avg_comparisons(navco_mod2)|>
+  modelplot()
+
+
+```
+
+### Logit/Probit Model comparison
+
+As long as the link function is the same, you can make valid model comparisons using the AIC/BIC values or the log-likelihoods. There are also some fit statistics that are meant to approximate $R^2$ values, but there's no consensus on what they are supposed to mean.
+
+```{r, echo=FALSE}
+
+
+modelsummary(list("model 1" =navco_logit,
+                  "model 2" = navco_mod2
+                  ), 
+              coef_rename=TRUE,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ output ='kableExtra'
+             )
+```
+
+### Prediction on held-out data
+
+Of course, if you've got the data/time I think the best approach is to compare models based on something empirical like their ability to predict held-out data:
+
+```{r, echo=T}
+
+library(caret)
+#  leave one out cross-validation
+train.control <- trainControl(method = "LOOCV")
+# convert outcomes to factor variables: 
+navco<-navco|>
+  mutate(outcome = factor(SUCCESS, labels=c("failure", "success")))
+
+cv_0 <- train(outcome ~  VIOL , data=navco, 
+              method = "glm",
+              family ='binomial',
+              trControl = train.control)
+cv_1 <- train(outcome ~  VIOL +  SECESSION + participation_ntile, data=navco, 
+              method = "glm",
+              family ='binomial',
+              trControl = train.control)
+cv_2 <- train(outcome ~  VIOL , data=navco, 
+              method = "rpart",
+              trControl = train.control)
+
+
+
+```
+
+### Prediction on held-out data
+
+```{r}
+cv_0$results
+cv_1$results
+cv_2$results[1,]
+
+
+```

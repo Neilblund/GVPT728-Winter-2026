@@ -1,0 +1,378 @@
+---
+title: "Tidyverse Refresher"
+format:
+  html:
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+
+```
+
+```{r}
+library(tidyverse)
+
+```
+
+# The pipe
+
+The pipe will take the object on the left hand side and, by default, treat it as the first argument for whatever is on the right hand side. Here's some code that gets some random numbers and manipulates them without using a pipe:
+
+```{r}
+set.seed(100)
+# get 100 samples from a normal distribution with mean zero and sd =1 
+x<-rnorm(100)
+# exponentiate it
+x<-exp(x)
+# sort it 
+x<-sort(x)
+# plot the result
+plot(x)
+```
+
+Here's how we would do the same set of commands using the pipe:
+
+```{r}
+set.seed(100)
+# get 100 samples from a normal distribution with mean zero and sd =1 
+rnorm(100)|>
+  exp()|>
+  sort()|>
+  plot()
+  
+```
+
+
+
+# Dplyr
+
+```{r, warning=FALSE, message=FALSE}
+# read some presidential election data from fivethirtyeight
+presidential_elections<-read_csv("https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv")
+
+nrow(presidential_elections)
+
+```
+
+## filter
+
+The filter function will take a logical argument and remove any rows where the result of that argument is false. So, to get only data for the general election in 2020, I would run:
+
+```{r}
+
+pres_2020<-presidential_elections|>
+  filter(cycle == 2020)|>
+  filter(stage == "general")|>
+  filter(!is.na(state)) # only include state level results
+
+nrow(pres_2020)
+
+
+```
+
+## group_by, summarize, and mutate
+
+[`group_by`](https://dplyr.tidyverse.org/reference/group_by.html) coupled with [`mutate`](https://dplyr.tidyverse.org/reference/mutate.html) or [`summarize`](https://dplyr.tidyverse.org/reference/summarise.html?q=summarize#ref-usage) will calculate aggregates over a group of rows. The `summarize` function will produce one row per group. Here, I'm grouping by state and then using `n()` which simply counts the rows in each group, then I'm using [`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html) to sort the results from the states by the number of candidates who received votes.
+
+```{r}
+
+counts<-pres_2020|>
+  
+  group_by(state)|>
+  summarise(`number of candidates` = n())|>
+  arrange(-`number of candidates`)
+
+counts
+
+
+```
+
+In contrast to using `summarize`, using `mutate` will preserve all the rows in the original data set. So instead of having a single row for each state, the `number of candidates` will be repeated multiple times for each row in the group.
+
+```{r}
+
+counts_mutated<-pres_2020|>
+  
+  group_by(state)|>
+  mutate(`number of candidates` = n())|>
+  arrange(-`number of candidates`)
+
+counts_mutated
+
+
+```
+
+(using mutate or summarize without using group_by first will just apply your function to the entire data set)
+
+How would you filter out the write ins?
+
+```{r}
+
+pres_2020|>
+  filter(ballot_party!="W")
+
+
+```
+
+How could I filter out the split electoral votes for Maine and Nebraska? (%in% or use a [regular expression)](https://cran.r-project.org/web/packages/stringr/vignettes/regular-expressions.html)
+
+```{r}
+
+pres_2020|>
+  # %in% will evaluate true if there's a match on the right hand vector
+  filter(state %in% c("Nebraska CD-1", "Nebraska CD-2", "Maine CD-1", "Maine CD-2") )
+
+pres_2020 |>
+  # str_detect 
+  filter(str_detect(state, "CD-[0-9]") ==FALSE)
+
+```
+
+How could I find the winner in each state?
+
+```{r}
+
+pres_2020|>
+  group_by(state)|>
+  # sort by votes in decreasing order 
+  arrange(-votes)|>
+  # slice head will take the first n in each group
+  slice_head(n=1)
+
+pres_2020|>
+  group_by(state)|>
+  # vote == max in each state: 
+  filter(votes == max(votes))
+  
+
+
+```
+
+## pivot_wider and pivot_longer
+
+The [pivot_wider and pivot_longer](https://tidyr.tidyverse.org/articles/pivot.html) commands will reshape your data from long to wide and from wide to long, respectively.
+
+Long format data will have fewer columns and will repeat the same information across multiple rows. You can see in these data that there are 8 rows for "Alaska": one for each candidate who was on the ballots (plus an NA row for invalid votes). The state abbreviation is just repeated in each row.
+
+```{r}
+
+pres_2020|>
+  filter(state_abbrev=="AK")|>
+  select(state_abbrev, candidate_name, votes)
+
+```
+
+Here is that same information stored in "wide" format:
+
+```{r}
+alaska_wide <-pres_2020|>
+  filter(state_abbrev=="AK")|>
+  select(state_abbrev, candidate_name, votes)|>
+  # names_from = where the new column names will come from
+  pivot_wider(names_from = candidate_name, 
+              # values from = the values that will populate the new columns
+              values_from = votes)
+alaska_wide
+
+```
+
+I could return this data back to long format by simply running:
+
+```{r}
+
+alaska_wide|>
+  # cols = the columns I want to pivot to long format
+  pivot_longer(cols = `Joe Biden`:`Donald Trump`, 
+               # the name for the candidates column I want to create
+               names_to = "candidate_name", 
+               # the name for the new values column I want to create
+               values_to = "votes")
+
+```
+
+Here's an example of getting votes cast for Biden, Trump, or "other" in each state in long format. I'm using [case_when](https://dplyr.tidyverse.org/reference/case_when.html) to create a new three category column.
+
+```{r}
+
+party_totals = pres_2020|>
+  # remove split electoral counts
+  filter(str_detect(state, "CD-[0-9]")==FALSE)|>
+  
+  # create a three category variable for party vote shares
+  mutate(vote_type= case_when(
+  `candidate_name` == "Joe Biden" ~ "Dem", 
+  `candidate_name` == "Donald Trump" ~ "Rep", 
+  !`candidate_name`%in%c("Joe Biden", "Donald Trump") ~ "other"))|>
+  # get the total votes for each group
+  group_by(state, vote_type)|>
+  summarise(votes = sum(votes))|>
+  # now get the total number of votes cast: 
+  group_by(state)|>
+  mutate(total = sum(votes))
+
+party_totals
+
+
+```
+
+How would I reshape to wide format?
+
+```{r}
+party_totals|>
+  pivot_wider(names_from = vote_type, values_from = votes)
+
+```
+
+Wide vs. long presentation is often a matter of personal preference and intuition. Long format is typically less efficient for very large data sets because it repeats information, but is often a lot more versatile. Importantly: GGplot typically expects data in long format.
+
+## Joins
+
+The [join commands](https://dplyr.tidyverse.org/reference/mutate-joins.html) are used to combine or merge data based on matching columns. ([good primer here](https://intro2r.library.duke.edu/join))
+
+```         
+left_join(x, y) # keep all rows in X and add matching columns in Y
+right_join(x, y) # keep all rows in Y and add matching columns in X
+full_join(x, y) # keep all rows AND columns in by X and Y
+```
+
+By default, the join commands will attempt to match on any shared column names in X and Y. If the data frames don't have any matching column names, then you will need to use the `join_by` syntax to tell R how to align the rows.
+
+Here I'm downloading the median age by state from the U.S. census bureau for 2020:
+
+```{r}
+library(tidycensus)
+variables <- load_variables(2020,  "dhc" ,cache = TRUE)
+
+
+# median age by state
+median_age <- get_decennial(geography = "state", 
+                       variables = c(median_age  ="P13_001N"), 
+                       year = 2020,
+                       sumfile = "dhc")
+
+
+
+
+
+
+
+```
+
+Now I can join this to my data set of third party vote shares. Since the column names are different, I will need to use the join_by function to help R identify the columns to match on.
+
+```{r}
+
+party_and_age<-party_totals|>
+  # restrict to third party vote shares
+  left_join(median_age, by=join_by(state == NAME))
+
+party_and_age
+  
+
+```
+
+What happens if I use a right_join here?
+
+```{r}
+party_totals|>
+  # restrict to third party vote shares
+  right_join(median_age, by=join_by(state == NAME))
+
+
+
+
+```
+
+# GGplot
+
+ggplot extends R's base plotting functionality to make it easier to build and modify plots. In general, you will start by calling ggplot, specify your variables using `aes()` and then add graphics and other modifications using the `+` sign. Here's an example of using our third party vote data to construct a scatter plot for third party vote share:
+
+```{r}
+
+third_party_share <-party_and_age|>
+  # get third party votes
+  filter(vote_type == "other")|>
+  # get vote share of total
+  mutate(vote_share = votes/total)
+  
+
+share_plot<-ggplot(data = third_party_share, aes(x=value, y=vote_share)) +
+    geom_point()
+
+share_plot
+
+```
+
+You can add and modify the aesthetics iteratively by assigning the ggplot to an object and then adding more options using the plus sign.
+
+```{r}
+
+share_plot<-share_plot + 
+  ylab('third party vote share') + 
+  xlab('median age')
+
+share_plot
+```
+
+Select a different [theme](https://ggplot2.tidyverse.org/reference/ggtheme.html)
+
+```{r}
+
+share_plot <- share_plot + 
+  
+  # set to minimalist theme
+  theme_minimal()
+
+share_plot
+```
+
+Add the state name to the aesthetics, then use [geom_text](https://ggplot2.tidyverse.org/reference/geom_text.html) instead of point to plot the state name in the graph.
+
+```{r}
+
+third_party_share|>
+  ggplot(aes(x = value, y= vote_share, label=state)) +
+  geom_text()
+
+
+```
+
+If you're creating an HTML file, you can also use the `ggplotly` from the [plotly package](https://plotly.com/ggplot2/getting-started/) to turn a ggplot object into an interactive one. By default, these will include the label information in a tooltip, so this is a good way of identifying points in a scatterplot without having to worry about overplotting.
+
+```{r}
+library(plotly)
+plot<-third_party_share|>
+  ggplot(aes(x = value, y= vote_share, label=state)) +
+  geom_point()
+
+ggplotly(plot)
+```
+
+# Flextable
+
+[Flextable](https://ardata-fr.github.io/flextable-book/) is one of several R packages that can give you nicely formatted tables and plots, and it's probably the easiest option for formatting the output of a single regression model. If you have a different preference, feel free to use it, but as a general rule: don't submit regression output without some kind of formatting.
+
+```{r}
+
+library(flextable)
+
+model<-lm(vote_share ~ value  , data= third_party_share)
+
+summary(model)
+
+
+```
+
+```{r}
+as_flextable(model)
+
+
+```

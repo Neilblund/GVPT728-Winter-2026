@@ -1,0 +1,429 @@
+---
+title: "Count models"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    width: 1280
+    height: 720
+    df-print: tibble
+    scrollable: true
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+filters:
+  - reveal-header
+  - pseudocode
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+```{css, echo = FALSE}
+.output {
+max-height: 500px;
+overflow-y: scroll;
+}
+```
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(MASS)
+library(distributional)
+library(tidyverse)
+library(ggdist)
+library(countrycode)
+library(modelsummary)
+library(labelled)
+
+```
+
+```{r, echo=FALSE, cache=TRUE}
+
+vdem<-vdemdata::vdem|>
+  filter(year == 2018)|>
+  select(country_id, year, v2x_libdem, e_gdppc)
+gtd_counts<-read_csv('gtd_counts.csv')|>
+  complete(country_txt , nesting(iyear), fill=list(nkill=0, n=0, success=0))|>
+  group_by(country_txt)|>
+  fill(region_txt, .direction='downup')|>
+  group_by(country_txt)|>
+  mutate(lagged_attacks = lag(n),
+         lagged_deaths = lag(nkill)
+         )|>
+  filter(iyear == 2018)|>
+  mutate(country_vdem = countrycode(country_txt, origin='country.name', dest='vdem'))|>
+  left_join(vdem, by= join_by(iyear == year,  country_vdem == country_id))|>
+  ungroup()|>
+  mutate(any_attacks = factor(lagged_attacks>0, labels=c("no", "yes")),
+         MENA = factor(region_txt =="Middle East & North Africa", 
+                       labels=
+                         c("no","yes"))
+         )
+
+gtd_counts<-set_variable_labels(gtd_counts, 
+                                'v2x_libdem' ='liberal democracy score',
+                                'region_txt' = 'region',
+                                'success' = 'number of successful attacks',
+                                'lagged_attacks' = 'prior year attacks',
+                                'lagged_deaths' = 'prior year deaths',
+                                'e_gdppc' = 'gdp per capita ($1,000)',
+                                'any_attacks' = 'any attacks in prior year',
+                                "MENA" = "Middle East & North Africa"
+                                
+                            
+                                )
+
+gtd_counts<-gtd_counts|>drop_na()
+
+```
+
+# Counts
+
+
+::::: columns
+::: {.column width="50%"}
+
+Count models can be used to model outcomes that range from 0 to $\infty$. These tend to be more common in international relations, but it includes things like:
+
+::: incremental
+-   Number of battle deaths in a conflict
+
+-   Number of terror attacks in a country
+
+-   Number of protests in a year
+
+-   Number of years between coups (although this may be classified as a survival model)
+:::
+:::
+
+::: {.column width="50%"}
+![](https://upload.wikimedia.org/wikipedia/en/2/29/Count_von_Count_kneeling.png)
+:::
+:::::
+
+
+
+
+
+## Poisson Distribution
+
+The simplest way to model a count is with a Poisson distribution
+
+::::: columns
+::: {.column width="50%"}
+-   A poisson distribution has a single parameter, $\lambda$ , which represents the average rate of occurrence over a fixed time period.
+
+-   As with logit models, this is non-linear and solving it requires maximum likelihood methods.
+:::
+
+::: {.column width="50%"}
+[![By Skbkekas - Own work, CC BY 3.0, https://commons.wikimedia.org/w/index.php?curid=9447142](https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Poisson_pmf.svg/1280px-Poisson_pmf.svg.png)](https://en.wikipedia.org/wiki/Poisson_distribution#/media/File:Poisson_pmf.svg)
+:::
+:::::
+
+## Poisson Distribution
+
+The expected value of $Y|X$ is
+
+$$
+E(Y|X) = e ^{(b_0 + b_1X_1 +b_2X_2...)}
+$$
+
+```{r}
+
+poisson_func <- function(x,beta0,beta1) {
+  theta <- exp(beta0 + beta1*x)
+}
+curve(poisson_func(x,0,1),xlim=c(-1,5), lwd=2,ylab="poisson_func function", las=1)
+curve(poisson_func(x,-2,1),xlim=c(-1,5), lwd=2, lty=2, col="red", add=TRUE)
+curve(poisson_func(x,2,1),xlim=c(-1,5), lwd=2, lty=2, col="blue", add=TRUE)
+
+legend(-1,150,c(expression(paste(beta[0]," = 0")),
+                expression(paste(beta[0]," = -2")),
+                expression(paste(beta[0]," = 2"))), 
+       lwd=2, lty=1:3, col=c("black","red","blue"))
+
+```
+
+## Poisson Distribution
+
+```{r}
+
+poisson_func <- function(x,beta0,beta1) {
+  theta <- exp(beta0 + beta1*x)
+}
+curve(poisson_func(x,3,-2),xlim=c(-1,5), lwd=2,ylab="poisson_func function", las=1)
+curve(poisson_func(x,3,0),xlim=c(-1,5), lwd=2, lty=2, col="blue", add=TRUE)
+curve(poisson_func(x,3,2),xlim=c(-1,5), lwd=2, lty=2, col="red", add=TRUE)
+
+legend(3,150,c(expression(paste(beta[1]," = 0")),
+               expression(paste(beta[1]," = -2")),
+               expression(paste(beta[1]," = 2"))), 
+       lwd=2, lty=1:3, col=c("blue","black", "red"))
+
+```
+
+## Poisson Overdispersion
+
+The poisson distribution assumes that the variance is equal to the mean:
+
+```{r}
+set.seed(100)
+x<-rpois(4000, 25)
+var(x)
+mean(x)
+```
+
+## Poisson Overdispersion
+
+The poisson distribution assumes that the variance is equal to the mean:
+
+But this is rarely true with real world data:
+
+```{r, echo=TRUE}
+
+  # count of terrorist attacks per country-year
+mean(gtd_counts$nkill)
+var(gtd_counts$nkill)
+data.frame(dist = dist_poisson(lambda =mean(gtd_counts$nkill)))|>
+  ggplot(aes(xdist = dist))+
+  stat_slab(alpha=.7) +
+  stat_slab(data=gtd_counts, aes(x=nkill), 
+               fill='lightblue', 
+               inherit.aes = FALSE) +
+  theme_bw() +
+  labs(title = 'Terrorist attacks in 2018 compared to a poisson distribution with the same mean') 
+
+```
+
+## Poisson Overdispersion
+
+-   Models with more variance than expected are called "overdispersed", and this causes us to underestimate our standard errors.
+
+    -   This can also happen with other distributions, but its probably less common because most distributions allow the variance to be different from the mean.
+
+-   This is may be the result of different data generating processes, i.e.: one pattern for states with terrorist insurgencies
+
+    -   In some cases there may be a way to fix this with a different set of parameters, but there's no guarantee.
+
+## Options for handling overdispersion
+
+::: incremental
+-   Quasipoisson models optimize a different likelihood function that can account for overdispersion.
+
+-   A random effects model with one random effect per observation
+
+-   Hurdle or zero-inflated models (in special cases)
+
+-   **A negative binomial model**
+:::
+
+### Negative Binomial Model
+
+-   The negative binomial distribution can be thought of as the number of failures until a specified number of successes. Unlike the poisson distribution, the negative binomial distribution has a mean and a variance, so it can account for overdispersion:
+
+```{r, echo=TRUE}
+
+tibble('a' = dist_negative_binomial(size=1, .5),
+       'b' = dist_negative_binomial(size=10, .5),
+       'c' = dist_negative_binomial(size=100, .5)
+       )|>
+  ggplot()+
+  stat_slab(aes(xdist = a), fill='lightblue', alpha=.7) +
+  stat_slab(aes(xdist = b), fill='lightgreen', alpha=.7) +
+  stat_slab(aes(xdist = c), fill='orange', alpha=.7) +
+  theme_bw() 
+
+```
+
+### Poisson vs. negative binomial
+
+```{r, echo=TRUE}
+model<-glm(nkill ~ v2x_libdem + any_attacks + e_gdppc ,
+           data=gtd_counts, family='poisson')
+nb_model<-glm.nb(nkill ~ v2x_libdem + any_attacks + e_gdppc , 
+                 data=gtd_counts)
+
+```
+
+```{r, echo=FALSE}
+
+
+map<-c('v2x_libdem' ='liberal democracy score',
+'region_txt' = 'region',
+'success' = 'number of successful attacks',
+'lagged_attacks' = 'prior year attacks',
+'lagged_deaths' = 'prior year deaths',
+'e_gdppc' = 'gdp per capita',
+'any_attacksyes' = 'any attacks in prior year',
+"MENAyes" = "Middle East & North Africa"
+
+)
+
+model_list<-list('poisson' = model,
+                 "negative binomial" = nb_model)
+modelsummary(model_list,
+             coef_map  = map,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             )
+```
+
+## Testing Overdispersion
+
+The performance package has a function to check for overdispersion using simulated residuals from a count model. The null hypothesis here is no overdispersion:
+
+```{r}
+library(performance)
+check_overdispersion(model)
+
+
+```
+
+We can also see this is addressed by the negative binomial model:
+
+```{r}
+
+
+check_overdispersion(nb_model)
+
+```
+
+## Model fit
+
+Since the only difference here is the addition of a single dispersion parameter, we can treat these two models as nested and use a likelihood ratio test to determine with the negative binomial model is a better fit. Unsurprisingly, it is:
+
+```{r}
+
+pchisq(2 * (logLik(nb_model) - logLik(model)), df = 1, lower.tail = FALSE)
+
+
+```
+
+## Poisson Prediction and interpretation
+
+The negative binomial model and the poisson model both have the same inverse link function, so generating predictions here is the same:
+
+-   Calculate the linear prediction (plug in the values and multiple each by the coefficient)
+
+-   Exponentiate the result
+
+    ```{r}
+
+    coefs<-coef(nb_model)
+    exp(coefs['(Intercept)'] + 
+          coefs['v2x_libdem'] * 0.74 + 
+          coefs["any_attacksyes"] * 1 +
+          coefs['e_gdppc'] * 59.6
+        
+        )
+      
+
+
+    ```
+
+Count models are still nonlinear! So, like with logits, the marginal effect of X will depend in part on the other parameters.
+
+### Incidence Rates
+
+Exponentiated coefficients can also be interpreted as the effect of a one unit increase in X on the rate ratio of Y, so a coefficient of 2 means the rate doubles, .5 means its cut in half, and 0 means it stays the same.
+
+```{r}
+modelsummary(model_list,
+             coef_map  = map,
+             coef_omit = "Intercept",
+             conf_level = .95,        
+             note = "95% CI in brackets. Exponentiated coefficients",
+             exponentiate=TRUE
+             )
+
+```
+
+### Predictions and Marginal Effects
+
+```{r, echo=TRUE}
+
+library(ggeffects)
+
+predict_response(nb_model, term=c('e_gdppc',
+                                  'any_attacks'),margin='empirical')|>
+  plot(show_data=TRUE,  jitter=.3) +
+  labs(title = "Predicted deaths in terrorist incidents", 
+       y = "number killed"
+       )
+
+```
+
+### Predictions and Marginal Effects
+
+```{r}
+
+predict_response(nb_model, 
+                 term=c('any_attacks'),
+                 margin='empirical')|>
+  plot() +
+  labs(title = "Predicted deaths in terrorist incidents", 
+       y = "number killed")
+```
+
+### Predictions and Marginal Effects
+
+```{r}
+
+library(marginaleffects)
+mfx<-avg_comparisons(nb_model)
+
+mfx
+```
+
+## Using a Random Effect
+
+```{r}
+
+library(lme4)
+
+
+mmodel<-glmer( nkill ~ 
+                v2x_libdem + 
+                any_attacks + 
+                e_gdppc +
+                (1|country_txt), data=gtd_counts, family='poisson')
+
+
+
+
+performance::check_overdispersion(mmodel)
+
+
+
+```
+
+# Considerations
+
+-   For count data, a poisson model is a starting point, but over-dispersion is so common in real-world data that you should never assume it and you should be a bit skeptical if you a poisson with no discussion of the problem
+
+-   When in doubt, use a negative binomial model. If there's no overdispersion, you should get roughly the same results as a poisson.
+
+# Other models
+
+-   Ordered logit: response variables with just a few values (for instance, likert responses on a survey)
+
+    -   Coefficients are the effect of a one unit increase in the logged odds of moving up one category
+
+-   Multinomial logit: responses for multiple discrete categories
+
+    -   K-1 coefficients for each category of the DV.
+
+    -   Coefficients are the effect on the logged odds of being in a category relative to the baseline group.
+
+    -   Fun fact: the sigmoid function is also used for neural networks

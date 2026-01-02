@@ -1,0 +1,85 @@
+---
+title: "Homework 4"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+The code below will load replication dataLinks to an external site. from: Hankinson, Michael. "When do renters behave like homeowners? High rent, price anxiety, and NIMBYism." American political science review 112.3 (2018): 473-493.
+
+The relevant variable descriptions can be downloaded from [this site](https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/CRPAA8/RSFP0V&version=1.0#) and are under the heading "TESS National Survey". (I've also included this table at the end of this document in case you can't find it.)
+
+
+
+```{r, cache=TRUE}
+
+library(tidyverse)
+socpoc <- dataverse::get_dataframe_by_name(
+  filename = "socpocAPSR.csv",
+  .f=read_csv,
+  dataset = "10.7910/DVN/CRPAA8&version=1.0", 
+  server = "dataverse.harvard.edu")|>
+  select(-1)
+
+
+
+ 
+```
+
+# Question 1
+
+Estimate the following bivariate model using a linear probability model and a logit or probit model.
+
+`supply_dummy ~ own`
+
+What is the estimated effect of home-ownership on the probability that a respondent supports reduced restrictions on building new housing in this model? (state your answer in terms of the difference in % probability). Note any differences between your three models.
+
+# Question 2
+
+Estimate a linear probability and logit/probit model with the same dependent variable, but include additional controls for ideology, white (non-hispanic) and income:
+
+`supply_dummy ~ own + ideology + whitenh + income`
+
+## 2A
+
+What is the marginal effect of homeownership for a non-white "Extremely Conservative" respondent whose household income is less than \$5,000 per year? Compare and contrast the estimates from the linear probability model and the logit/probit model.
+
+## 2B
+
+Finally, estimate the average effect of homeownership across all observations using the observed values/counterfactual approach. Note any differences in your results.
+
+
+
+
+
+# Variable Descriptions
+
+|  |  |
+|-----------------|-------------------------------------------------------|
+| Variable | Description |
+| own | “1” = Homeowner, “0” = Renter. |
+| city_supply | “From your ZIP code, you live in \[INSERT CITY NAME\], which has \[INSERT TOTAL NUMBER OF UNITS BY CITY\] housing units (homes and apartments). Imagine \[INSERT CITY NAME\] lowers development restrictions, making it easier to build new housing units. As a result, \[INSERT TEN PERCENT TOTAL UNITS VALUE\] more units, with a similar mix of homes and apartments, will be built over the next five years. Would you support the lowering of development restrictions in \[INSERT CITY NAME\] to allow the construction of \[INSERT TEN PERCENT TOTAL UNITS VALUE\] more housing units over the next five years?” (1 = “Strongly Oppose”, 2 = “Oppose”, 3 = “Somewhat Oppose”, 4 = “Neutral/Uncertain”, 5 = “Somewhat Support”, 6 = “Support”, 7 = “Strongly Support”.) |
+| supply_dummy | Dichotomize city_supply (“1” = “Somewhat Support”, “Support”, and “Strongly Support”; “0” = “Somewhat Oppose”, “Oppose”, “Strongly Oppose”; NA = “Neutral/Uncertain”.) |
+| ideology | “In general, do you think of yourself as… ("Extremely liberal"="7", "Liberal"="6", "Slightly liberal"="5", "Moderate, middle of the road"="4", "Slightly conservative"="3", "Conservative"="2", "Extremely conservative"="1".) |
+| income | Household income ("Less than \$5,000"="1", "\$5,000 to \$7,499"="2", "\$7,500 to \$9,999"="3", "\$10,000 to \$12,499"="4","\$12,500 to \$14,999"="5", "\$15,000 to \$19,999"="6", "\$20,000 to \$24,999"="7", "\$25,000 to \$29,999"="8", "\$30,000 to \$34,999"="9", "\$35,000 to \$39,999"="10", "\$40,000 to \$49,999"="11", "\$50,000 to \$59,999"="12", "\$60,000 to \$74,999"="13", "\$75,000 to \$84,999"="14", "\$85,000 to \$99,999"="15", "\$100,000 to \$124,999"="16", "\$125,000 to \$149,999"="17", "\$150,000 to \$174,999"="18", "\$175,000 or more"="19".) |
+| whitenh | Dummy variable (“1” = White, Non-Hispanic, “0” = All other possibilities) |
+| age | Transformed from ranges to average value of range ("18-24"="21","25-34"="29","35-44"="39","45-54"="49", "55-64"="59","65-74"="69","75+"="79")) |
+| male | “1” = Male, “0” = Female. |
+| name | Name of municipality. |
+| zri_city | Citywide average rent, Zillow.com, June 2016. |
+| zri | ZIP code average rent, Zillow.com, June 2016. |
+| neighborhood_ban | “Would you support a ban on the construction of new housing (homes and apartments) in your neighborhood?” (1 = “Strongly Oppose”, 2 = “Oppose”, 3 = “Somewhat Oppose”, 4 = “Neutral/Uncertain”, 5 = “Somewhat Support”, 6 = “Support”, 7 = “Strongly Support”.) |
+| ban_dummy | Dichotomize neighborhood_ban (1 = “Somewhat Support”, “Support”, and “Strongly Support”; 0 = “Somewhat Oppose”, “Oppose”, “Strongly Oppose”; NA = “Neutral/Uncertain”.) |

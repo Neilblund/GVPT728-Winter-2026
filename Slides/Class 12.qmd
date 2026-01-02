@@ -1,0 +1,463 @@
+---
+title: "Difference in Difference models"
+format:
+  revealjs:
+    theme: [moon, custom_styles]
+    width: 1280
+    height: 720
+    df-print: tibble
+    scrollable: true
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+filters:
+  - reveal-header
+  - pseudocode
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+```{css, echo = FALSE}
+.output {
+max-height: 500px;
+overflow-y: scroll;
+}
+```
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(huxtable)
+library(kableExtra)
+library(fixest)
+library(broom)
+```
+
+## Difference in differences: basic intuition
+
+-   Slightly tweaking the traditional counterfactual, DiD asks: "what would happen to the *trend* for this unit had it never received the treatment?"
+
+    -   How would your rate of growth change if you ate more vegetables?
+
+    -   What would happen to inflation if the federal reserve lowered interest rates?
+
+    -   How would the Arab Spring have unfolded if participants lacked access to cell phones and social media?
+
+## Difference in differences model
+
+-   Probably the oldest non-experimental method of causal inference (likely dates back to 1855)
+
+-   Units must be observed before and after the "treatment", so most commonly applied to panel data.
+
+-   If assumptions are met, can control for both observed and unobserved confounding.
+
+## John Snow and the London Cholera epidemic
+
+-   1854 Broad Street Cholera outbreak killed over 600 people in a poor district of London. What caused the outbreak?
+
+-   What causes Cholera in general?
+
+-   What interventions work?
+
+### Miasma theory
+
+::::: columns
+::: {.column width="50%"}
+> The immediate and chief cause of diseases is atmospheric impurity arising from decomposing remnants of the substances used for food and from the impurities given out from their own bodies. (Neil Arnott, 1844)
+
+<p class="fragment">
+
+Snow, however, found the initial outbreak was clustered around a single water pump on Broad Street. (73 of 83 initial deaths nearer to the Broad Street pump than any other)
+
+</p>
+:::
+
+::: {.column width="50%"}
+![Snow's map of Cholera outbreaks](https://blog.rtwilson.com/wp-content/uploads/2012/01/SnowMap_Points.png)
+:::
+:::::
+
+::: notes
+The exceptions to this were themselves more consistent with water-borne transmission than either person-to-person contact or miasma. One woman who lived far away from the outbreak traveled to the Broad street pump because she liked the taste. A brewery and a workhouse in the area had few cases but were connected to a separate water supply etc.
+:::
+
+### The transmission of Cholera
+
+Largely at Snow's behest, the pump's handle was removed, and the epidemic subsided, but does this tell us much? Outbreaks tend to subside!
+
+::: notes
+This is a problem with studying basically any public health intervention: epidemics tend to subside. Outbreaks will cause all sorts of behavioral changes, and eventually diseases will either run out of people to infect or just become less deadly. So the "before" vs "after" picture alone isn't really sufficient.
+:::
+
+### Southwark and Vauxhall
+
+:::::: columns
+::: {.column width="50%"}
+-   Southwark and Vauxhall water company supplied 40,000+ homes from a reservoir that drew directly from the Thames
+
+-   Supply had a well-established reputation for being...gross.
+:::
+
+:::: {.column width="50%"}
+::: fragment
+![](images/southwark_cartoon.jpg)
+
+John Edwards "Sovereign of scented streams"
+:::
+::::
+::::::
+
+### Lambeth waterworks
+
+::::: columns
+::: {.column width="50%"}
+Lambeth waterworks, while it also drew from the Thames, moved their reservoir far upstream of the city in 1852.
+:::
+
+::: {.column width="50%"}
+![](https://image1.slideserve.com/2445372/slide40-l.jpg)
+:::
+:::::
+
+### The natural experiment
+
++-----------------------------------+--------------------------------------------+--------------------------------------------+
+| **Water supply**                  | **Cholera deaths, 1849, rate per 100,000** | **Cholera deaths, 1854, rate per 100,000** |
++:==================================+:===========================================+:===========================================+
+| Southwark & Vauxhall Company only | 1349                                       | 1466                                       |
++-----------------------------------+--------------------------------------------+--------------------------------------------+
+| Lambeth Company Only              | 847                                        | 193                                        |
++-----------------------------------+--------------------------------------------+--------------------------------------------+
+
+### The natural experiment
+
+Note that the companies have different starting points (Lambeth was already cleaner even by 1849), but miasma theory might lead you to expect the same *trend.*
+
+```{r}
+library(tidyverse)
+df<-data.frame(
+  "year" =rep(c(1849, 1854), 2),
+  "company" = rep(c("Southwark & Vauxhall", "Lambeth"), each=2),
+  "deaths" = c(1349, 1466, 847, 193)
+  )
+
+ggplot(df, aes(x=year, y=deaths, color=company)) + 
+  geom_line(lwd=1) +
+  geom_point() +
+  theme_minimal() +
+  geom_vline(xintercept =1852, lty=2, color='red')
+
+```
+
+### The natural experiment
+
+If we can assume a parallel trend, then the relationship should look like this. The effect size, then, would be the difference between the counterfactual case and the observed case.
+
+```{r}
+
+library(tidyverse)
+df<-data.frame(
+  "year" =rep(c(1849,1852, 1854), 2),
+  "company" = rep(c("Southwark & Vauxhall", "Lambeth"), each=3),
+  "deaths" = c(1349,1419.2, 1466, 847,917.2, 193)
+  )
+
+cf<-data.frame(
+  "year" =c(1849,1852, 1854),
+  "company" = rep(c("Lambeth counterfactual"), each=3),
+  "deaths" = c(847,917.2, 964))
+
+
+ggplot(df, aes(x=year, y=deaths, color=company)) + 
+    geom_line(data=cf, aes(x=year, y=deaths), lty=2, color='black', lwd=.7)+
+  geom_line(lwd=1) +
+  geom_point() +
+  geom_vline(xintercept =1852, lty=2, color='red') +
+
+  theme_minimal() 
+
+```
+
+### The effect of moving pumps
+
++---------------------------------------------------------------+--------------------------------------------+--------------------------------------------+------------------------------------------------------------------+
+| **Water supply**                                              | **Cholera deaths, 1849, rate per 100,000** | **Cholera deaths, 1854, rate per 100,000** | **Difference in rates comparing 1854 to 1849, rate per 100,000** |
++:==============================================================+:===========================================+:===========================================+:=================================================================+
+| Southwark & Vauxhall Company only                             | 1349                                       | 1466                                       | 118                                                              |
++---------------------------------------------------------------+--------------------------------------------+--------------------------------------------+------------------------------------------------------------------+
+| Lambeth Company Only                                          | 847                                        | 193                                        | −653                                                             |
++---------------------------------------------------------------+--------------------------------------------+--------------------------------------------+------------------------------------------------------------------+
+| Difference-in-difference, Lambeth versus Southwark & Vauxhall | 502                                        | 1273                                       | ::: fragment                                                     |
+|                                                               |                                            |                                            | **−771**                                                         |
+|                                                               |                                            |                                            | :::                                                              |
++---------------------------------------------------------------+--------------------------------------------+--------------------------------------------+------------------------------------------------------------------+
+
+## The difference in difference estimator
+
+-   Answers the question "what would have happened to the treated units if they had not received the treatment" (average treatment effect on the treated or ATT)
+
+    -   i.e. "if Lambeth had not moved the reservoir upstream, there would have been a parallel increase in the number of cholera deaths among their customers"
+
+    -   or "But for \[the treatment\] the trends between treated and control units should be parallel"
+
+    -   Does **not** require an assumption that observations are balanced on expected values of the outcome. Unobserved confounding only matters to the extent it impacts the trend.
+
+        -   Similar to fixed effects: all time-invariant characteristics are controlled.
+
+### Assumptions
+
+-   Parallel trends: lines would be parallel but for the treatment
+
+    -   Most important (and often the most difficult to justify)
+
+-   Exogeneity of treatment with respect to expected trends: treatment isn't a response to baseline outcome or expected outcomes.
+
+-   No spillover: untreated units aren't impacted by treatment.
+
+-   Stable groups: the before/after populations for each group are the same
+
+    -   For panel studies, this is guaranteed, but for repeated cross-sections this is a concern because people could leave or enter the groups at different times.
+
+### OLS as DiD
+
+For a simple 2-group x 2-time period DiD model, we can get this entire thing from a fairly simple OLS model:
+
+$$
+\hat{Y} = B_0 + B_1 \text{Time} + B_2\text{Treated}  + B_3\text{Time x Treated}
+$$
+
+<ol>
+
+<li class="fragment">
+
+$B_0$ The average for the control group at $T=0$
+
+</li>
+
+<li class="fragment">
+
+$B_1$ The average for the control group at $T=1$
+
+</li>
+
+<li class="fragment">
+
+$B_2$ The difference between the treated and control units at $T=0$
+
+</li>
+
+<li class="fragment">
+
+$B_3$ The difference in slopes for the treated group compared to the control group $T=1$
+
+</li>
+
+</ol>
+
+### Example
+
+```{r, echo=T}
+
+library(tidyverse)
+df<-data.frame(
+  "period" =factor(rep(c(0, 1), 2), labels=c("before", "after")),
+  "group" = factor(rep(c(0, 1), each=2), labels=c("control", "treatment")),
+  "deaths" = c(1349, 1466, 847, 193)
+  )
+
+model<-lm(deaths ~ period * group , data=df)
+
+tidy(model)|>
+  select(term, estimate)
+
+```
+
+### Interpretation
+
+In this setup, the interaction term represents our difference-in-difference estimate
+
+::::: columns
+::: {.column width="50%"}
+```{r}
+tidy(model)|>
+  select(term, estimate)
+
+```
+:::
+
+::: {.column width="50%"}
++------------------+-----------------+-----------------+----------------+
+| **Water supply** | **Deaths 1849** | **Deaths 1854** | 1854 - 1849    |
++:=================+:================+:================+:===============+
+| S & V            | 1349            | 1466            | 118            |
++------------------+-----------------+-----------------+----------------+
+| Lambeth          | 847             | 193             | −653           |
++------------------+-----------------+-----------------+----------------+
+| DiD              | 502             | 1273            | **−771**       |
++------------------+-----------------+-----------------+----------------+
+:::
+:::::
+
+## Card and Krueger 1994
+
+Do minimum wage increases reduce employment rates?
+
+::: incremental
+-   Minimum wage increase in April 1, 1992 in New Jersey from \$4.25 to \$5.05 per hour
+-   Card and Krueger surveyed fast food restaurants in New Jersey and Pennsylvania in two waves:
+    -   Wave 1: February - March 1992 (pre-treatment)
+    -   Wave 2: November - December 1992 (post-treatment)
+:::
+
+## Card and Krueger 1994
+
+Results (reproduced by Angrist and Krueger)
+
+![](images/did_minimum_wage.png)
+
+## Card and Krueger 1994
+
+```{r}
+library(tidyverse)
+library(latex2exp)
+library(ggpubr)
+
+data<-tibble(
+  state = factor(c(1,1,2,2,3,3), labels=c('PA', "NJ","NJ Counterfactual")),
+  avg_employment = c(23.33, 21.17, 20.44, 21.03, 20.44, 18.28),
+  
+  time_period = factor(c(1,2,1,2, 1,2), 
+                       levels = c(1,2),
+                       labels=c("Before", "After")))
+
+
+
+data|>
+  filter(state %in% c("PA", "NJ Counterfactual"))|>
+ggplot(aes(x=time_period, y=avg_employment, group=state,
+                 color = state
+)) + 
+  geom_line(aes(linetype = state), lwd=1) +
+  geom_point()+
+  theme_minimal() +
+  xlab("Time Period") +
+  ylab("Average Employment") +
+  scale_linetype_manual(values=c('solid','dashed')) +
+  scale_color_manual(values=c("#f28e2b","#bab0ac")) +
+  expand_limits(x=c(1,4)) +
+  annotate("text" , x=1.5, y=23,1, label=TeX("$21.17 - 23.33  = -2.16$"), parse=TRUE) +
+  annotate('text', x=1.5, y=18.28, label=TeX("$20.44 - 2.16 = 18.28$"), parse=TRUE) +
+  labs(caption="Observed PA employment trend and assumed counterfactual for New Jersey")
+
+  
+```
+
+## Card and Krueger 1994
+
+```{r}
+
+
+
+
+ggplot(data, aes(x=time_period, y=avg_employment, group=state,
+                 color = state
+                 )) + 
+  geom_line(aes(linetype = state), lwd=1) +
+  geom_point()+
+  theme_minimal() +
+  xlab("Time Period") +
+  ylab("Average Employment") +
+  scale_linetype_manual(values=c('solid','solid', 'dotted')) +
+  scale_color_manual(values=c("#f28e2b" ,"#76b7b2", "#bab0ac"))+
+  expand_limits(x=c(1,4)) +
+    annotate("text" , x=1.5, y=23.1, label=TeX("$21.17 - 23.33  = -2.16$"), parse=TRUE) +
+  annotate('text', x=1.5, y=21.03, label=TeX("$21.03 - 20.44 = 0.59 $"), parse=TRUE) +
+  annotate('text', x=1.5, y=18.28, label=TeX("$20.44 - 2.16 = 18.28$"), parse=TRUE) +
+  annotate('text' , x=2.5, y=21.03, label=TeX("DiD $= 21.03 - 18.28 = 2.75"))+
+   labs(caption="Counterfactual vs. Actual outcome for New Jersey")
+
+
+```
+
+## Card and Krueger 1994
+
+How might the parallel trends assumption be violated here? Some scenarios to consider:
+
+::: incremental
+-   If employers in New Jersey laid off employees in *anticipation* of the wage increase, then the job losses might have already happened by February
+
+-   If stores that had laid offs failed to response to the second wave of the survey, then the "after" period has a different composition compared to the first.
+
+-   If Pennsylvania employers also raised wages in response to the New Jersey law, then the two trends aren't really independent.
+
+-   If New Jersey was more insulated from the national economic trends than Pennsylvania, then the the parallel trends assumption might not hold.
+:::
+
+## Card and Krueger 1994
+
+::::: columns
+::: {.column width="50%"}
+-   Card and Krueger address some of these with alternate model specifications. Since the DiD model is essentially OLS, they can include controls for wave 1 characteristics the same way you would in a regular regression model.
+
+-   The assumption then becomes "trends are *conditionally* expected to be parallel"
+:::
+
+::: {.column width="50%"}
+![Card, D. (1993). Minimum Wages and Employment: A Case Study of the Fast Food Industry in New Jersey and Pennsylvania.](images/card_and_krueger_table5.png)
+:::
+:::::
+
+## Card and Krueger 1994
+
+[Card and Krueger replication script](https://github.com/Neilblund/GVPT728_Winter24/blob/main/Additional%20Code%20and%20Data/ck_did_example.R)
+
+# Multiple Periods and Cases
+
+What about multiple cases or time periods? Or cases where observations are treated at different times?
+
+For instance, what if I want to look at multiple states that passed minimum wage laws on different dates?
+
+# Two-Way Fixed Effects
+
+The difference-in-difference model is **often generalized\*** to multiple groups/multiple periods by using a fixed effect for each group/time in place of the indicator for control vs. treatment cases:
+
+$$
+\hat{Y}_{gt} = \alpha_g + \gamma_t +  \delta X_{gt} 
+$$ $$
+\alpha_g = \text{Group Fixed Effect}
+$$
+
+$$
+\gamma_t = \text{Time Fixed Effect}
+$$ $$
+\delta_{gt} = \text{Post Treatment Indicator}
+$$
+
+. . .
+
+\* =prepare for caveats on this!
+
+## Two-Way Fixed Effects Alternatives
+
+-   This isn't really equivalent to the difference-in-differences model if there are multiple time periods and or differences in treatment timings [See: Imai, K., & Kim, I. S. (2021)](https://www-cambridge-org.proxy-um.researchport.umd.edu/core/journals/political-analysis/article/on-the-use-of-twoway-fixed-effects-regression-models-for-causal-inference-with-panel-data/F10006D0210407C5F9C7CAC1EEE3EF0D) and won't estimate a causal effect even if the parallel trends assumption holds in most situations
+
+-   But we have some [alternative methods](https://bcallaway11.github.io/did/index.html)!
+
+## Considerations
+
+-   Is the parallel trends assumption plausible? The best research will attempt to justify this assumption using multiple lines of evidence like:
+
+    -   Placebo tests
+
+    -   Examining multiple time periods to see if trends are parallel long before some outcome.
+
+-   2 way fixed effects models might not be equivalent to the difference-in-differences method, so more recent analyses should account for this.

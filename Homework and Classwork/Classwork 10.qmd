@@ -1,0 +1,274 @@
+---
+title: "Matching"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+
+# Data
+
+We'll load up the Lalonde data. Our goal here is to see if we can replicate or at least get close to the correct estimate in Lalonde's 1986 paper using observational data. According to his model, the actual effect for the job training program was a $1,794 increase in the subject's wages in 1978. 
+
+```{r}
+library(tidyverse)
+library(MatchIt)
+library(gtsummary)
+library(modelsummary)
+library(GGally)
+library(marginaleffects)
+library(cobalt)
+data(lalonde, package="MatchIt")
+```
+
+
+
+As usual a good starting point here is to get some basic descriptive stats on our variables. 
+
+::: panel-tabset
+## Factors
+
+```{r fig.width=8, fig.height=8}
+
+lalonde|>
+  select(treat, educ, married, nodegree, race)|>
+  mutate(treat = factor(treat, labels=c("control", "treatment")),
+         married = factor(married, labels=c('single','married')),
+         nodegree = factor(nodegree, labels=c('degree','no degree'))
+         )|>
+  ggpairs(aes(fill=treat, color=treat), upper='blank') +
+  theme_bw() +
+  scale_fill_brewer(palette='Dark2') +
+  scale_color_brewer(palette='Dark2')
+
+
+```
+
+## Continuous
+
+```{r fig.width=8, fig.height=8}
+lalonde|>
+  select(treat, age, re74, re75, re78)|>
+  mutate(treat = factor(treat, labels=c("control", "treatment")))|>
+  ggpairs(aes(fill=treat, color=treat), upper='blank') +
+  theme_bw() +
+  scale_fill_brewer(palette='Dark2') +
+  scale_color_brewer(palette='Dark2')
+
+
+```
+:::
+
+# Regression
+
+We'll start with regression based estimates. The first model includes no controls, and the second includes controls for age, education, marital status, past income, degree status, and race: 
+
+
+```{r}
+# the uncontrolled regression
+mod0<-lm(re78 ~ treat, data=lalonde)
+mod1<-lm(re78 ~ treat + age + educ + married  + re74 + re75+ nodegree +race,data=lalonde)
+
+
+modelsummary(list("treatment only"  =mod0, 
+                        "treatment + controls" = mod1),
+             estimate  = "{estimate}",  
+             fmt = fmt_significant(),
+             statistic ='conf.int',
+             conf_level = .95,
+             gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.', # remove some model stats 
+             # add a title
+             title = "DV: Wages"
+             )
+
+```
+
+# Matching methods
+
+
+
+## Propensity Scores
+
+You can get propensity score matches by using `method="nearest"` and `distance='glm'`
+
+```{r}
+psm_matched <- matchit(treat ~ age + educ +  married + race +
+                    nodegree + re74 + re75, 
+                    data = lalonde,
+                    method = "nearest",
+                    distance= 'glm'
+                  )
+
+```
+
+Once we have our matchit object, the `Cobalt` package gives us some options for balance checking. After examining the results, you might want to go back and re-specify the model. 
+
+```{r}
+
+bal.tab(psm_matched, thresholds = c(m = .1), un = TRUE)
+
+bal.plot(psm_matched)
+
+love.plot(psm_matched)
+
+```
+
+Access the matched data with the `match.data` function: 
+
+```{r}
+
+psm_data<-match.data(psm_matched)
+
+head(psm_data)
+```
+Then we can use the resulting balanced data in a regression model: 
+
+```{r}
+
+psm_fit<-lm(re78 ~ treat + age + educ +  married + race +nodegree + re74 + re75, 
+   data = psm_data,
+   weight = weights )
+```
+
+
+Finally, we want to estimate our effects with cluster robust standard errors: 
+
+```{r}
+avg_comparisons(psm_fit,
+                variables = "treat",
+                vcov = ~subclass)
+
+```
+
+```{r}
+
+
+modelsummary(list(
+                  "psm" = psm_fit
+                  ),
+             estimate  = "{estimate}",  
+             fmt = fmt_significant(),
+             statistic ='conf.int',
+             conf_level = .95,
+             vcov =~subclass,
+             gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.', # remove some model stats 
+             # add a title
+             title = "DV: Wages"
+             )
+```
+
+
+
+
+
+## Coarsened Exact matching
+
+
+For CEM, we'll often want to set manually set some of "cutpoints". There's no set rules here. Visual inspection of the predictors can help, and the `MatchIt` package has some defaults that can be sensible, but this is partly a judgement call: what values of the independent variables seem like they should be grouped together?
+
+By default, observations are matched exactly on factor variables. However, you can override this by setting passing a list of levels to the `grouping` argument: 
+
+```{r}
+
+
+
+cem_match <- matchit(treat ~ age + educ +  married + race +
+                    nodegree + re74 + re75, data = lalonde,
+                  method = "cem",
+                  estimand ='ATE',
+                  cutpoints =list(educ = c(0,9, 12, 14)),
+                  grouping = list(race = list(c("white", "hispan"),
+                                              c("black")))
+                  )
+summary(cem_match)
+
+```
+Now we can plot our results to check out how well the matching performed: 
+
+```{r}
+
+plot(cem_match, 
+     type = "density", 
+     interactive = TRUE, 
+     which.xs = ~age +
+married + re75)
+
+```
+```{r}
+
+bal.tab(cem_match, thresholds = c(m = .1), un = TRUE)
+
+bal.plot(cem_match)
+
+love.plot(cem_match)
+
+```
+
+Finally, we'll want to use the `match.data` function to extract the matched data and then estimate our model with the weights included: 
+
+```{r}
+
+
+cem_data<-match.data(cem_match)
+
+cem_fit <- lm(re78 ~ 
+            treat + age + educ + married + re74 +re75+
+            nodegree+ race , data = cem_data, weights = weights)
+
+
+
+
+```
+
+```{r}
+
+avg_comparisons(cem_fit, variables = "treat", vcov = ~subclass)
+
+```         
+
+```{r}
+
+modelsummary(list(
+                  "psm" = psm_fit,
+                  "cem" = cem_fit
+                  ),
+             estimate  = "{estimate}",  
+             fmt = fmt_significant(),
+             statistic ='conf.int',
+             conf_level = .95,
+             vcov =~subclass,
+             gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.', # remove some model stats 
+             # add a title
+             title = "DV: Wages"
+             )
+
+```
+
+
+
+# Question
+
+See if you can improve on the CEM matching used above. 
+
+```{r}
+
+# your code
+
+```
+

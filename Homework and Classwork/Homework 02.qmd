@@ -1,0 +1,33 @@
+---
+title: "Homework 02"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+Using the data set you created in HW 1: create a regression model to explain/predict the Democratic vote share in 2020.
+
+Some courses you might use are:
+
+-   [Tidycensus](https://walker-data.com/tidycensus/)
+
+-   [Correlates of State Policy](https://ippsr.msu.edu/public-policy/correlates-state-policy)
+
+-   [2020 Election context from the MIT Election and Data Science Lab](https://github.com/MEDSL/election_night2020/tree/main/context)
+
+Provide descriptive statistics, regression results and diagnostics, and make a case for why your model is a good one.
+
+P.S.: you are welcome to analyze a different data set if you're interested in a different topic, the goal here is just to try some model diagnostics and comparisons

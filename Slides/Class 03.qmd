@@ -1,0 +1,759 @@
+---
+title: "Significance"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+code-annotations: select
+slide-level: 3
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r, include=FALSE}
+
+library(huxtable)
+library(distributional)
+library(tidyverse)
+library(flextable)
+library(poliscidata)
+library(tidycensus)
+library(latex2exp)
+library(ggdist)
+pres<-read_csv("https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv")%>%
+    filter(stage == "general")
+
+pres_2016<-pres%>%
+  filter(cycle == 2016)%>%
+  filter(`candidate_name`%in%c("Hillary Rodham Clinton", "Donald Trump"))%>%
+  filter(!is.na(state))%>%
+  filter(str_detect(state, "CD-[0-9]") ==FALSE)%>%
+  group_by(candidate_name, state, state_abbrev)%>%
+  summarise(votes = sum(votes))%>%
+  pivot_wider(names_from=candidate_name, values_from=votes)%>%
+  ungroup()%>%
+  mutate(total = `Hillary Rodham Clinton` + `Donald Trump`,
+         demshare_2016 = `Hillary Rodham Clinton`/total
+  )%>%
+  select(state, demshare_2016)
+
+
+presidential_elections<-pres%>%
+  filter(cycle == 2020)%>%
+  filter(stage == "general")%>%
+  filter(`candidate_name`%in%c("Joe Biden", "Donald Trump"))%>%
+  filter(!is.na(state))%>%
+  filter(str_detect(state, "CD-[0-9]") ==FALSE)
+
+voteshares<-presidential_elections%>%
+  group_by(candidate_name, state, state_abbrev)%>%
+  summarise(votes = sum(votes))%>%
+  pivot_wider(names_from=candidate_name, values_from=votes)%>%
+  ungroup()%>%
+  mutate(total = `Joe Biden` + `Donald Trump`,
+         demshare = `Joe Biden`/total
+         )%>%
+  
+  select(state, demshare)
+
+# median age by state
+median_age <- get_decennial(geography = "state", 
+                       variables = "P13_001N", 
+                       format='wide',
+                       year = 2020,
+                       sumfile = "dhc")%>%
+  rename(median_age = value)%>%
+  select(NAME, median_age)
+
+
+
+voteshares<-left_join(voteshares, pres_2016, by= join_by(state))
+
+
+voteshares<-left_join(voteshares, median_age, by=join_by(state==NAME))
+
+
+
+
+
+```
+
+# Uncertainty and model comparison
+
+Assume we have the correct model (this is a big assumption!)
+
+-   How should we talk about things like uncertainty and error?
+
+-   How do we make an argument for one model over another?
+
+# Uncertainty and model comparison
+
+-   P.values
+
+-   Confidence Intervals
+
+-   Frequentist alternatives
+
+-   Bayesian Alternatives
+
+# P-values
+
+## What does a p-value mean?
+
+::::: columns
+::: {.column width="50%"}
+Can this British lady do wild stuff with her tea?
+
+![Muriel Bristol](images/bristol.jpg)
+:::
+
+::: {.column width="50%" style="fragment"}
+Fisher's proposed experiment:
+
+-   8 cups of tea. 4 milk first, and 4 tea first
+
+-   Each cup presented in random order, and she's asked to classify each one
+
+-   The "null hypothesis": she's just guessing
+:::
+:::::
+
+## What does a p-value mean?
+
+:::::: columns
+:::: {.column width="50%"}
+The p-value is "the probability of correctly classifying at least N cups by guessing"
+
+::: incremental
+-   At least 1 correct $= 69/70 = 99\%$
+
+-   At least 2 correct $= 53/70 = 76\%$
+
+-   At least 3 correct $= 17/70 = 24\%$
+
+-   4 correct $= 1/70 = 1.43\%$
+:::
+::::
+
+::: {.column width="50%"}
+![](images/lady_tasting_tea.png){fig-align="center"}
+:::
+::::::
+
+::: notes
+The first use of the p-value comes from R.A. Fisher's lady tasting tea experiment. In short: a woman claimed to be able to determine whether the milk or tea was added first to a cup, and Fisher tested this by giving her a sample of 8 cups and asking her to classify them as milk-first vs tea first. The calculation for this test is entirely non-parametric and simply relies on counting the number of possible combinations of "correct" and "incorrect" guesses. Since there's only 1 way to get perfect classification, the p-value for perfect classification would be 1/70 = .14. So the p-value here is just the probability of guessing correctly by random chance.
+
+Notice: this technically doesn't say anything about the probability that this person has this ability. Its really more focused on the probability of getting this many correct if you are guessing.
+:::
+
+## What does a p-value mean?
+
+-   In the broadest sense, p-values indicate the probability of getting a result \>, \<, or absolutely greater than as the one in your sample **if the null hypothesis is true.**
+
+    -   Note, this is a statement about the probability of data given a model, not a statement about the probability of a model.
+
+-   In linear regression, p-values are typically calculated based on the normal distribution
+
+### One tail or two
+
+-   Pr(\>\|t\|) = .225 There is a 22.5% chance of seeing a result as extreme as our sample statistic if the null hypothesis is true
+
+-   Pr(\>t) = .04 There is a 4% chance of seeing a result greater than the sample statistic if the null hypothesis is true
+
+-   Pr(\<t) = .95 There is a 95% chance of seeing a result less than the sample statistic if the null hypothesis is true
+
+## P-values and Type I error
+
+.05 level means that around 1 in 20 of results would be false positives
+
+::::: columns
+::: {.column width="30%"}
+```{r, echo=FALSE,  fig.pos="H"}
+
+library(ggdist)
+library(ggplot2)
+library(latex2exp)
+library(distributional)
+
+df <- data.frame(
+  name = c("Normal(0,1)"),
+  dist = c(dist_normal(0,1))
+)
+
+
+normalDistribution <- data.frame(
+    x = seq(-4,4, by = 0.01),
+    y = dnorm(seq(-4,4, by = 0.01))
+  )
+criticalValues <- qnorm(c(.025,.975))
+
+criticalValue <- qnorm(.975)
+
+description1<-TeX("$2.5\\%$ of effects are $\\geq 1.96$")
+description2<-TeX("$2.5\\%$ of effects are $\\leq -1.96$")
+
+
+shadeNormalTwoTailedLeft <- rbind(c(criticalValues[1],0), subset(normalDistribution, x < criticalValues[1]))
+
+shadeNormalTwoTailedRight <- rbind(c(criticalValues[2],0), subset(normalDistribution, x > criticalValues[2]), c(3,0))
+
+
+plot<-ggplot(normalDistribution, aes(x,y)) +
+  geom_line() +
+  geom_polygon(data = shadeNormalTwoTailedLeft, aes(x=x, y=y, fill="red")) +
+  geom_polygon(data = shadeNormalTwoTailedRight, aes(x=x, y=y, fill="red")) +
+  guides(fill="none") +
+  geom_hline(yintercept = 0) +
+  geom_segment(aes(x = criticalValues[1], y = 0, xend = criticalValues[1], yend = dnorm(criticalValues[1]))) +
+  geom_segment(aes(x = criticalValues[2], y = 0, xend = criticalValues[2], yend = dnorm(criticalValues[2])))  +
+  theme_minimal() +
+  annotate('text', x=3, y=.1, label=description1) +
+  annotate('text', x=-3, y=.1, label=description2) +
+  labs(
+    title = "Two-Tailed P.value = .05",
+    caption="Standardized Effects under null distribution")  +
+  xlab("Z")
+```
+:::
+
+::: {.column width="70%"}
+```{r, echo=FALSE, fig.pos="H"}
+plot
+
+```
+:::
+:::::
+
+::: notes
+p \<.05 means that there's a 1 in 20 chance of seeing a result this extreme if the null hypothesis is true. In other words: 1 in 20 results are false positives. And in practice this is likely much higher
+:::
+
+## What does a p-value not mean?
+
+-   $P(t | h_0) \neq P(h_1)$ P values are not the probability of the alternative
+
+. . .
+
+-   Significance does not mean the null is false
+
+. . .
+
+-   Statistical significance doesn't mean practice significance.
+
+. . .
+
+::: notes
+P values don't indicate the probability of any hypothesis. They are the probability of a test statistic given a hypothesis. These don't necessarily line up. Bayes theorem would, at least in theory, allow you to make this inference, but only if you could assign a prior probability to H_1.
+
+Its tempting to interpret insignificance as a sign of unimportance, but, in reality, we already stack the deck in favor of failing to find statistical significance. Moreover, we've already seen a case (multicollinearity) where a model would generate insignificant results for impactful coefficients even at very high sample sizes.
+
+Virtually everything is significant at large enough sample sizes: standard errors are a function of coefficient size, variance, and sample size. So, all else equal, anything that has a non-zero effect will eventually be statistically significant, but potentially not worth caring about.
+
+Substantive significance is really a normative question.
+:::
+
+## P-values: caveats
+
+-   P1. p-values can indicate how incompatible the data are with a specified statistical model.
+-   P2. p-values do not measure the probability that the studied hypothesis is true, or the probability that the data were produced by random chance alone.
+-   P3. Scientific conclusions and business or policy decisions should not be based only on whether a p-value passes a specific threshold.
+-   P4. Proper inference requires full reporting and transparency.
+-   P5. A p-value, or statistical significance, does not measure the size of an effect or the importance of a result.
+-   P6. By itself, a p-value does not provide a good measure of evidence regarding a model or hypothesis
+
+From: McShane, B. B., & Gal, D. (2017). Statistical significance and the dichotomization of evidence. Journal of the American Statistical Association, 112(519), 885-895.
+
+## Problems with P-values
+
+-   Often misinterpreted, even by experts
+
+-   They're continuous, but they tend to be treated as binary and conflated with importance
+
+-   In large samples, they're hard to read because they get infinitesimally small
+
+::: notes
+One school of thought is that we should ditch p-values entirely, or maybe even ditch the entire null hypothesis testing framework in favor of a bayesian approach.
+:::
+
+# Confidence intervals
+
+## What do confidence intervals mean?
+
+In repeated sampling, 95% of the 95% confidence intervals will contain the correct value of $\beta$
+
+```{r, echo=FALSE}
+set.seed(200)
+ciFunc<-function(){
+  N = 500
+  X = rnorm(N)
+  beta = 3
+  Y =1 + X * beta + rnorm(N)
+  model = lm(Y ~ X)
+  res  = data.frame(
+    lb = confint(model)[2,1],
+    est = coef(model)[2],
+    ub = confint(model)[2,2]
+  )
+  return(res)
+}
+
+ci_frame<-replicate(1000, ciFunc(), simplify=T)%>%
+  t()%>%
+  data.frame()%>%
+  mutate(across(everything(), .fns=~unlist(.x)))%>%
+  arrange(est-3)%>%
+  mutate(ord = seq(nrow(.)),
+         missed = ifelse(ub <3 | lb >3, "does not contain beta", "contains beta")
+         )
+
+ci_plot <-ggplot(ci_frame, aes(y=ord, x=est, color=missed)) + 
+  geom_linerange(aes(xmin = lb, xmax =ub), shape=1) +
+
+  geom_vline(xintercept = 3, lty=2, color='black', lwd=.7) + 
+  theme_minimal() +
+  scale_color_manual(guide="none", values=c('grey', '#ff5733')) +
+  ylab("")
+
+
+```
+
+```{r}
+ci_plot +
+    xlab("95% confidence intervals across 1,000 simulations") +
+    ylab("index") +
+    theme_minimal() 
+  
+  
+
+```
+
+## Confidence Intervals
+
+-   Its misleading to say there's a 95% chance that the population $\beta$ falls between the ci boundaries. (frequentist stats assumes that $\beta$ is fixed, so it doesn't have a "chance" of doing anything.)
+
+-   Better to say "I'm 95% certain this range contains the true value"
+
+::: notes
+... although I would argue this is a somewhat pedantic distinction. In our simulation, the population value of beta is fixed and known. The chance that it takes on a different value is 0. The 95% part really applies to the chances that our sample CIs would contain the population beta.
+:::
+
+## Confidence Intervals
+
+-   Pro: P.values and Confidence Intervals are based on the same basic assumptions, but CIs can be more informative about uncertainty and don't lend themselves to the same dichotomous interpretation
+
+-   Pro: Automatically scaled to the quantity of interest, so harder to confuse with a measure of substantive importance
+
+-   Pro: can be used for equivalence testing (we'll come back to this)
+
+-   Con: [also commonly misinterpreted!](https://www.sciencenews.org/blog/context/scientists-grasp-confidence-intervals-doesnt-inspire-confidence)
+
+# Alternatives: S-Values
+
+::::: columns
+::: {.column width="50%"}
+One proposed alternative: S-values AKA Surprisal or Shannon Entropy
+
+$$\text{S value} = -log_2(\text{P})$$
+
+-   Intuitive interpretation: S-values correspond to the probability of flipping a fair coin X times and having them all land on heads. So S=4 translates to flipping a coin 4 times and everything landing on heads.
+:::
+
+::: {.column width="50%"}
+Increasing values as evidence gets stronger, and the sizes are less extreme:
+
+| P value     | S Value |
+|-------------|---------|
+| 0.9         | 0.01    |
+| 0.06        | 4.05    |
+| 0.05        | 4.32    |
+| 0.01        | 6.64    |
+| 0.001       | 10      |
+| 0.000000001 | 30      |
+| 1e-100      | 332     |
+:::
+:::::
+
+## Alternatives: S-Values
+
+-   Pro: Still based on the same assumptions as a p-value, its just a transformation of the p.value that might be more intuitive for people.
+
+-   Pro: easy calculation (for a computer, at least)
+
+-   Con: Not widely adopted. All of this stuff relies on convention.
+
+# Bayesian methods
+
+-   Bayesian methods potentially allow us to do the thing we *wish* we could do with p-values: quantify hypothesis probabilities
+
+-   Downside is that it sort of requires everyone to adopt a totally different philosophical approach to probabilities.
+
+## Bayes Factors Approximation
+
+Bayes Factors measure the weight of evidence in favor of one hypothesis relative to another.
+
+[Wagenmakers (2007)](https://link-springer-com.proxy-um.researchport.umd.edu/article/10.3758/bf03194105) suggests a frequentist approximation of a Bayes Factor using the Bayesian Information Criterion. 
+
+
+::::: columns
+::: {.column width="50%"}
+-   Run a model with the variable of interest (model 1)
+
+-   Run a model without the variable of interest (model 0)
+
+-   Calculate the BIC for both
+
+-   Calculate $\frac{\exp(\text{BIC}_1)/2}{\exp(\text{BIC}_0)/2}$
+
+:::
+
+::: {.column width="50%"}
+```{r, echo=TRUE}
+
+ff<-read_csv("https://vincentarelbundock.github.io/Rdatasets/csv/causaldata/gov_transfers.csv")
+
+model_0<-lm(Support ~  Income_Centered + Education + Age, data=ff)
+
+model_1<-lm(Support ~  Participation + Income_Centered + Education + Age, data=ff)
+
+
+
+
+
+exp(-BIC(model_1)/2)/exp(-BIC(model_0)/2)
+
+```
+:::
+:::::
+
+Numbers greater than 1 indicate evidence in favor of model 1, numbers less than 1 indicate evidence against model 1. 
+
+# Comparing Models
+
+-   If I have multiple models, how do I tell whether one is better than the other?
+
+## "Good" models can be bad predictors
+
+![](images/whiskers.png)
+
+::: notes
+Regression models are predictive, even if we don't always use them for that. So what can we say about the quality of regression predictions, and under what conditions are predictive models considered good?
+
+A regression model that used whiskers the cat to predict the stock market would satisfy the necessary assumptions for BLU, but it would be "bad" in the sense that the regression was, well, not actually predictive.
+:::
+
+## R-squared
+
+R-squared can be used for model comparison, but it doesn't tell you a model is a good predictor.
+
+```{r, echo=FALSE}
+set.seed(100)
+x1 <- rnorm(100, 0, 1)
+e1 <- rnorm(100, 0 ,20)
+
+y1 <- 1 + x1*10 + e1
+x2 <- rnorm(100, 0, 1)
+y2 <- 1 + x2 + rnorm(100)
+
+r1<-summary(lm(y1 ~ x1))$r.squared
+r2<-summary(lm(y2 ~ x2))$r.squared
+
+df<-data.frame(x = c(x1, x2), y=c(y1, y2), 
+               group = rep(c(paste0("r^2 = ", round(r1, digits=2)), 
+                             paste0("r^2 = ", round(r2, digits=2))),
+                           each=length(x1)))
+
+ggplot(df, aes(x =x, y=y)) + 
+  geom_point() + 
+  geom_smooth(method='lm', se=FALSE) + 
+  facet_grid(cols=vars(group))+
+  theme_minimal() 
+
+
+
+```
+
+::: notes
+R-2 because it is a function of sample variance as well as model fit, and doesn't have any intrinsic meaning when comparing different populations. A high R-squared can sometimes just mean that predictions are easy: you can get high r2 values from simply
+
+Models with significant and large coefficients can have low R-2 and vice versa.
+
+Multicollinearity can also produce models with good overall predictive accuracy but insignificant coefficients.
+:::
+
+## Comparing models
+
+-   Make a fair comparison: our "restricted" model $Y_i = \bar{Y} + e_i$
+
+. . .
+
+-   Our "unrestricted" comparison model: $Y_i = \alpha + \beta_1X + e_i$
+
+. . .
+
+-   How much can we improve relative to the baseline? Stated differently: our null hypothesis is that the restricted model is just as good as our new one.
+
+::: notes
+For truly fair comparisons, we should probably start with a reasonable baseline: we can estimate a mean and standard deviation from our sample without using an regression at all. So the baseline is a null model that just uses the mean with no additional coefficients.
+:::
+
+## Comparing models
+
+Predicting Democratic voteshare using the 2016 share
+
+```{r}
+head(voteshares)
+
+
+
+
+```
+
+## Comparing models
+
+$$
+F = \frac{(RSS_{restricted} - RSS_{full})}{df_{restricted} - df_{full}} \div \frac{RSS_{full}}{df_{full}}
+$$
+
+```{r, echo=T}
+
+model_0 <- lm(demshare~ 1, data=voteshares)
+
+model_1 <-lm(demshare ~ 1 + demshare_2016, data=voteshares)
+
+anova(model_0, model_1)
+  
+
+```
+
+## Comparing models
+
+We can continue to include additional covariates in the model. But the "fair comparison" here is probably the same model -1 covariate (rather than comparing to the null model)
+
+```{r}
+
+
+model_2 <-lm(demshare ~ 1 + demshare_2016 + median_age, data=voteshares)
+
+anova(model_0, model_1, model_2)
+```
+
+::: notes
+This is an overall improvement in the model accuracy
+:::
+
+## BIC
+
+The F-test requires nested models, but the BIC and AIC allow comparisons across non-nested forms
+
+$${\displaystyle \mathrm {BIC} =n\ln(RSS/n)+k\ln(n)\ }$$
+
+```{r, echo=TRUE}
+BIC(model_1)
+BIC(model_2)
+
+```
+
+::: notes
+in general: lower BIC and AIC scores are better, and an improvement of 10 or more suggests clear improvement. The second part of the expression is a sort of hypothetical maximum for the log likelihood of the entire dataset.
+:::
+
+## Out of sample prediction
+
+-   Basic method: set aside some observations, create model on the training set and then predict the test set
+
+-   For small samples, K-fold or LOOCV are preferable: leave out one, predict, and then do it again. Then average the metric.
+
+```{r, echo=TRUE}
+library(caret)
+# Define training control
+train.control <- trainControl(method = "LOOCV")
+# Train the model
+cv_1 <- train(demshare ~ demshare_2016, data = voteshares, 
+               method = "lm",
+               trControl = train.control)
+
+
+```
+
+::: notes
+What if we want to get a sense of how our model with perform on new data? Or we want to compare two different kinds of model?
+:::
+
+## Out of sample prediction
+
+```{r}
+print(cv_1)
+
+```
+
+## Out of sample prediction
+
+...but is this the right metric?
+
+```{r}
+voteshares$pred<-predict(model_1)
+voteshares$pred_winner <-voteshares$pred>.5
+voteshares$actual_winner<-voteshares$demshare>.5
+voteshares$pred_correct <-voteshares$actual_winner == voteshares$pred_winner
+  
+ggplot(voteshares, aes(y=demshare, x=demshare_2016))  + 
+  geom_smooth(method='lm', se=FALSE) +
+  geom_point(aes(shape=pred_correct, color=pred_correct)) +
+  theme_minimal()
+
+```
+
+# Arguing for a null
+
+Conventional hypothesis testing "stacks the deck" in favor of finding no relationship, and failure to reject the null could simply be a function of small sample sizes.
+
+Still, we often want to dismiss a claim:
+
+-   Can citizen pressure campaigns make states more effective?
+
+-   Do motor voter laws improve turnout?
+
+-   Are some people actually psychic?
+
+## TOST and equivalence testing
+
+"Two one-sided tests"
+
+Step 1: Set a minimum effect size ($\Delta$) worth caring about
+
+Step 2: Conduct one-sided t-test for:
+
+-   H01: $\Delta \leq −Δ_l$
+
+-   H02: $\Delta \geq Δ_u$
+
+If **both** of these tests are rejected, then we can conclude the observed effect is smaller than the minimum effect size.
+
+## TOST and equivalence testing
+
+::::: columns
+::: {.column width="50%"}
+-   Eskine (2013) found that people exposed to organic foods became morally judgmental.
+
+-   Moery and Calin-Jageman (2016) attempt to replicate this finding
+:::
+
+::: {.column width="50%"}
+![https://www.nbcnews.com/news/world/does-organic-food-turn-people-jerks-flna779676](images/organic_jerks.png)
+:::
+:::::
+
+## TOST and equivalence testing
+
+Moery and Calin-Jageman's replication results look like this:
+
+| Group     | N   | Mean | SD   |
+|-----------|-----|------|------|
+| Control   | 95  | 5.25 | 0.95 |
+| Treatment | 89  | 5.22 | 0.83 |
+
+## TOST and equivalence testing
+
+The estimated effect: 5.25 - 5.22 = 0.03
+
+Minimal effect size $\Delta = 0.43$
+
+::::: columns
+::: {.column width="50%"}
+What is the probability of seeing a mean difference greater than or equal to 0.03 if the true difference is 0.43?
+
+```{r, echo=FALSE}
+library(ggdist)
+difference<-5.25 - 5.22
+low_eqbound <--0.4281697
+high_eqbound <- 0.4281697
+sdpooled<-0.8920202
+n_0 <-95
+n_1<-89
+ab_df = tibble(
+  group = c(""),
+  mean = low_eqbound,
+  sd = sdpooled * sqrt(1/n_0 + 1/n_1)
+)
+
+p1<-ab_df |>
+  ggplot(aes(y = group, xdist = dist_normal(mean, sd), 
+             fill =
+               after_stat(x <= difference))) +
+  stat_halfeye(alpha=.7) +
+  labs(
+    title = TeX('Probability of $\\delta \\geq 0.03$ if $\\Delta = -.48$'),
+    subtitle = ""
+  ) +
+  theme_bw() +
+  scale_fill_manual(values=c("grey" ,"lightblue")) +
+  xlim(c(-1, 1)) +
+  geom_vline(xintercept=difference, lty=2) +
+  xlab(TeX("$\\Delta$")) +
+  theme(legend.position="none", axis.ticks.y = element_blank()) +
+  annotate('text', x=.1, y=1.1, label="~.01%") 
+
+p1
+
+
+
+
+```
+:::
+
+::: {.column width="50%" style="fragment"}
+What is the probability of seeing a mean difference less than or equal to to 0.03 if the true difference is -0.43?
+
+```{r, echo=FALSE}
+ab_df = tibble(
+  group = c(""),
+  mean = high_eqbound,
+  sd = sdpooled * sqrt(1/n_0 + 1/n_1)
+)
+
+p2<-ab_df |>
+  ggplot(aes(y = group, xdist = dist_normal(mean, sd), 
+             fill =
+               after_stat(x >= difference))) +
+  stat_halfeye(alpha=.7) +
+  labs(
+    title = TeX('Probability of $\\delta \\leq 0.03$ if $\\Delta = .48$'),
+    subtitle = ""
+  ) +
+  theme_bw() +
+  scale_fill_manual(values=c("grey" ,"lightblue")) +
+  xlim(c(-1, 1)) +
+  geom_vline(xintercept=difference, lty=2) +
+  xlab(TeX("$\\Delta$")) +
+  theme(legend.position="none", axis.ticks.y = element_blank()) +
+  annotate('text', x=-.1, y=1.1, label="~0.03%") 
+
+p2
+```
+:::
+:::::
+
+## Negligible Effects (Rainey)
+
+## Null effects and Duverger's law
+
+[Rainey](https://onlinelibrary-wiley-com.proxy-um.researchport.umd.edu/doi/full/10.1111/ajps.12102):
+
+-   "Hypothesis 1: Increasing the effective number of ethnic groups from the 10th percentile (1.06) to the 90th percentile (2.48) will not lead to a **substantively meaningful** change in the effective number of political parties when the district magnitude is one. "
+
+<!-- -->
+
+-   "Hypothesis 2: Increasing the district magnitude from one to seven will not lead to a **substantively meaningful** change in the effective number of political parties when the effective number of ethnic groups is one."
+
+-   **Substantively meaningful effect:** changing the effective number of parties by 0.62 (where does he get that?)
+
+

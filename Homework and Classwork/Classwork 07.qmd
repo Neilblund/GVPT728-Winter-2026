@@ -1,0 +1,562 @@
+---
+title: "Class 07: binary outcomes"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+# Packages
+
+```{r}
+library(tidyverse) 
+library(ggeffects)       # for predicted probabilities and plots
+library(marginaleffects) # for marginal effects
+library(ggdist)          # for distribution plots 
+library(modelsummary)    # for model summaries
+library(labelled)        # for variable labels 
+
+```
+
+# The NAVCO data
+
+
+
+
+```{r}
+
+
+#NAVCO data here: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/PLXAFY
+navco <- dataverse::get_dataframe_by_name(
+  filename = 'NAVCO 1.2 Updated.tab',
+  dataset = 'doi:10.7910/DVN/0UZOTX', 
+  server = "dataverse.harvard.edu")
+
+ 
+navco<-navco|>
+  # remove ongoing campaigns: 
+  filter(ONGOING==FALSE)|>
+  # convert dummies to factor variables 
+  mutate(goal_type = case_when(
+    REGCHANGE == 1 ~ "Regime Change",
+    FSELFDET == 1 ~ "Self determination",
+    SECESSION == 1 ~ "Secession",
+    OTHER == 1 ~ "Other"
+  ),
+  outcome = factor(SUCCESS, labels=c('failure', 'success')),
+  tactic = factor(VIOL, labels=c("Non-violence", "Violence")),
+  percent_pop  = `PERCENTAGEPOPULARPARTICIPATION` * 100,
+  state_support = factor(STATESUP,labels=c("no", "yes")),
+  tactic_type = case_when(VIOL ==1 ~"Violence",
+                          VIOLENTFLANK == 1 ~ "Non-violence (flank)",
+                          VIOLENTFLANK == 0 ~ "Non-violence (no flank)"
+                            ),
+  # calculate quantiles of participation
+  participation_ntile = findInterval(
+    `PERCENTAGEPOPULARPARTICIPATION`,
+    
+    quantile(`PERCENTAGEPOPULARPARTICIPATION`, seq(0,.9, by=.1)))
+  )
+
+
+# add variable labels (this is solely to improve some of the model summary output)
+navco<-set_variable_labels(navco,
+                           'goal_type'  = 'Campaign goal',
+                           "outcome" = 'Campaign outcome',
+                           "tactic" = "Primary tactic",
+                           "percent_pop" = "% participation at peak",
+                           'tactic_type' = "Primary tactic",
+                           "state_support" = "Recieved Military or economic aid"
+                           )
+
+
+
+```
+
+# The logit model
+
+Predicting the likelihood of success for non violent campaigns vs. campaigns that use violence, while controlling for external support:
+
+```{r}
+model <- glm(outcome~ tactic + state_support , data = navco, family = "binomial")
+
+modelsummary(list("GLM" =model), 
+             coef_rename=TRUE,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ output ='kableExtra'
+             )
+
+```
+
+# Getting probabilities and marginal effects
+
+Coefficients from a logit or probit model aren't particularly meaningful on their own. Exponentiated logit coefficients can be interpreted as relative odds ratios, but this isn't intuitive for most people (including me). So generally, you should convert them to predicted probabilities and predicted marginal effects wherever possible. The next two sections are demonstrations of how you could get some of these estimates using just basic R commands. The final section demonstrates how you could get these same values using the `marginaleffects` package, which also includes extensive additional documentation [here](https://marginaleffects.com/).
+
+## By hand
+
+To get a predicted probability for a particular case:
+
+1.  Calculate y-hat the same way you would in a linear model
+2.  Convert to a predicted probability using the inverse logit $1/(1+exp(-x))$
+
+```{r}
+
+coefs<-coef(model)
+# baseline just uses the intercept
+linear_pred0 <- coefs["(Intercept)"]
+# now do intercept + b_1  * 1
+linear_pred1 <- coefs["(Intercept)"] + coefs['tacticViolence'] * 1 
+# now do intercept + b_1  + b2 * 1
+linear_pred3 <-  coefs["(Intercept)"] + coefs['tacticViolence'] * 1 + coefs["state_supportyes"] * 1
+
+# prediction for non-violent campaign without state support
+1/(1+exp(-linear_pred0))
+
+# prediction for violent campaign without state support
+1/(1+exp(-linear_pred1))
+
+# prediction for violent campaign with state support
+1/(1+exp(-linear_pred3)) 
+```
+
+Of course, for a probit or some other GLM, you would need to use a different link function. Fortunately, the glm model object itself has the inverse link function stored as one of its values. You can access it as `model$family$linkinv()`. Doing this will ensure your code is the same regardless of whether you use a different link function.
+
+```{r}
+model$family$linkinv(linear_pred0)
+
+```
+
+## Using predict
+
+R's built-in predict function can also be used to retrieve a predicted probability. By default, predict will return linear predicted values, but if you add the `type="response"` argument, R will provide the transformed prediction.
+
+The default here will simply provide predictions for every case used to estimate the model. However, if you want to predict a specific outcome, you can use the `newdata` argument to get predictions at a specified value.
+
+```{r}
+
+# predict(model, type='response') this would get you the predicted value for every observation
+
+predict(model, newdata=data.frame(tactic="Non-violence", state_support='yes'), type='response')
+
+predict(model, newdata=data.frame(tactic="Violence", state_support='yes'), type='response')
+
+
+
+```
+
+### Marginal effect
+
+Unlike a linear model, marginal effects for logit and probit models will be different depending on the levels of the predictors. In other words: the effect of a one unit change for a case where p=.01 is generally going to be smaller than the effect when p=.5. So "marginal effects" will typically have to be marginal effects for some particular case. For instance, here's the marginal effect of violence compared to non-violence when a group has external support:
+
+```{r}
+
+case_0 <- predict(model, newdata=data.frame(tactic="Non-violence", 
+                                            state_support='yes'), type='response')
+
+case_1 <-predict(model, newdata=data.frame(tactic="Violence", state_support='yes'), type='response')
+case_1 - case_0
+
+```
+
+Compare this to the marginal effect when campaign size = 1
+
+```{r}
+case_2 <- predict(model, newdata=data.frame(tactic="Non-violence", 
+                                            state_support='no'), type='response')
+
+case_3 <-predict(model, newdata=data.frame(tactic="Violence", 
+                                           state_support='no'), type='response')
+case_3 - case_2
+
+```
+
+### Average marginal effect
+
+If you just want to summarize the effect for a single coefficient on the "average case", the preferred method is to use the observed values approach. So to get the average effect of change from a from violent to a non-violent campaign, I would
+
+1.  Set `tactic = "Non-violence"` for every campaign and then get the predicted probability of success
+2.  Set `tactic = "Violence"` for every campaign and then get the predicted probability of success
+3.  Get the average difference between these two scenarios
+
+```{r}
+# the data is stored in the model object as "model": 
+violent_mvmt <- replace(model$model, "tactic", values="Violence")
+non_violent_mvmt <- replace(model$model, "tactic", values="Non-violence")
+
+# get the differences
+diffs<-predict(model, newdata=non_violent_mvmt, type='response') - 
+  predict(model, newdata=violent_mvmt, type='response')
+
+mean(diffs)
+
+
+```
+
+For covariates that take on continuous values, you may instead want to calculate the effect of a one unit increase from the current values. For instance, to calculate the average effect of increasing `percent_pop` by +1 for every observation would be:
+
+```{r}
+
+model2 <- glm(outcome ~ tactic + state_support + percent_pop , data = navco, family = "binomial")
+
+# the original values
+p0<-model2$model
+# adding one to the current value of camp_size_est
+p1<- replace(model2$model, "percent_pop" , model2$model$percent_pop+1)
+
+# get the differences
+diffs<-predict(model2, newdata=p1, type='response') - 
+  predict(model2, newdata=p0, type='response')
+
+mean(diffs)
+
+
+```
+
+The average effect of a 1 percentage point increase in support is about a 10 percentage point increase in the probability of success.
+
+## Getting Predictions
+
+We can get averaged predictions over the observed values using the `predict_response` function from `ggeffects`:
+
+```{r}
+preds<-predict_response(model, 
+                        terms="tactic",  # predictions for violent vs. non-violent
+                        margin='empirical') 
+
+plot(preds)
+
+```
+
+Or I can plot at different values of a continuous covariate:
+
+```{r}
+
+preds<-predict_response(model2, 
+                        terms="percent_pop[all]",  # prediction at all values of percent_pop
+                        margin='empirical')  # with these values at 1 and 1
+
+
+plot(preds, 
+     show_data=TRUE, # add points for observed data
+     jitter=.01) 
+
+```
+
+Or plot the effect across different values of tactic:
+
+```{r}
+
+preds<-predict_response(model2, 
+                        #predictions at different values for these covariates
+                        terms=c("percent_pop[all]", "tactic"),  
+                        margin='empirical')  # with everything else held at observed values
+
+
+plot(preds, 
+     show_data=TRUE, 
+     jitter=.01)  
+
+
+```
+
+## Using MarginalEffects
+
+The [marginal effects package](https://marginaleffects.com/) can perform this process for us and also give us an easy way to get standard errors around the effect sizes. The `avg_comparisons` command calculates the average marginal effect by default:
+
+```{r, echo=T}
+
+
+mfx<-avg_comparisons(model2)
+
+mfx
+
+```
+
+```{r}
+
+# getting the variable labels
+labs<-map(navco, .f=~attr(.x, 'label'))|>
+  unlist()
+
+mfx|>
+  modelsummary(coef_map =labs)
+
+```
+
+If no variable is specified in the `variables` argument, it will calculate an marginal effect in the same fashion as above, and will adjust the comparison cases for different variable types automatically.
+
+```{r, echo=T}
+map<-list('percent_pop' ='marginal effect of one unit increase in % support',
+     'state_support' = 'marginal effect of state support (vs none)',
+     'tactic' = 'marginal effect of violent tactics (vs non-violent)'
+     )
+
+avg_comparisons(model2)|>
+  modelsummary(title='Average Marginal Efect',
+               coef_map = map,
+                note = "95% CI in brackets",
+                gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+                output ='kableExtra'
+               
+
+             )
+
+
+
+```
+
+This is especially helpful for models that use one or more factor variables, since I can use it to automatically get contrasts at different levels a factor:
+
+```{r}
+
+
+complex_model <- glm(outcome~tactic + goal_type, data = navco, family = "binomial")
+
+avg_comparisons(complex_model)
+
+```
+
+And then plot them:
+
+```{r}
+
+predict_response(complex_model, term=c('goal_type', 
+                                       'tactic'
+                                       ),margin='empirical')|>
+  plot()
+
+
+```
+
+### Getting standard errors
+
+The default delta-method standard errors should be fine for most use cases. However, if you want simulation or bootstrapped SEs, these can be retrieved using the `inferences` command:
+
+```{r, cache=T}
+
+
+
+simulated<-avg_comparisons(model)|>
+  inferences(method='boot')
+
+
+
+simulated$xlabels<-sprintf("%s (%s)", simulated$term, simulated$contrast)
+
+
+
+posterior_draws(simulated)|>
+  ggplot(aes(x=draw, y=xlabels)) +
+  stat_halfeye() +
+  theme_minimal() +
+  xlab("marginal effect of one unit increase in x on probability of campaign success")
+  
+
+
+```
+
+### Getting clustered standard errors
+
+Finally, we might want to adjust the standard errors here to account for clustering within countries. We can get cluster robust standard errors by supplying a formula to the `vcov` argument of `avg_comparisons`: 
+
+```{r}
+
+avg_comparisons(model, vcov=~LOCATION)
+
+```
+
+# Testing the violent flank effects hypothesis
+
+"Violent flank effects" refer to the hypothesis that more moderate social campaigns are more likely to be successful when they have a radical faction that makes them appear more respectable and mainstream. If this is the case, then you would expect to see peaceful campaigns be more successful when they have a violent campaign that operates along side them.(you can read more about this from Erica Chenowith [here](https://www.annualreviews.org/doi/full/10.1146/annurev-polisci-051421-124128))
+
+The NAVCO data includes a variable for radical flank effects. The levels of this variable are: - "no radical flank" (non-violent campaign without a radical flank) - "radical flank" (non-violent campaign with a radical flank) - "primarily violent" (a primarily violent campaign)
+
+Since this has been recoded as a factor, including it in a regression model will give us k-1 coefficients. As is the case with linear models, the intercept represents the expected value of the excluded factor level, while the remaining coefficients can be interpreted as the difference between the coefficient category and the baseline category.
+
+```{r}
+flank_model<-glm(outcome ~ tactic_type,family='binomial' , data=navco)
+summary(flank_model)
+
+```
+
+## Question 1
+
+Get the average marginal effects and predicted probabilities of success for violence vs. non-violence and violent flanks vs. non-violence.
+
+```{r}
+# Code
+
+
+
+```
+
+# Model Comparisons
+
+How do we determine whether one model is better than another?
+
+We don't really have a "residual" term here, so model comparisons based on things like $R^2$ value doesn't really make sense. Instead, we'll generally compare these models based on their negative log likelihoods.
+
+## Likelihood Ratio Test
+
+We can use a likelihood ratio test for **nested**[^1] GLM models. If $\mathcal{L_{0}}$ is the log likelihood for a model without some covariate, and $\mathcal{L_{1}}$ is the log likelihood for our model with that covariate included, then we can calculate a likelihood ratio like this:
+
+[^1]: Models are nested if they contain all of the same covariates minus 1.
+
+$$
+\text{LRT}  = -2 \bigg(\ln(\mathcal{L_{0}}) - \ln (\mathcal{L_{1}})\bigg)
+$$ If the more complex model improves the fit, then this should be a positive number, and if it doesn't, then this should be a negative number. A likelihood ratio test assumes that these ratios will follow a $\chi^2$ distribution with one degree of freedom, and calculates a p-value that represents the probability of seeing a ratio this large if the null model is "true".
+
+So if I want to know whether adding `perc_pop` improves the fit, I can compare them using a likelihood ratio test.
+
+```{r}
+
+model_1 <- glm(outcome ~ tactic , data = navco, family = "binomial")
+model_2 <- glm(outcome ~ tactic + percent_pop, data = navco, family = "binomial")
+
+```
+
+Then I would calculate my likelihood ratio:
+
+```{r}
+test_statistic <- -2 * (  logLik(model_1) - logLik(model_2) )
+test_statistic
+```
+
+And then calculate a p.value for this statistic:
+
+```{r}
+pchisq(test_statistic, df = 1, lower.tail = FALSE)
+
+```
+
+Based on this p-value, we can reject the null hypothesis that including `perc_pop` does not meaningfully improve our model's fit.
+
+We can do all of this in one step by using the `anova` function and including the optional `test="LR"` command:
+
+```{r}
+anova(model_1, model_2, test="LR")
+
+```
+
+## BIC/AIC
+
+Alternatively, we can compare our models based on the Bayesian (BIC) or Akaike (AIC) Information Criteria. Both of these metrics are based on the log likelihood, but they include a penalty for the number of predictors included in the model[^2]. If $k$ is the number of parameters, $n$ is the sample size, and $\mathcal{\hat{L}}$ is the maximum log likelihood, the formula for the BIC and AIC are:
+
+[^2]: The BIC penalty generally favors more parsimonious models whereas the AIC places more weight on predictive accuracy.
+
+$$ \text{BIC} = -2\ln(\mathcal{\hat{L}}) + (k + 1) \ln(n)$$
+
+$$ \text{AIC} = 2\ln(\mathcal{\hat{L}}) + 2k $$
+
+This built-in penalty means that we can use them to make valid comparisons between two models even if the models aren't nested.
+
+The smaller the BIC/AIC, the better the fit. Although there aren't precise rules around how small is "small enough", a rule of thumb suggests that a 2-unit decrease in the AIC is "moderate" evidence in favor of a model. In the previous example, the AIC for model 0 is 20 points lower than the model that includes `percent_pop`, so that's substantial evidence in favor of including `percent_pop`
+
+```{r}
+AIC(model_1) - AIC(model_2)
+
+```
+
+We can also use the BIC to approximate Bayes Factors for these models. Recall that a Bayes Factor represents the "evidence" in favor of one model over another, so values over 1 suggest `model 2` is better, whereas values less than 1 suggest the simpler model 1 is preferable:
+
+```{r}
+
+exp( (BIC(model_1) - BIC(model_2) )/2)
+
+
+```
+
+A rule of thumb suggests that (logged) Bayes Factors over 5 are strong evidence in favor of the more complicated model, so once again we have strong evidence in favor of the second model:
+
+```{r}
+
+log(exp( (BIC(model_1) - BIC(model_2) )/2))
+
+```
+
+## Cross validation accuracy
+
+Finally, we can adopt a machine learning approach and evaluate models based on their ability to correctly classify "unseen" data. 
+
+Using the `caret` package, we can perform leave on these data and then compare the models on their ability to correctly classify the held out data. We can even compare completely different types of models. Here's an example that compares the predictive accuracy of a logit model to a K-Nearest Neighbors (KNN) classifier:
+
+```{r, cache=TRUE}
+
+library(caret)
+
+
+#  leave one out cross-validation
+train.control <- trainControl(method = "LOOCV")
+
+
+cv_logit <- train(outcome ~ tactic + percent_pop, data=navco, 
+              method = "glm",
+              family ='binomial',
+              trControl = train.control)
+
+
+cv_knn <- train(outcome ~ tactic + percent_pop, data=navco, 
+              method ='knn',
+              preProcess = c("center","scale"),
+              tuneLength = 20,
+              trControl = train.control)
+```
+
+Now we can view our results. The k-NN classifier has an additional tuning parameter called $k$, so we test several values for this parameter and then select the one with the highest accuracy:  
+
+```{r}
+bind_rows(
+  'logit'= cv_logit$results,
+  'knn' = cv_knn$results, 
+  
+  .id ='model'
+)|>
+  group_by(model)|>
+  slice_max(Accuracy, n =1)|>
+  select(model, Accuracy, Kappa)
+
+```
+
+## Question 2
+
+`percent_pop` has a heavily skewed distribution, which might be unduly influencing our results. Taking the natural log is a common way to address skewness, but since some values of `percent_pop` are zero, we need to add a small positive number to each observation in order to make a log transformation possible: 
+
+```{r}
+
+navco$percent_pop_log_pos <- log(navco$percent_pop + .001)
+
+navco|>
+  select(starts_with("percent_pop")) |>
+  pivot_longer(cols=everything())|>
+  ggplot(aes(x=name, y=value)) + 
+  geom_boxplot() +
+  theme_bw()
+# Code
+```
+
+Now we can run a third model using our transformed values for `percent_pop_log_pos`. Does this transformation improve our model fit? What about predictive accuracy? 
+
+```{r}
+model_2 <- glm(outcome ~ tactic + percent_pop, data = navco, family = "binomial")
+model_3 <- glm(outcome ~ tactic + percent_pop_log_pos, data = navco, family = "binomial")
+
+
+```
+

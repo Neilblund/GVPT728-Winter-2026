@@ -1,0 +1,753 @@
+---
+title: "Causal inference"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [moon, custom_styles]
+    width: 1280
+    height: 720
+    df-print: tibble
+    scrollable: true
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+filters:
+  - reveal-header
+  - pseudocode
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+```{css, echo = FALSE}
+.output {
+max-height: 500px;
+overflow-y: scroll;
+}
+```
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(DiagrammeR)
+library(tidyverse)
+
+```
+
+# Causation
+
+# Goals of Modeling
+
+All models are wrong, but *how* they're wrong matters.
+
+Up to this point, we've mostly focused on more banal kinds of wrongness:
+
+::: incremental
+-   Issues like heteroskedasticity, overdispersion, non-normality etc. of a regression can distort p.values and confidence intervals.
+
+-   Using a linear model for a non-linear relationship can bias regression coefficients and give us inaccurate or nonsensical predictions
+
+-   Autocorrelation can it look like we have a lot of data when we actually have a very small number of independent observations.
+:::
+
+. . .
+
+Violating these assumptions matters, but we have relatively easy fixes.
+
+## Goals of Modeling
+
+All models are wrong, but the importance of that wrongness **depends on our goals**:
+
+. . .
+
+::: incremental
+-   If our primary goals are prediction or description, we might care very little about spurious correlation
+
+    -   We can use ice cream sales to predict drowning deaths even though the correlation is spurious. (There are certainly *better* ways to predict drowning deaths, but it will work in a pinch.)
+
+-   If our primary goal is prescription or explanation, then we probably care a lot about spuriousness:
+
+    -   Banning ice cream sales definitely won't reduce drowning deaths because there's no causal relationship here.
+:::
+
+## Goals of Modeling
+
+Up to now, we've mostly been focusing on those more banal problems, but for the latter part of the course we'll be talking about the more difficult problem of identifying causal relationships like:
+
+-   do get out the vote campaigns cause people to vote?
+
+-   does a person's race cause police to treat them differently?
+
+-   do housing first policies cause a reduction in homelessness?
+
+# The fundamental problem of causal inference
+
+-   Causal claims rely on counterfactuals: "if X, then Y" implies "If not X, then not Y"
+
+-   But we never actually observe counterfactuals!
+
+## Causation: smoking
+
+Causal claim: Humphry Bogart got cancer from cigarettes
+
+. . .
+
+::::::: fragment
+:::::: columns
+::: {.column width="50%"}
+![if Humphrey Bogart never smoked, he would have been less likely to get cancer](images/bogart_smoking.png){width="300"}
+:::
+
+:::: {.column width="50%"}
+::: fragment
+![...but we never observe this outcome, and it matters because Bogart did all sorts of other bad stuff that could cause cancer.](images/bogart_smiling.png){width="300"}
+:::
+::::
+::::::
+:::::::
+
+::: notes
+Since we never observe the non-smoking Humphrey Bogart, our next best option is to try to compare Humphrey Bogart to some other non-smoker, but obviously this raises its own problems.
+
+Namely: different people will be different in a variety of significant ways that could meaningfully impact their likelihood of developing cancer, and even two exact Bogart replicas may differ solely by random chance.
+:::
+
+## Causation: smoking
+
+The more generic version of this claim isn't necessarily any easier to prove:
+
+:::::: columns
+:::: {.column width="50%"}
+::: incremental
+-   Causal claim: "if fewer people smoked in, all else equal, we would expect to see fewer lung cancer deaths."
+
+-   We have evidence, but its still only a correlation. All sorts of things changed in this time frame
+:::
+::::
+
+::: {.column width="50%"}
+[![https://ourworldindata.org/smoking-big-problem-in-brief](images/Smoking-and-lung-cancer-mortality-US-only_3048.png){fig-alt="Smoking seemed inevitable until it didn’t The chart summarizes the history of smoking in the US (the development in other high-income countries was similar). I plotted two different metrics: in purple, you see the rise and fall of cigarette sales, which you can read off the values on the left-hand axis. In red, you see the rise and fall of lung cancer deaths, which you can read off the axis on the right. Smoking was very much a 20th-century problem. It was rare at the beginning of the century, but then – decade after decade – it became steadily more common. By the 1960s, it was extremely widespread: on average, American adults were buying more than 10 cigarettes every day. The statistical work that identified smoking as the major cause of the rise in lung cancer deaths began in the post-war periods and culminated in the 1964 report of the Surgeon General. This report is seen as a turning point in the history of smoking as it made clear to the public just how deadly it was.11 Once people learned that smoking kills, they could act on it. It took some time, but they did. I wasn’t alive during peak smoking, but even I remember how very common it was to smoke in places where it would be unthinkable today. Looking back, I also remember how surprised I was by how quickly smoking then declined. It is a good reminder of how wrong it often is to think that things cannot be different – for a long time, smoking kept on increasing and it looked as if it would never change. But then it did. Nearly half of all former smokers have quit,12 cigarette sales declined to a third of what they once were, and the death rate from lung cancer declined."}](https://commons.wikimedia.org/wiki/File:Smoking-and-lung-cancer-mortality-US-only_3048.png#/media/File:Smoking-and-lung-cancer-mortality-US-only_3048.png)
+:::
+::::::
+
+## Causation: smoking
+
+This should be a familiar problem! We talk about **endogeneity** or spurious correlation all the time
+
+```{dot}
+//| echo: false
+digraph mrdag {
+
+  graph [rankdir=TB]
+
+  node [shape=ellipse]
+  U [label=Confounder]
+
+  node [shape=box, height=0.3, width=0.3]
+  X [label=Treatment]
+  Y [label=Outcome]
+  { rank = same; X Y }
+
+  U -> Y
+  U -> X
+  X -> Y [minlen=3]
+}
+```
+
+In observational research, we can try to address this with control variables, but those may not be adequate for really complex confounding.
+
+## Back to that fundamental thing
+
+Causal claims rest on something we never observe.
+
+-   A more pessimistic view is that this is basically unsolvable:
+
+-   A somewhat more optimistic view is that we can solve this for aggregate probabilistic claims if some very strict assumptions are met.
+
+## Potential outcomes framework
+
+Years lived if you smoke $$Y_i(1)$$ Years lived if you quit $$Y_i(0)$$ Effect of smoking vs. quitting:
+
+$$Y_i(1) - Y_i(0)$$
+
+### An ideal study
+
+| Subject     | Smoker | Quitter | difference |
+|-------------|--------|---------|------------|
+| A           | 60     | 71      | 11         |
+| B           | 72     | 70      | -2         |
+| C           | 72     | 84      | 12         |
+| D           | 71     | 60      | -11        |
+| E           | 72     | 75      | 3          |
+| F           | 52     | 64      | 12         |
+| G           | 70     | 80      | 10         |
+| **Average** | **67** | **72**  | **-5**     |
+
+### A realistic study
+
+| Subject     | Smoker | Quitter | **Difference** |
+|-------------|--------|---------|----------------|
+| A           | ??     | 71      | ??             |
+| B           | 72     | ??      | ??             |
+| C           | 72     | ??      | ??             |
+| D           | 71     | ??      | ??             |
+| E           | 72     | ??      | ??             |
+| F           | 52     | ??      | ??             |
+| G           | ??     | 80      | ??             |
+| **Average** | **68** | **76**  | **-7.5**       |
+
+### Expected and conditional outcomes
+
+Imagine we have some treatment $D$ that reliably induces people to stop smoking.
+
+Then we need to estimate the value (the mean) for subject $i$ **conditional on assigning treatment** $D$
+
+$$E[Y_i(1)|D_i = 1]$$
+
+And also their expected value conditional on \*\*not being assigned to the treatment group\*. And we can't observe both of these simultaneously.
+
+$$E[Y_i(0)|D_i = 1]$$
+
+### Expected and conditional outcomes
+
+::: fragment
+We want the expected years of life for individual i if they smoke compared to expected years of life for non-smokers:
+
+$$E[Y_i(1) - Y_i(0)]$$
+:::
+
+::: fragment
+But we only have expected years of life for each group separately conditional on a treatment
+
+$$E[Y_i(1)|D_i=1], E[Y_i(0)|D_i=0]$$
+:::
+
+::: fragment
+If we can assume the treatment assignment $D_i$ is random and thus uncorrelated ($\unicode{x2AEB}$) with any other predictors of life expectancy $X_i$
+
+$$Y_i(0), Y_i(1), X_i \mathrel{\unicode{x2AEB}} D_i$$
+:::
+
+::: fragment
+...then the conditional expectation is the same as the unconditional expectation and the effect is just the difference of means between each group (plus some random error)
+
+$$E[Y_i(1)|D_i=1] - E[Y_i(0)|D_i=0] =  E(Y_1 - Y_0)$$
+:::
+
+### So what?
+
+:::::: columns
+::: {.column width="50%"}
+This is a roundabout way of saying that the problem of causal inference is solvable in the aggregate if and only if the "cause" is uncorrelated with any other characteristic that influences the outcome. If those hold, then a simple regression model or difference of means test can identify a causal relationship!
+:::
+
+:::: {.column .fragment width="50%"}
+```{mermaid}
+%%| echo: false
+%%| fig-cap: "Confounding because smoking is correlated with lifestyle"
+graph LR
+A[Lifestyle]
+B[Smoking]
+C[Cancer]
+  A-->B
+  A-->C
+  B-->C
+
+
+```
+
+Notably, we don't need to account for everything that impacts life expectancy here. We just need to ensure that those other predictors are not correlated with the treatment we're interested in.
+
+::: fragment
+```{mermaid}
+%%| echo: false
+%%| fig-cap: "No confounding (even though lifestyle still impacts cancer risk)"
+graph LR
+A[Lifestyle]
+B[Smoking]
+C[Cancer]
+  A-->C
+  B-->C
+```
+:::
+::::
+::::::
+
+### Three key assumptions for causal inference
+
+::: incremental
+1.  **No confounding** we can't observe the counterfactual for any individual, but we can infer an average counterfactual for groups provided we can assume that the treatment is uncorrelated with any confounders $Y_i(0), Y_i(1), X_i \mathrel{\unicode{x2AEB}} D_i$
+
+2.  The **excludability** assumption requires that the treatment itself is is the only thing that impacts the outcome (so we need to rule out things like placebo effects)
+
+3.  **The non-interference assumption** (aka the Stable Unit Treatment Value Assumption or SUTVA) assumes that treatment assignment for one unit doesn't impact the others (for instance, if people in the treatment group influence people in the control group)
+:::
+
+### Terminology: Treatment effects
+
+-   Average Treatment Effect (ATE) the average difference between $Y_i(1) - Y_i(0)$
+
+-   Average Treatment Effect on the treated (ATT) $E[Y_i(1)|D_i=1] - E[Y_i(0)|D_i=1]$
+
+-   Average Treatment Effect on the untreated (ATU) $E[Y_i(1)|D_i=0] - E[Y_i(0)|D_i=0]$
+
+. . .
+
+In the idealized scenario, these should be equivalent, but in practice they will likely diverge due to things like heterogeneous treatment effects, non-compliance, and imbalance between treatment and control units.
+
+# Experimental Research
+
+Experiments are the most straightforward way to satisfy the "no confounding" assumption, despite their limitations.
+
+## Example: immigration attitudes
+
+Sides and Citrin (2007): people who overestimate immigration numbers tend to have more negative attitudes towards immigration. But is this a causal relationship?
+
+[![Sides, J., & Citrin, J. (2007). European opinion about immigration: The role of identities, interests and information. British journal of political science, 37(3), 477-504.](images/citrin_sides_model.png)](https://www-cambridge-org.proxy-um.researchport.umd.edu/core/journals/british-journal-of-political-science/article/european-opinion-about-immigration-the-role-of-identities-interests-and-information/C1BF2F7978F9FEA75A5BCD3CED0CF90F)
+
+## Example: immigration attitudes
+
+We could have multiple kinds of confounding here, including the possibility that anti-immigration attitudes impact misperceptions of immigrant numbers (simultaneous causation)
+
+```{mermaid}
+%%| echo: false
+%%| fig-cap: "confounding"
+graph LR
+A[low information etc.]
+B[overestimating immigrant numbers]
+C[anti-immigrant attitudes]
+A==>B
+A<==>C
+B-->C
+
+
+
+
+```
+
+## Example: immigration attitudes
+
+With confounding, the difference between "overestimators" compared to people with accurate perceptions:
+
+$$\underbrace{E[Y_i(1)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{the difference between overestimators and non-overestimators}$$
+
+Is actually a combination of the actual effect and the effect of confounding:
+
+$$\underbrace{E[Y_i(1) - Y_i(0)|D_i=1]}_\text{actual effect of overestimating} +  \underbrace{E[Y_i(0)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{the effect of other stuff correlated with overestimation}$$ We may not even know what all of the "other stuff" is, so including more controls may not solve this.
+
+## Example: immigration attitudes
+
+[Hopkins, Sides and Citrin (2018): The Muted Consequences of Correct Information about Immigration](https://www-journals-uchicago-edu.proxy-um.researchport.umd.edu/doi/full/10.1086/699914)
+
+::::: columns
+::: {.column width="50%"}
+Question: People consistently overestimate immigrant populations. Does giving them correct information about immigration levels influence their attitudes?
+
+Method: a survey experiment. Randomly assign some survey respondents to receive correct information about immigration levels before asking them their views.
+:::
+
+::: {.column width="50%"}
+[![Left: effect of different random treatments on support for increasing vs. decreasing immigration. Right: effects on anti-immigration attitudes.](images/sides_citrin_hopkins_immigration_effect.jpeg){fig-alt="Effects of the different experimental treatments on support for increasing or decreasing levels of legal immigration (left) and on the index of anti-immigration attitudes (right). Dots indicate mean levels, and the horizontal lines are 95% confidence intervals. The vertical lines at the bottom present the jittered distribution of the dependent variable in 2010. CCES = Cooperative Congressional Election Survey; KN = Knowledge Network."}](https://www-journals-uchicago-edu.proxy-um.researchport.umd.edu/doi/full/10.1086/699914)
+:::
+:::::
+
+# Non-experimental research
+
+Observational research still has this same basic problem, if we don't talk about "treatment" in the same way:
+
+Hypothesis: Fox News viewers are less likely to get the Covid vaccine.
+
+Issue: the $E[Y_i(1)]$ for Fox News viewers is not the same as $E[Y_i(1)]$ for non-Fox viewers. The "treatment" and "control" groups are different for all sorts of reasons. So $$\underbrace{E[Y_i(1)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{difference between viewers and non-viewers}$$ Is now a combination of:
+
+$$\underbrace{E[Y_i(1) - Y_i(0)|D_i=1]}_\text{treatment effect for Fox News viewers} +  \underbrace{E[Y_i(0)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{effect of predisposition to watch Fox News}$$
+
+## Moving to observational research
+
+Or the role of racial bias in motivating traffic stops
+
+$$\underbrace{E[Y_i(1) - Y_i(0)|D_i=1]}_\text{racial discrimination effect} +  \underbrace{E[Y_i(0)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{non-racial profiling and actual rate of minor traffic violations}$$
+
+## Moving to observational research
+
+Or fears of being drafted on war attitudes
+
+$$\underbrace{E[Y_i(1) - Y_i(0)|D_i=1]}_\text{fear of being drafted} +  \underbrace{E[Y_i(0)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{pre-existing attitudes about war}$$
+
+## Why not just include control variables?
+
+Typically, we try to account for this sort of thing using control variables. But cramming stuff in can also introduce problems:
+
+-   All confounders must be measured and accounted for
+
+. . .
+
+-   All non-linear/interactive confounding must be modeled as well.
+
+. . .
+
+-   Multicollinearity means that we have a strict limit on the number of control variables (and means we have diminshing returns well before that)
+
+. . .
+
+-   <p class="fragment highlight-red">
+
+    The inclusion of bad controls (colliders) can actually make bias worse rather than better.
+
+    </p>
+
+. . .
+
+To get a better sense of this, we need to take a brief detour into DAGs
+
+## DAGs and collision
+
+Directed Acyclic Graphs: describe **relevant** causal relationships between a IV and a DV of interest.
+
+:::::: columns
+:::: {.column width="50%"}
+::: incremental
+-   Nodes are variables: Z, X, and Y
+
+-   Arrows (aka edges) indicate causal relationships so $X\rightarrow Y$, $Z \rightarrow Y$ and $Z \rightarrow X$
+
+-   A path is anything you can draw to connect two nodes. So $X \rightarrow Y$ and $X \leftarrow Z \rightarrow Y$ are both paths that could lead from X to Y
+
+-   Our goal is to only have paths going from right to left for X on Y by "closing all open backdoor paths", usually by conditioning on those variables. So here, we want to control for Z to close $X \leftarrow Z \rightarrow Y$
+:::
+::::
+
+::: {.column width="50%"}
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph mrdag {
+
+  graph [rankdir=TB]
+  node [shape=box, height=0.3, width=0.3]
+  Z
+  X 
+  Y
+  { rank = same; X Y }
+  Z -> X
+  Z -> Y
+  X -> Y [minlen=3]
+}
+```
+:::
+::::::
+
+### DAGs
+
+:::::: columns
+:::: {.column width="50%"}
+::: incremental
+-   Including a control variable in a regression is one of several ways to condition, but it requires us to measure Z and include it in the model.
+
+-   Unobserved confounding (sometimes represented using dashed lines) can be addressed by randomization, but not by regression
+:::
+::::
+
+::: {.column width="50%"}
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph mrdag {
+
+  graph [rankdir=TB]
+  node [shape =circle style=dashed]
+  Z
+  node [shape=box, height=0.3, width=0.3, style=solid]
+ 
+  X 
+  Y
+  { rank = same; X Y }
+  Z -> X[style=dashed]
+  Z -> Y[style=dashed]
+  X -> Y [minlen=3]
+}
+```
+:::
+::::::
+
+### DAGs
+
+Collision happens when two variables along the causal path from X to Y point to the same node.
+
+So the collider here is $X \rightarrow Z \leftarrow Y$
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph mrdag {
+
+  graph [rankdir=TB]
+  node [shape = circle]
+  Z
+  node [shape=box, height=0.3, width=0.3, style=solid]
+  X 
+  Y
+  { rank = same; X Y }
+  X -> Z
+  Y -> Z
+  X -> Y [minlen=3]
+}
+```
+
+### DAGs
+
+Collider paths are "closed" on their own. So, unlike the confounding case, conditioning on these paths causes bias rather than reducing it.
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph mrdag {
+
+  graph [rankdir=TB]
+  node [shape = circle]
+  Z
+  node [shape=box, height=0.3, width=0.3, style=solid]
+  X 
+  Y
+  { rank = same; X Y }
+  X -> Z
+  Y -> Z
+  X -> Y [minlen=3]
+}
+```
+
+### Collider bias
+
+Collider bias is really more general version of the selection bias problem. Recall that selection bias occurs when we only see outcomes above a certain threshold. For instance: when low expectations of earnings cause people to drop out of the sample.
+
+Since these outcomes are unobserved, models looking at this group are stratified based on the collider
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph mrdag {
+  graph [rankdir=TB]
+  node [shape=box, height=0.3, width=0.3, style=solid]
+  Z[label = "labor force participation"]
+  X[label="education"]
+  Y[label="wages"]
+  { rank = same; X Y }
+  X -> Z
+  Y -> Z
+  X -> Y [minlen=3]
+}
+
+```
+
+### Collider bias
+
+```{r, echo=FALSE}
+library(tidyverse)
+
+set.seed(500)
+N = 1000
+educ_year = rpois(N, 15)
+earnings  = educ_year * 10 + rnorm(N, 0, 50)
+lfp = ifelse(earnings < quantile(earnings, .20), 0, 1)
+lfp = factor(lfp, labels=c('not in labor force', 'in labor force'))
+df<-data.frame(educ_year, earnings, lfp)
+df_comb<-bind_rows(df|>mutate(group = "true model"), df|>filter(lfp == "in labor force")|>mutate(group='observed only'))
+
+true_model<-lm(earnings ~ educ_year ,data=df)
+observed_model<-lm(earnings ~ educ_year ,data=df[which(lfp == "in labor force"),])
+
+ggplot(df_comb, aes(x=educ_year, y=earnings)) + 
+  geom_point(aes(fill = lfp), alpha=.5, shape=21, color='black') +
+
+  geom_smooth(method='lm', col='orange', se=FALSE) +
+  facet_wrap(~group) +
+  xlab("education") +
+  ylab('earnings') +
+  ggtitle("hypothetical wage and education results") +
+  theme_minimal() +
+  scale_fill_manual(values = c("white", "black") )
+  
+```
+
+### Collider bias
+
+The selection problem frames this as a function of a failure to consider a group, but it could also be thought of as a form of conditioning on potential outcomes: the probability of seeing certain observations depends on $E[Y_i(1)]$.
+
+```{r, echo=FALSE}
+library(tidyverse)
+
+set.seed(500)
+N = 1000
+educ_year = rpois(N, 15)
+earnings  = educ_year * 10 + rnorm(N, 0, 50)
+lfp = ifelse(earnings < quantile(earnings, .20), 0, 1)
+lfp = factor(lfp, labels=c('not in labor force', 'in labor force'))
+df<-data.frame(educ_year, earnings, lfp)
+df_comb<-bind_rows(df|>mutate(group = "true model"), 
+                   df|>
+                     filter(lfp == "in labor force")|>
+                     mutate(group='observed only'))
+
+true_model<-lm(earnings ~ educ_year ,data=df)
+observed_model<-lm(earnings ~ educ_year ,data=df[which(lfp == "in labor force"),])
+collider_model<-lm(earnings ~ educ_year + lfp,data=df)
+
+
+
+```
+
+```{r, echo=FALSE}
+huxtable::huxreg("true model"=true_model, 
+                 "without collider" = observed_model, 
+                 "with collider" =collider_model)
+
+```
+
+### Collider bias
+
+Selection problems can cause biased estimates. Including a control for a collider has a similar impact.
+
+This might seem like an odd thing to do, but it actually comes up a lot! 
+
+For instance in discussions of discrimination: people will advocate for examining wage disparities *after* controlling for things that (like job title) that are themselves downstream from discrimination and wages.
+
+### Collider bias
+
+::::: columns
+::: {.column width="50%"}
+-   Imagine a scenario where a company only promotes women to management roles if they are in the 10th percentile for ability, but promotes men if they're in the 50th percentile.
+:::
+
+::: {.column width="50%"}
+```{dot}
+//| fig-height: 3
+//| fig-width: 3
+//| echo: false
+digraph mrdag {
+
+  graph [rankdir=TB]
+
+  node [shape=ellipse]
+  U [label=Title]
+  A [label=Ability]
+
+  node [shape=box, height=0.3, width=0.3]
+  X [label=Discrimination]
+  Y [label=Earnings]
+  { rank = same; X Y }
+  A -> Y
+  A -> U
+  U -> Y
+  X -> U
+  X -> Y [minlen=3]
+}
+```
+:::
+:::::
+
+### Collider bias
+
+All paths from discrimination to earnings:
+
+::: incremental
+-   Discrimination $\rightarrow$ Earnings (direct effect)
+
+-   Discrimination $\rightarrow$ Job title $\rightarrow$ Earnings (mediated effect)
+
+-   Discrimination $\rightarrow$ Job title $\leftarrow$ Ability $\rightarrow$ Earnings (collider)
+:::
+
+```{dot}
+//| echo: false
+//| fig-height: 3
+//| fig-width: 3
+digraph mrdag {
+
+  graph [rankdir=TB]
+
+  node [shape=ellipse]
+  U [label=Title]
+  A [label=Ability]
+
+  node [shape=box, height=0.3, width=0.3]
+  X [label=Discrimination]
+  Y [label=Earnings]
+  { rank = same; X Y }
+  A -> Y
+  A -> U
+  U -> Y
+  X -> U
+  X -> Y [minlen=3]
+}
+```
+
+### Collider bias
+
+What happens if we dis-aggregate by position and then compare wages? Why?
+
+```{r, echo=FALSE}
+N <- 1000
+set.seed(1000)
+tb <- tibble(
+  female = rbinom(N, 1, .5),
+  ability = rnorm(N),
+  manager =  ifelse(female == 1, ability>quantile(ability, .9), 
+                    ability>quantile(ability, .5)),
+  manager_no_discrim = ability>quantile(ability, .5),
+  wage = 1 + female * -1 +  manager * 3 +  ability * 2 + rnorm(N) ,
+  e_wage_if_male =  1 +  manager_no_discrim * 3 +  ability * 2 + rnorm(N) ,
+)
+
+
+tb|>
+  mutate(gender = factor(female, labels=c("Men", "Women")),
+         position = factor(manager, labels=c("Not management", "Management"))
+         )|>
+  ggplot( aes(x=wage, y=position, fill=gender))+
+  geom_boxplot() +
+  theme_bw() +
+  coord_flip()
+```
+
+### Collider bias
+
+One way to think about this is in terms of potential outcomes: the women who get promoted - if not for discrimination - would have already have a higher expected wage than the men. So when you stratify on job title, you end up comparing women who would have high wages if not for discrimination to men who would have lower wages if not for discrimination:
+
+```{r, echo=FALSE}
+
+
+tb|>
+  mutate(gender = factor(female, labels=c("Men", "Women")),
+         position = factor(manager, labels=c("Not management", "Management"))
+         )|>
+  ggplot( aes(x=e_wage_if_male, fill=gender))+
+  geom_density(alpha=.5) +
+  facet_wrap(~position) +
+  theme_bw() +
+  xlab("Expected wages under no discrimination")
+```
+
+### Considerations
+
+-   For colliders $\rightarrow Z \leftarrow$ the best approach is actually to do nothing. They're already "closed"
+
+    -   Collision is one reason to be skeptical of "garbage can" regression models that try to account for everything.
+
+-   On the other hand, we do need to control for confounding $\leftarrow Z \rightarrow$, but this assumes we can measure it.
+
+# Quasi-experimental methods
+
+-   Randomization allows for true causal inference, but its often not an option
+
+-   Regression can do this, but only under very strict conditions and there's a real risk of garbage can models making things worse.
+
+-   Quasi-experimental methods look for ways to ensure that treatment is independent of potential outcomes, or, barring that, that potential outcomes are balanced between treated and control units.

@@ -1,0 +1,151 @@
+---
+title: "Class 12: Difference in Differences"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+Data come from: [Grumbach, J. M. (2023). Laboratories of democratic backsliding. *American Political Science Review*, *117*(3), 967-984](https://www-cambridge-org.proxy-um.researchport.umd.edu/core/journals/american-political-science-review/article/laboratories-of-democratic-backsliding/0742F08306EFDD8612539F089853E4FE). ([Dataverse](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/JNV3XO))
+
+The data here have already been pre-processed for analysis. The dependent variable is an index of state-level democracy based on measures like the costs of voting, gerrymandering etc. The main dependent variable is unified Republican control of the state legislature. Grumbach argues Republican-dominated governments are particularly prone to erect barriers to democratic participation and uses a difference in differences model to support this claim. 
+
+
+
+# Data import and libraries
+
+```{r}
+library(tidyverse)
+library(fixest)
+library(did)
+
+if(!file.exists("grumbach.rds")){
+  download.file('https://github.com/Neilblund/GVPT728_Winter24/raw/refs/heads/main/Additional%20Code%20and%20Data/grumbach.rds', 
+                destfile='grumbach.rds',
+                mode='wb'
+                )
+  
+  
+}
+data<-readRDS('grumbach.rds')
+
+```
+
+
+We can start by taking a look at the patterns of state democracy scores over time across all fifty states. 
+
+```{r fig.width=10, fig.height=10}
+
+data|>
+  mutate(unified_rep =factor(unified_rep, labels=c("no", "yes")))|>
+ggplot( aes(x=year, y=state_democracy, 
+                 group=state, color=unified_rep))  + 
+  geom_line(lwd=1) +
+  facet_wrap(~state)+
+  theme_bw() +
+  scale_color_brewer(palette='Dark2')
+
+```
+
+
+
+# Staggered Difference in Differences
+
+The simplest approach here is a two-way fixed effects model, but since we've got multiple time periods and cases with staggered entry, this isn't going to give us the right estimates if there are heterogeneous treatment effects over time or across cases. 
+
+Instead, we can the using the [`did`](https://bcallaway11.github.io/did/index.html) package to estimate an average effect. The basic idea here is to estimate multiple different "difference-in-differences" coefficients for each time period and group and then calculate a weighted average based on the number of observations in each group. 
+
+To make this work, we need to put the data into a compatible format. Using the `att_gt` function requires that we specify:
+
+-   `idname` a numeric ID for each group (this will just be a numeric ID for each state)
+
+-   `tname` a time period indicator (this should just be a sequence from 1 to N for each year)
+
+-   `gname` a variable that indicates, for each observation, the value of `tname` when they first received the treatment. (in our case, it should be the period when the state first came under unified Republican control, and it should be a zero for all cases where this never occurred)
+
+
+
+```{r}
+did_fmt<-data|>
+  group_by(state)|>
+  # convert year to time periods
+  mutate(period = year - 1999, 
+  # add variable for ever under unified Rep control
+         ever_rep = any(unified_rep==1),
+  # add the first year of republican unified control
+         first_r_year = case_when(ever_rep ~ min(period[which(unified_rep==1)]),
+                                  .default = 0)
+         )|>
+  ungroup()|>
+  # assign numeric state IDs
+  mutate(id = as.numeric(factor(state)))
+
+
+
+
+```
+
+The output from this function contains a long list of estimated group/time level effects, we'll generally want to aggregate these using one of the methods proposed by the authors. 
+
+```{r}
+
+att <- att_gt(yname = "state_democracy",
+              tname = "period",
+              idname = "id",
+              gname = "first_r_year", 
+             # xformula = ~x # Would add controls here...
+              allow_unbalanced_panel = T,
+              data = did_fmt
+)
+
+
+att|>
+  tidy()|>
+  arrange(time)|>
+  slice_head(n =5)
+
+
+```
+
+To get a single average estimated effect, we can use `type="simple"`. This represents a weighted average of all of the group x time-specific coefficients. 
+
+```{r}
+att_simple <- aggte(att, type = "simple")
+att_simple
+```
+
+
+Alternatively, we can get an average effect for each group (this is the default setting)
+
+```{r}
+att_group <- aggte(att, type = "group")
+att_group|>
+  tidy()
+```
+
+
+
+Finally, we can estimate a dynamic treatment effect that estimates the effect sizes before and after treatment. This is one way to bolster the argument for parallel trends: if the parallel trends assumption holds, then we expect the "leads" of the treatment (red color) to be 0. 
+
+```{r, fig.width=10}
+
+att_dynamic<-aggte(att, type = "dynamic")
+
+ggdid(att_dynamic)
+
+```
+
+
+

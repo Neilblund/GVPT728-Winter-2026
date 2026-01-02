@@ -1,0 +1,402 @@
+---
+title: "Class 6 Multilevel Model"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+```{r}
+
+
+
+# data manipulation
+library(tidyverse)
+library(labelled)
+
+# plotting 
+library(ggdist)
+library(gghalves)  
+library(ggbeeswarm)
+library(patchwork)
+
+# estimation
+library(lme4)
+library(fixest)
+
+
+# model summaries and predictions 
+library(ggeffects)
+library(modelsummary)
+
+
+
+```
+
+# Data Import
+
+(you don't actually need to run this)
+
+```{r, eval=FALSE}
+library(WDI)
+library(tidyverse)
+library(countrycode)
+
+indicators <- list('gini' = 'SI.POV.GINI',
+                'wlfp' = 'SL.TLF.ACTI.ZS'  ,# Labor Force Participation Rate (%), Female
+                'gdp_pc_ppp' = "NY.GDP.PCAP.PP.KD",# "GDP per capita, PPP (constant 2005 international $)"
+                'resource_rents' = 'NY.GDP.TOTL.RT.ZS'
+                )  
+
+wdi <- WDI(indicator=indicators,
+          start = 2020,
+          end = 2023
+          )
+wdi$country_id<- countrycode(wdi$iso3c, origin='iso3c', destination ='vdem')
+wdi_filled<-wdi|>
+  group_by(country)|>
+  arrange(year)|>
+  fill(c(resource_rents, gini, wlfp), .direction='downup')|>
+  slice_tail(n=1)
+
+
+polregions<-c('Eastern Europe', #  (including German Democratic Republic, excluding the Caucasus)
+              'Latin America and the Caribbean',
+              'The Middle East and North Africa', # (including Israel and Türkiye, excluding Cyprus)
+              'Sub-Saharan Africa',
+              'Western Europe and North America', #  (including Cyprus, but excluding German Democratic Republic)
+              'East Asia and the Pacific',
+              'South and Central Asia' #(including the Caucasus)
+              
+              )
+
+# Electoral system data 
+elsystem<-vdemdata::vdem|>
+  arrange(year)|>
+  filter(year>=2010)|>
+  group_by(country_name)|>
+  fill(v2elparlel, .direction='down')|>
+  slice_tail(n=1)|>
+  select(country_name,v2elparlel)
+  
+
+vdem<-vdemdata::vdem|>
+   arrange(year)|>
+  filter(v2x_elecreg == 1)|>
+  filter(year>=2020)|>
+  group_by(country_name)|>
+  select(starts_with('country'), v2lgfemleg, v2x_elecreg, v2lgqugen, v2lgqugent, e_regionpol_7C,
+         e_fh_pr, e_fh_cl,e_fh_status)|>
+  
+  fill(everything(),.direction='down')|>
+  slice_tail(n=1)|>
+  ungroup()|>
+  left_join(wdi_filled, by=join_by(country_id == country_id))|>
+  select(-starts_with("iso"), -country_id, -country, -year)|>
+  left_join(elsystem, by='country_name')|>
+  mutate(region = factor(e_regionpol_7C, labels=polregions),
+         log_gdp_pc_ppp = log(gdp_pc_ppp),
+         fh_status = factor(e_fh_status, levels=c(1,2, 3), labels=c('Free', "Partly Free", "Not Free")),
+         fh_status = fct_relevel(fh_status, "Not Free", "Partly Free", "Free"),
+         free_dummy = factor(fh_status == "Free", labels=c("Not Free", "Free")),
+         majoritarian_dummy = factor(v2elparlel ==0, labels=c("Not Majoritarian", "Majoritarian"))
+         )
+
+vdem<-set_variable_labels(vdem, 
+                    'v2lgfemleg' = "Lower chamber % female legislators", 
+                    'v2x_elecreg' = "", 
+                    'v2lgqugen' = 'Lower chamber gender quota', 
+                    'v2lgqugent' = 'Lower chamber gender quota threshold', 
+                    'resource_rents' = 'Total natural resources rents (% of GDP)',
+                    'gini'= 'Gini coefficient', 
+                    'wlfp' = "Female labor force participation",
+                    'log_gdp_pc_ppp' = 'Logged GDP per capita, PPP',
+                    'region' ='Region (politico-geographic 7-category)',
+                    'majoritarian_dummy' = 'Lower chamber electoral system'
+                    )
+
+
+vdem_cleaned<-vdem|>
+  drop_na(v2lgfemleg, v2lgqugen , wlfp , resource_rents , log_gdp_pc_ppp, e_fh_pr, e_fh_cl)
+
+#saveRDS(vdem_cleaned,file='vdem_cleaned.rds')
+
+
+```
+
+
+
+```{r}
+
+if(!file.exists('vdem_clean.rds')){
+  download.file('https://github.com/Neilblund/GVPT728_Winter24/raw/refs/heads/main/Additional%20Code%20and%20Data/vdem_cleaned.rds',
+                'vdem_clean.rds',
+                mode='wb')
+
+}
+
+vdem_cleaned<-readRDS('vdem_clean.rds')
+
+
+```
+
+
+# Describing the main relationship
+
+
+In general, do countries with majoritarian electoral systems elect fewer women?
+
+```{r}
+
+
+relationship <- ggplot(vdem_cleaned, aes(x = majoritarian_dummy, y = v2lgfemleg)) +
+  geom_half_point(aes(color =  majoritarian_dummy), 
+                  transformation = position_quasirandom(width = 0.1),
+                  side = "l", size = 1, alpha = 0.5) +
+  geom_half_boxplot(aes(fill = majoritarian_dummy), side = "r") + 
+  
+  guides(color = "none", fill = "none") +
+  labs(x = "Lower House Electoral System", y = "% women in legislature") +
+  theme_bw() +
+  scale_fill_brewer(palette='Dark2') +
+  scale_color_brewer(palette='Dark2')
+
+
+relationship
+
+
+```
+
+However: might want to control for some additional factors that could influence this relationship.
+
+-   Women's Labor Force Participation
+
+-   logged GDP
+
+-   Whether a country has quotas guaranteeing a certain number of seats for women in the legislature.
+
+```{r, fig.width=14, fig.height=12}
+data<-vdem_cleaned|>
+
+  select(v2lgfemleg, wlfp, log_gdp_pc_ppp, v2lgqugen, majoritarian_dummy)
+
+GGally::ggpairs(data, aes(color=majoritarian_dummy)) +
+  theme_bw() +
+  scale_color_brewer(palette='Dark2')  +
+    scale_fill_brewer(palette='Dark2') 
+
+  
+
+
+
+```
+
+# Using OLS
+
+```{r}
+model_0<-lm(v2lgfemleg ~ 
+               majoritarian_dummy +
+               wlfp + 
+               log_gdp_pc_ppp +
+               v2lgqugen,
+               data=vdem_cleaned)
+
+
+
+modelsummary(list("OLS" = model_0), 
+              coef_rename=TRUE,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+             )
+
+```
+
+The effect of majoritarianism (relative to non-majoritarian electoral systems) is a estimated to be around a 6% decrease in the % women in the legislature. The presence of quotas, unsurprisingly, also has some impact, as does female labor force participation. While GDP may also play a role, the 95% confidence interval contains zero and is not statistically significant at conventional levels.  
+
+
+
+# Fixed Effects
+
+We might be concerned that this model fails to capture important variation. For instance: maybe cultural norms, colonial legacies, or simple geography play a major role in determining the outcome of interest?
+
+```{r, fig.width=10, fig.height=12}
+
+
+ggplot(vdem_cleaned, aes(x=wlfp, y=v2lgfemleg)) + 
+  geom_point(aes(color=majoritarian_dummy)) +
+  theme_bw() +
+  scale_color_brewer(palette='Dark2')  +
+  scale_fill_brewer(palette='Dark2')  +
+  labs(x="Women's Labor Force Participation",
+       y="% women in the legislature",
+       color = 'Electoral System'
+       ) +
+  facet_wrap(~region)
+
+
+
+```
+
+While we don't have direct measures of a lot of these characteristics, we might try to account for them by including k-1 region-level dummy variables in the model. This would be the a fixed effects model:
+
+```{r}
+
+
+
+model_1<-feols(v2lgfemleg ~ 
+               majoritarian_dummy +
+               wlfp + 
+               log_gdp_pc_ppp +
+               v2lgqugen | region,
+               data=vdem_cleaned, 
+               cluster ~ region)
+
+model_1
+modelsummary(list("OLS" = model_0, "Region FE" = model_1), 
+             coef_rename=TRUE,
+             coef_omit = "Intercept",
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+             )
+
+
+
+
+
+
+```
+
+Notably, the inclusion of fixed effects here doesn't drastically alter our estimates, and we still find that majoritarian systems have about the same expected negative effect on the dependent variable that they did in our original linear model.
+
+While the fixed effects terms are automatically left out of the model output here, we can view them by running: 
+
+```{r}
+fixef(model_1)
+
+```
+We can think of these as the separate Y-intercept terms for each region in our data set. 
+
+```{r, fig.width=10}
+
+
+
+
+fixef_slopes<-predict_response(model_1, terms=c('majoritarian_dummy','region'))|>
+  plot(ci=FALSE, connect_lines=TRUE, show_data=TRUE, jitter=TRUE) +
+  ggtitle("Fixed Effects") +
+  scale_color_brewer(palette='Dark2')
+
+fixef_slopes
+
+```
+
+
+
+# Multilevel Model
+
+While both the standard OLS model and the fixed effects model seem to work reasonably well here, there may be cases where a multilevel model is more appropriate. This could be for several reasons. For instance:
+
+-   We might think that the fixed effect for some small regions are implausibly low or high. After all: if a region only has a handful of countries, we might find that region has a really high or really low value of the dependent variable by random chance. Since random effects pool estimates across levels of the random effect, a random effects model may be a better fit.
+
+-   We might want to investigate a characteristic that doesn't vary much or at all within regions. For instance: we might have a variable for colonial legacy, primary religion, or membership in a regional organization. Since some of these will vary very little within each region, these controls would be perfectly or near-perfectly co-linear with the fixed effects estimator.
+
+To run a linear random effects model, we'll use the `lmer` function and include a random effect term. The `lme4` package provides a [whole bunch of ways to specify complex hierarchical models](https://cran.r-project.org/web/packages/lme4/vignettes/lmer.pdf), but if we have a single random effect term, this is pretty straightforward: we just add something like:
+
+`+ (1|random_effect_term)`
+
+...to our formula. So here's how I can create a region-level random effect:
+
+```{r}
+
+
+model_2<-lmer(v2lgfemleg ~ 
+               majoritarian_dummy +
+               wlfp + 
+               log_gdp_pc_ppp +
+               v2lgqugen +
+               (1|region), data=vdem_cleaned)
+
+
+
+
+
+```
+
+Now we can summarize our results in a single table:
+
+```{r}
+
+model_list<-list("OLS" = model_0, "Region FE" = model_1, "Region RE" =model_2)
+
+modelsummary(model_list, 
+             coef_rename=TRUE,
+             coef_omit = "Intercept",
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.|R2 Marg|R2 Cond|R2 Within',
+             )
+
+
+
+```
+
+And/Or plot the coefficients
+
+```{r}
+
+modelplot(model_list,
+          coef_rename=TRUE,
+          coef_omit = c(1)
+          ) +
+  scale_color_brewer(palette='Dark2') +
+  geom_vline(xintercept=0, lty=2)
+
+
+```
+
+
+In contrast to the fixed effects model, which allows each region to have a totally separate Y-intercept, the random effects model "pools" the estimated intercepts across each group and shrinks them toward the global mean. The result is that the differences in the intercept terms are less dramatic, especially for smaller groups where there's less data.
+
+```{r, fig.width=10}
+
+
+
+raneff_slopes<-predict_response(model_2, terms=c('majoritarian_dummy','region'), margin='empirical')|>
+  plot( ci=FALSE, show_data=TRUE, connect_lines=TRUE, jitter=TRUE) +
+  ggtitle("Region Random Effects") +
+  scale_color_brewer(palette='Dark2')
+
+
+fixef_slopes / raneff_slopes +
+    plot_layout(guides = "collect")
+
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,556 @@
+---
+title: "Simulations continued"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ggdist)
+library(broom)
+
+```
+
+# Comparing multiple conditions
+
+In many cases, we'll want to compare results from a model under a wide range of different conditions so we can explore things like the relationship between sample size and Type II error rates. We can use a nested loop to run simulations across a range of different parameter values.
+
+For instance, here's how we would run the same simulation at a sample size of 50, 500, and 5000:
+
+```{r}
+
+set.seed(999)
+sample_size<-c(50, 500, 5000)
+result_frame<-tibble()
+for(N in sample_size){
+  iterations<-1000
+  beta_0 <- 1
+  beta_1 <- 0.05
+  coefs<-list()
+  # The simulation 
+  for (i in 1:iterations) {
+    X <- rnorm(N, mean = 0, sd = 1) # an independent variable
+    e <- rnorm(N, mean = 0, sd = 1) # the error term
+    Y <- beta_0 + X * beta_1 + e # the dependent variable
+    mod <- lm(Y ~ X)
+    coefs[[i]] <- tidy(mod, conf.int = TRUE, conf.level = .95)
+  }
+  
+  # combine results 
+  coefmat<-bind_rows(coefs, .id='iteration')
+  # add a variable to indicate the condition applied for this loop
+  coefmat$sample_size <- N
+  # add the rows to a data frame
+  result_frame<-bind_rows(result_frame, coefmat)
+  
+}
+
+# how often do we have a type II error at N=50, 500, or 5000?
+result_frame|>
+  filter(term == "X")|>
+  group_by(sample_size)|>
+  summarise(`proportion p>=.05` = mean(p.value>=.05))
+
+
+
+```
+
+What if we wanted to look at our Type II error rates when N=50 while varying the effect size for $\beta_1$?
+
+To do this, we just need to change a few lines of our loop:
+
+```{r}
+set.seed(999)
+N <- 50                  # set a fixed value for N 
+betas <- c(0.05, 0.1, 1) # Make a vector of betas
+
+result_frame<-tibble()
+for(b in betas){
+  iterations<-1000
+  beta_0 <- 1
+  beta_1 <- b
+  coefs<-list()
+  for (i in 1:iterations) {
+    X <- rnorm(N, mean = 0, sd = 1) 
+    e <- rnorm(N, mean = 0, sd = 1) 
+    Y <- beta_0 + X * beta_1 + e 
+    mod <- lm(Y ~ X)
+    coefs[[i]] <- tidy(mod, conf.int = TRUE, conf.level = .95)
+  }
+  
+  coefmat<-bind_rows(coefs, .id='iteration')
+  
+  coefmat$beta_1 <- b # add a column to indicate the beta value in this simulation
+  
+  result_frame<-bind_rows(result_frame, coefmat)
+  
+}
+
+
+
+
+```
+
+And now we can estimate the type II error rate across these simulations:
+
+```{r}
+# how often do we have a type II error at b = 0.05, 0.10, or 1 and N = 50?
+result_frame|>
+  filter(term == "X")|>
+  group_by(beta_1)|>
+  summarise(`proportion p>=.05` = mean(p.value>=.05))
+
+
+
+```
+
+## Using a simulation function
+
+writing multiple nested loops can get a little unwieldy, so we can simplify some of the code here by creating functions to handle the repetitive parts of this process.
+
+The `runSim` function will take a data generating function `func` as an argument along with a data frame containing the arguments to use in each run of the simulation. The `aggregateResults` function will give us some summary statistics for the coefficient estimates across each run:
+
+```{r simulation_function}
+
+# Runs the simulation across different parameter values  (replaces the outer loop in the prior examples)
+runSim<-function(func, parmlist, iterations=1000, seed=NULL){
+  if(!is.null(seed)){
+    set.seed(seed)
+  }
+  all_results<-tibble()
+  for(i in 1:length(parmlist)){
+    result<-replicate(iterations, do.call(func, parmlist[[i]]), simplify=FALSE)|>
+      bind_rows()
+    result$condition<-i
+    all_results<-bind_rows(all_results, result)
+    
+  }
+  if(!is.null(names(parmlist))){
+    all_results$condition <- factor(all_results$condition, labels=names(parmlist))
+  }
+  
+  return(all_results)
+}
+
+# Function to get aggregate stats from model results
+aggregateResults<-function(results){
+  agged <- results |>
+    group_by(condition, term) |>
+    summarise(
+      mean = mean(estimate),
+      median = median(estimate),
+      sd = sd(estimate),
+      `2.5th percentile` = quantile(estimate, .025),
+      `97.5th percentile` = quantile(estimate, .975),
+      `proportion p>=.05` = mean(p.value >= .05)
+    )
+  return(agged)
+}
+
+# function to plot coefficients
+plotCoefs<-function(results, term){
+  results |>
+    filter(term == term)|>
+  ggplot(aes(x =estimate, y = condition)) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw()
+}
+
+
+
+
+```
+
+### Increasing N
+
+Here's an example of doing the same simulation we ran above using the `runSim` function. Instead of generating a nested loop, we just set up a list-of-lists containing the arguments that we want to pass to `genFunc`.
+
+```{r}
+# a data generation function with defaults (replaces the inner loop in the prior examples)  
+genFunc <- function(N, betas){
+  X = cbind(rnorm(N, 0, 1))
+  intercept = 1
+  e = rnorm(N, 0 , 1)
+  Y <- intercept  + X %*% betas + e
+  mod <- lm(Y ~ X)
+  coefs<-tidy(mod, conf.int = TRUE, conf.level = .95)
+  return(coefs)
+
+}
+
+
+plist<-list(
+  'N=50,   beta_1=0.05' =  list(betas=0.05, N=50),
+  'N=100,  beta_1=0.05'=   list(betas=0.05, N=100),
+  'N=1000, beta_1=0.05' =  list(betas=0.05, N=1000),
+  "N=5000 beta_1 = 0.05 " =  list(betas=0.05, N=5000)
+)
+
+
+
+```
+
+Then we pass `genFunc` and `plist` as arguments to `runSim`
+
+```{r}
+results<- runSim(func=genFunc, 
+                 parmlist = plist,
+                 seed = 999
+)
+
+
+
+```
+
+Now, we can summarize the results for each condition:
+
+```{r}
+
+# summarize the results
+aggregateResults(results)|>
+  filter(term=="X")
+
+
+
+
+```
+
+What if we try different values for `beta_1` while using a sample size of 50?
+
+```{r}
+plist<-list(
+  'N=50, beta_1=0.05' = list(betas= .05, N=50),
+  'N=50, beta_1=0.1' =  list(betas= 0.1, N=50),
+  'N=50, beta_1=1' =  list(betas= 1, N=50)
+)
+
+results<- runSim(func=genFunc, 
+           parmlist = plist,
+           seed = 999
+)
+
+# summarize the results
+aggregateResults(results)|>
+  filter(term=="X")
+
+
+
+
+```
+
+### More variance in the error term
+
+What happens to the estimates if you increase the variance in the error term `e`? Start by modifying `genFunc` to allow us to set the standard deviation of the error term as a function argument (note, we can also include optional arguments to change the sample size and beta coefficients here, but we set them at some reasonable defaults)
+
+```{r}
+
+genFunc <- function(e_sd, N=1000, betas=1){
+  X = cbind(rnorm(N, 0, 1))
+  intercept = 1
+  e = rnorm(N, 0 , sd=e_sd) # the variance of the error term
+  Y <- intercept  + X %*% betas + e
+  mod <- lm(Y ~ X)
+  coefs<-tidy(mod, conf.int = TRUE, conf.level = .95)
+  return(coefs)
+
+}
+
+```
+
+Then create a nested list containing the set of parameter values you want to pass along to `genFunc` and pass them to the `runSim` argument.
+
+```{r}
+
+plist<-list(
+  'sd(e) = 1' =   list(e_sd=1),
+  'sd(e) = 10' =  list(e_sd=10),
+  'sd(e) = 20' =  list(e_sd=20)
+)
+
+
+results<- runSim(func=genFunc, 
+           parmlist = plist,
+           seed = 999
+)
+
+# summarize the results
+aggregateResults(results)|>
+  # we're really only interested in b_1 here, so we'll filter out the intercept: 
+  filter(term=="X")
+
+
+```
+
+Now plot the results
+
+```{r}
+
+
+results |>
+  filter(term == "X")|>
+  ggplot(aes(x = estimate, y = condition)) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  ggtitle("Effects of increasing variance in the error term")
+
+```
+
+### Omitted variable bias
+
+We can use the same general approach to explore the effects of omitted variable bias. Omitted variable bias happens when there are variables correlated with predictors AND with the outcome of interest that are left out of the model. The code below uses `mvrnorm` to create two correlated random variables that both influence Y, but then estimates a model that only includes the first of those correlated predictor variables.
+
+```{r}
+
+genFunc <- function(corr_x=0, e_sd=1, N=1000, betas=c(1,1)){
+  intercept = 1
+  Sigma = matrix(c(1, corr_x, corr_x, 1), ncol=2)
+  X = MASS::mvrnorm(N, mu=c(0, 0), Sigma=Sigma)
+  e = rnorm(N, 0 , sd=e_sd) # the variance of the error term
+  Y <- intercept  + X %*% betas + e
+  mod <- lm(Y ~ X[,1]) # Omitting X[,2] from the regression model
+  coefs<-tidy(mod, conf.int = TRUE, conf.level = .95)
+  return(coefs)
+
+}
+
+
+```
+
+Now we can see how our model performs when the omitted variables have a negative correlation, no correlation, or a positive correlation with the other predictor:
+
+```{r}
+
+plist<-list(
+  'r=-.7' =list(corr_x = -0.7),
+  'r=  0' =list(corr_x =  0.0),
+  'r= .7' =list(corr_x =  0.7)
+)
+
+
+results<-runSim( func=genFunc,
+                 parmlist = plist,
+                 seed = 999
+                 )
+
+
+
+
+```
+
+How much do our estimates differ from the correct answer?
+
+```{r}
+
+results |> 
+  filter(term == "X[, 1]") |>
+  # calculate the bias (estimated beta_1 minus the value set in the data generating function)
+  mutate(bias = estimate - 1)|>
+  ggplot(aes(x = bias, y = condition, )) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  geom_vline(xintercept = 0,
+             lty = 2,
+             col = 'red') +
+  xlab("Estimated Beta_1 - Actual B_1") +
+  ggtitle("Effects of omitted variable bias on coefficient estimates")
+
+
+
+```
+
+## Question
+
+Rewrite the code above so that $\beta_2$ is negative instead of positive. How does this impact your results?
+
+```{r}
+# Code
+plist<-list(
+  'r=-.7' =list(corr_x = -0.7, betas= c(1,-1)),
+  'r=  0' =list(corr_x =  0.0,betas= c(1,-1)),
+  'r= .7' =list(corr_x =  0.7, betas= c(1,-1))
+)
+
+
+results<-runSim( func=genFunc,
+                 parmlist = plist,
+                 seed = 999
+                 )
+
+results |> 
+  filter(term == "X[, 1]") |>
+  # calculate the bias (estimated beta_1 minus the value set in the data generating function)
+  mutate(bias = estimate - 1)|>
+  ggplot(aes(x = bias, y = condition, )) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  geom_vline(xintercept = 0,
+             lty = 2,
+             col = 'red') +
+  xlab("Estimated Beta_1 - Actual B_1") +
+  ggtitle("Effects of omitted variable bias on coefficient estimates")
+
+
+```
+
+# Modeling heteroskedasticity
+
+We can model heteroskedastic data by making the variance of $\epsilon$ depend on values of one of the predictors:
+
+```{r}
+N = 100
+betas <- 0.5
+intercept = 1
+
+data<-tibble(X = cbind(rnorm(N, 0, 1)),
+       e = rnorm(N, 0 , exp(X )),
+       Y = intercept  + X %*% betas + e)
+
+
+
+model<-lm(Y ~ X, data=data)
+
+```
+
+A quick visual inspection of the results can give us a pretty good sense that there's a problem here:
+
+```{r}
+ggplot(data, aes(x=X, y=Y)) + 
+  geom_point() +
+  geom_smooth(method='lm', se=FALSE ) +
+  theme_minimal() 
+
+  
+
+```
+
+That said, we can also use some diagnostic plots to get a better sense of the results. We want to pay especially close attention to the residuals vs. fitted plot, and scale-location plot. In the first, heteroskedasticity will show up as results that have greater spread at different predicted values of Y. In the second, you want to see a mostly horizontal line.
+
+Compare the heteroskedastic data:
+
+```{r}
+
+plot(model, which=c(1, 3))
+
+
+```
+
+Vs. data without heteroskedasticity:
+
+```{r}
+
+hm_data<-tibble(X = cbind(rnorm(N, 0, 1)),
+       e = rnorm(N, 0 , 1),
+       Y = intercept  + X %*% betas + e)
+
+model2<-lm(Y ~ X, data=hm_data)
+plot(model2, which=c(1, 3))
+
+
+```
+
+## Simulation: What does heteroskedasticity do to our results?
+
+To run a simulation, we can nest our data generating loop inside a function. We'll also include an argument that allows us to vary the sample size:
+
+```{r}
+
+genFunc <- function(N=1000, homoskedastic=FALSE){
+  betas <- .5
+  X = cbind(rnorm(N, 0, 1))
+  intercept = 1
+  var =ifelse(homoskedastic, 1, exp(X * .5))
+  e = rnorm(N, 0 , var)
+  Y <- intercept  + X %*% betas + e
+  mod <- lm(Y ~ X)
+  coefs<-tidy(mod, conf.int = TRUE, conf.level = .95)
+  return(coefs)
+
+}
+
+```
+
+Now, we can set up a list of parameters to pass along and then run our simulation.
+
+```{r}
+
+
+plist<-list(
+  'N=50 homoskedastic' = list(N=50, homoskedastic=TRUE),
+  'N=50 heteroskedastic' =  list(N=50),
+  'N=100 heteroskedastic'=   list(N=100),
+  'N=1000 heteroskedastic' =  list(N=1000)
+)
+
+results<- runSim(func=genFunc, 
+                 parmlist = plist,
+                 seed = 999,
+                 iterations=1000
+)
+
+aggregateResults(results)|>
+  filter(term=="X")|>
+  select(condition, starts_with("proportion"))
+
+
+
+```
+
+Now plot the results...
+
+```{r}
+
+results|>
+    filter(term =="X")|>
+  ggplot(aes(x =estimate, y = condition)) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  geom_vline(xintercept=0.5, lty=2,col='red')
+
+
+```
+
+So what is happening here and how concerned should we be?

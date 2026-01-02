@@ -1,0 +1,256 @@
+---
+title: "Introductions"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+code-annotations: select
+slide-level: 3
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+# What is a model?
+
+## Models as simplified accounts
+
+::::: columns
+::: {.column width="50%"}
+-   Simplified representations of a complex reality
+
+-   Utility, not "truth": models invariably contain assumptions and they're probably violated in practice.
+:::
+
+::: {.column width="50%"}
+[![George Box: "All models are wrong, but some are useful"](https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/GeorgeEPBox_%28cropped%29.jpg/800px-GeorgeEPBox_%28cropped%29.jpg){width="50%"}](https://en.wikipedia.org/wiki/George_E._P._Box)
+:::
+:::::
+
+# The goals of modeling
+
+(in very broad terms)
+
+-   Describing
+
+-   Predicting
+
+-   Explaining
+
+## Describing
+
+-   Simplify/Summarize important features of data: mean, median, variance, range etc. or identify groups and clusters
+
+-   Causally agnostic: no claims about *why* the data looks a certain way
+
+-   Still requires careful consideration of things like operational definitions, measurement error etc. and those come laden with assumptions
+
+### Describing: Example
+
+How do we measure something like congressional polarization?
+
+. . .
+
+::::: columns
+::: {.column width="50%"}
+NOMINATE
+
+1.  Assume rational legislators with normally distributed preferences centered on their ideal policy point
+
+2.  Use multidimensional scaling to estimate the latent ideal points that are most likely to have generated the observed matrix of roll-call votes for each member
+:::
+
+::: {.column width="50%"}
+![](images/house_party_means_1879-2015.png)
+:::
+:::::
+
+. . .
+
+"DW-NOMINATE scores largely reflect an ideology-like substance" - a slightly deflated Nolan McCarty
+
+## Predicting
+
+::::: columns
+::: {.column width="50%"}
+-   What will happen in the future?
+
+-   Understanding cause and effect is one way to generate good predictions, but its not necessary. You can predict things you barely understand.
+:::
+
+::: {.column width="50%"}
+![](images/predictive_orangutan.png)
+:::
+:::::
+
+## Predicting: Example
+
+::::: columns
+::: {.column width="50%"}
+Who is going to win the presidential election?
+
+-   There's a straightforward performance metric here! But researchers have to be careful to avoid overfitting
+
+-   Fundamentals based models can be fairly rudimentary and perform surprisingly well:
+
+    -   Abramowitz's "Time for change" model is just GDP growth + Net Approval + More than one term in the White House
+
+-   Methods of weighting/aggregating evidence, selecting additional covariates, and quantifying uncertainty are often more important than understanding cause and effect.
+:::
+
+::: {.column width="50%"}
+[![source: The Economist](images/polls_fundamentals.png)](https://www.economist.com/interactive/us-2024-election/prediction-model/president/how-this-works)
+:::
+:::::
+
+## Explaining
+
+-   Why do things happen? What causes what?
+    -   Do mobilization campaigns improve turnout?
+    -   Does lobbying influence legislation?
+    -   Does racial/ethnic discrimination lead to civil wars?
+-   Comparatively harder than predicting or describing because it requires reasoning about counterfactuals:
+    -   X causes Y implies "if not X, then not Y" (or at least Y is less likely)
+    -   But we never observe "X" and "not X" for the same person
+
+### Explaining: does smoking cause cancer?
+
+(I mean yeah, but bear with me)
+
+::::: columns
+::: {.column width="50%"}
+![](images/doctor_smoking.jpg){width="60%"}
+:::
+
+::: {.column .fragment width="50%"}
+By 1950 there was observational evidence of a link between cancer and cigarettes, but it was not definitive.
+
+![Doll, R., & Hill, A. B. (1950). Smoking and carcinoma of the lung. British medical journal, 2(4682), 739.](images/lung_cancer_rates.png)
+:::
+:::::
+
+### Explaining: does smoking cause cancer?
+
+:::::: columns
+:::: {.column width="50%"}
+::: incremental
+-   Smoking is correlated with cancers, but some other factors may explain both. Smoking definitely isn't a random decision.
+
+-   If smoking is the *result* of a cancer risk, rather than a cause of it, then the counterfactual "non-smoking lung cancer patient" would still have developed cancer.
+
+-   Fisher's claim isn't necessarily a problem for a predictive or descriptive analysis of smoking and lung cancer, **its primarily a problem for causal claims.**
+:::
+::::
+
+::: {.column width="50%"}
+![](https://dl6pgk4f88hky.cloudfront.net/2021/06/gettyimages-72242763-scaled.jpg){width="40%"}
+
+> <small>Anyone suffering from a chronic inflammation in part of the body (something that does not give rise to conscious pain) is not unlikely to be associated with smoking more frequently, or smoking rather than not smoking - R.A. Fisher</small>
+:::
+::::::
+
+### Explaining: does smoking cause cancer?
+
+Ultimately, multiple lines of evidence can help us rule out Fisher's claim:
+
+::: incremental
+-   Research on causal mechanisms (better understanding of the role of carcinogens)
+
+-   Conditioning on observables (control variables for cancer risk or matching on propensity to smoke)
+
+-   Instrumental variables and discontinuities (look at death rates after external factors like cigarette taxes reduce consumption)
+
+-   Randomized trials:
+
+    -   Of smoking *cessation* as opposed to randomly telling people to smoke
+
+    -   Using animal models
+:::
+
+# Key Considerations
+
+-   All models are flawed. The importance of those flaws is partly dependent on type of modeling you're doing as well as things like cost-benefit ratios and normative considerations.
+    -   predictive, descriptive, and explanatory models might even use the same statistical method but with totally different expectations.
+-   Rather than striving for perfection, researchers should aim for **clarity** about goals, assumptions and limitations.
+
+# Goals for the course
+
+You should be able to:
+
+::: incremental
+-   Critically engage with research. Read an empirical paper and be able to identify the key assumptions, limitations, alternatives etc. associated with a research design and weight the evidence accordingly.
+
+-   Be able to recognize problems with your data and analyses and mitigate them. Communicate findings to a general audience without relying on jargon or ignoring nuance.
+
+-   Pick the right model for a job and be able to learn new methods, software, data sources etc. on your own.
+:::
+
+# Course outline
+
+-   Part 1: Basics
+
+    -   Regression model assumptions
+
+    -   Communicating and interpreting results, uncertainty, and model fit
+
+    -   Handling complexity and data limitations: non-linearity, interactions, missing data etc.
+
+    -   Handling time series and panel data
+
+-   Part 2: Limited dependent variable models
+
+    -   Models for binary outcomes, counts, durations, and multiple categories
+
+    -   Making sense of output
+
+-   Part 3: Dealing with omitted variables
+
+    -   Recognize omitted variable bias and how it impacts estimates
+
+    -   Know some widely used strategies for eliminating or minimizing omitted variable bias and their strengths and limitations
+
+# Structure of classes
+
+::: incremental
+-   Review homework/quizzes
+
+-   Reading Discussion (check ELMS under the "Discussion Readings" header)
+
+    -   Use the discussant sign up sheet on ELMS to sign up for a slot (everyone should pick 2)
+
+    -   As a discussant, you'll write a short summary/response and come prepared with a quick outline and some basic reading questions the day after the reading is listed on ELMs
+
+    -   Everyone else: read the paper, and come with questions. Pay special attention to the data/methods and how they attempt to address limitations
+
+-   Lecture Slides (that would be this)
+
+-   Guided practice (check ELMS modules under the "Code" heading for an R file)
+
+    -   Hit the "code" button in the top right of the file to get the markdown code. Paste it in to Rstudio so you can follow along
+
+    -   Be prepared to answer questions/do some coding on your own or in a small group.
+
+    -   Stop me if you're lost.
+
+-   Quiz (where applicable)
+:::
+
+# Final Project
+
+-   Presentations on the last day of class
+
+-   Final memo due the day after
+
+# A note on work load
+
+-   We're going to move quickly. This is basically a week of class every day.
+
+-   The readings and homework, in particular, can pile up very quickly if you don't stay on top of them.

@@ -1,0 +1,357 @@
+---
+title: "Class 03"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+# Packages
+
+Packages (there's a lot!)
+
+```{r}
+library(tidyverse)
+library(lmtest)  # robust SEs 
+library(sandwich) 
+library(countrycode) # for matching country names
+library(dataverse)   # for accessing replication data on the dataverse
+library(WDI)         # World Developement indicators API 
+library(ggdist)      # Distribution plots
+library(marginaleffects)  # marginal effects estimation tools 
+library(ggfortify) # ggplot style diagnostics
+library(car)         # regression diagnistcs
+library(huxtable)  # regression output formatting
+
+```
+
+Also, if you don't have it already, you'll want to install the `vdemdata` package. This provides easy access to the latest version of the Varieties of Democracy Dataset :
+
+```{r}
+
+devtools::install_github("vdeminstitute/vdemdata")
+```
+
+# Preparing the data
+
+First, we need to do a little data set construction. This is messy, but rather than leave it out I figured I would show it here to give a sense of the process.
+
+We'll pull from three difference data sources:
+
+-   Varieties of Democracy (V-DEM) for global data on democracy and governance ([codebook](https://www.v-dem.net/static/website/img/refs/codebookv12.pdf))
+
+-   World Bank Data world ([information](https://databank.worldbank.org/)) ([R package info](https://github.com/vincentarelbundock/WDI)) for economic indicators
+
+-   Global Legislators Data ([dataverse](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/U1ZNVT)) ([codebook](https://dataverse.harvard.edu/file.xhtml?fileId=10595363&version=1.0)) for information about the ages of legislators
+
+```{r, cache=TRUE}
+
+# get global legislators data 
+gld <- get_dataframe_by_name(
+  filename = "global_legislator_database.tab",
+  dataset = "10.7910/DVN/U1ZNVT", 
+  server = "dataverse.harvard.edu")
+
+
+# aggregate to get average age for each legislature 
+gld_agg <- gld |>
+  group_by(country_name, year_of_election) |>
+  summarise(
+    nleg = n(), 
+    mean_age = mean(year_of_election - year(dob), na.rm = T)
+  )|>
+  # add VDEM matching code 
+  mutate(vdem_code =   countrycode(country_name, origin = 'country.name', destination = 'vdem'))
+
+
+# get vdem data. Filter by year and select usefil columns 
+vdem<-vdemdata::vdem|>
+  filter(year>=2010)|>
+  select(year, country_id, e_pelifeex, v2elpubfin,v2xnp_client,e_regionpol, v2elparlel, v2x_corr, v2x_polyarchy)|>
+  mutate(electoral_system = factor(v2elparlel, labels=c("Majoritarian", "Proportional", "Mixed","Other")),
+         
+         )|>
+  rename(public_finance = v2elpubfin)
+
+
+# get data from the world bank WDI 
+wdi_data<-WDI(indicator=c('gdp_pcap'= 'NY.GDP.PCAP.KD',
+                          'gini' = 'SI.POV.GINI',
+                          'life_expectancy'  = 'SP.DYN.LE00.IN',
+                          'pop_over_65'= 'SP.POP.65UP.TO.ZS'), 
+                start=2010, end=2023
+)
+
+
+# Add a vdem matching code
+wdi_data<-wdi_data|>
+  mutate(vdem_code =   countrycode(country, origin='country.name', destination='vdem'))
+  
+
+# Join everything on country and year. inner_join means we're dropping anything 
+# without a match, be careful with this (left joins are often better)
+
+gld_joined<-gld_agg|>
+  inner_join(vdem, by=join_by(vdem_code == country_id, year_of_election == year))|>
+  inner_join(wdi_data, by = join_by(vdem_code == vdem_code, year_of_election == year) )
+
+
+
+
+
+```
+
+# Research Question
+
+The U.S. has a lot of old people in congress. Why is this? How do we compare to other states? And are their structural features that might explain why we've got so many people born before the invention of commerically viable color television in positions of power?
+
+```{r}
+
+gld|>
+  filter(country_name=="United States")|>
+  ggplot(aes(x=dob)) +
+  geom_density(fill='lightblue', alpha=.8) +
+  geom_vline(xintercept = as.Date("1954-12-17"), lty=2) +
+  annotate("text", x=as.Date("1957-12-31"), y=0, label="color tv") +
+  theme_bw() +
+  xlab("Birthdates of members of Congress") +
+  ylab("")
+
+```
+
+
+
+
+# Initial models
+
+
+
+```{r}
+
+stats = c("N. obs." = "nobs", 
+               "R squared" = "r.squared",
+               "F statistic" = "statistic",
+               "BIC")
+ci_level = .95
+error_format = "[{conf.low} - {conf.high}]"
+  
+
+model_0<-lm(mean_age ~ life_expectancy + gdp_pcap,
+          data=gld_joined)
+model_1<-lm(mean_age ~ life_expectancy + log(gdp_pcap), data =gld_joined)
+model_2<-lm(mean_age ~ life_expectancy + log(gdp_pcap) + public_finance , data =gld_joined)
+
+
+huxreg('baseline model' = model_0,
+       'logged IV model' = model_1,
+       'public_finance' = model_2,
+       statistics = stats,
+       ci_level =ci_level,
+       error_format =error_format,
+       note = "95% ci in brackets"
+       )
+
+```
+
+## Checks
+
+At a minimum, we should look for evidence of:
+
+-   non-normality
+
+-   heteroskedasticity
+
+-   influential observations
+
+-   non-linearity
+
+A visual check of our residuals is a good starting point for investigating these issues: 
+
+```{r}
+
+autoplot(model_0)
+
+```
+
+The Breusch–Pagan test gives us a test against a null hypothesis that the data are homoscedastic:
+
+```{r}
+
+ncvTest(model_0)
+
+```
+
+We might also want to check for evidence of multicollinearity, although this appears to be less of a problem here: 
+
+```{r}
+vif(model_0)
+
+
+```
+
+
+
+
+
+
+# Question 1 
+
+Based on the analyses above, do you see evidence to support any changes to the model such as transforming variables? 
+
+```{r}
+# code here 
+
+
+
+```
+
+
+# Robust Standard Errors
+
+Since we have some clear evidence of heteroskedasticity, it probably makes sense to go ahead and use heteroskedasticity robust standard errors, which relax the assumption of constant variance: 
+
+```{r}
+
+
+
+
+m_0<-coeftest(model_0, vcov = vcovHC(model_0, "HC0"))   
+m_1<-coeftest(model_1, vcov = vcovHC(model_1, "HC0"))   
+m_2<-coeftest(model_2, vcov = vcovHC(model_2, "HC0"))   
+
+
+```
+
+
+## Model Comparison
+
+Which models are better? We can compare models using BIC/AIC (lower scores mean better models, all else equal)
+
+```{r}
+
+
+huxreg('baseline model' = m_0,
+       'logged IV model' = m_1,
+       'public_finance' = m_2,
+       statistics = stats,
+       ci_level =ci_level,
+       error_format =error_format,
+       note = "95% ci in brackets"
+       )
+
+
+
+```
+
+
+Or, if the models are nested, we can compare using F-tests
+
+
+```{r}
+
+anova(model_0, model_1)
+
+
+anova(model_1, model_2)
+
+
+```
+
+## Equivalence Testing
+
+
+What if we want to rule out the possibility that the a PR system would result in younger legislators relative to a majoritarian system? We can see here that the effect is not statistically significant. 
+
+
+
+```{r}
+
+
+model<-lm(mean_age ~ 
+            life_expectancy + 
+            public_finance +
+            electoral_system, data=gld_joined)
+
+
+summary(model)
+
+
+```
+
+```{r}
+
+comp <- avg_comparisons(model, 
+                        variables = list("electoral_system" = c("Majoritarian", 
+                                                                "Proportional")),
+                        vcov = 'HC0'
+                        )
+comp
+
+
+
+
+```
+
+
+We'll set a minimum effect size of 0.66112. Essentially, we are attempting to rule out the possibility that the effect of proportional representation is greater than the effect of public finance for elections.
+
+```{r, cache=TRUE}
+
+
+min_effect <- 0.66112
+
+h<-hypotheses(comp,
+           equivalence = c(-min_effect, min_effect),
+           conf_level = .9,
+           vcov = "HC0"
+           )
+h
+
+
+
+```
+
+
+
+An alternative to using heteroskedasticity consistent standard errors is to use the non-parametric bootstrap. This also allows us to generate a useful visualization of the cases where we might see effects above the minimum threshold we set above: 
+
+```{r, cache=TRUE}
+
+
+booted<-inferences(comp, method='boot', conf_type = 'perc', R=1000)
+draws<-get_draws(booted)
+ggplot(draws, aes(x=draw, y='Simulated Differences'))+
+
+   stat_halfeye(alpha=.5, .width = c(.90), aes(fill=after_stat(x>=min_effect | x<= -min_effect))) +
+    geom_vline(xintercept=-min_effect, lty=2, col='black') +
+    geom_vline(xintercept=min_effect, lty=2, col='black') +
+  theme_bw() +
+  scale_fill_brewer(palette='Dark2')+
+  xlab("Simulated Differences") +
+  ylab("")+
+  coord_flip()
+```
+
+
+
+# Question 2
+
+See if you can make improvements to the existing model by adding additional covariates, interaction effects, polynomials etc.
+
+```{r}
+
+
+```
+

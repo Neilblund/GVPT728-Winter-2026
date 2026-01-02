@@ -1,0 +1,166 @@
+---
+title: "Class 11: Instrumental variables"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+We'll look at some replication data from [Henne, P. S., & Klocek, J. (2019). Taming the gods: How religious conflict shapes state repression. Journal of Conflict Resolution, 63(1), 112-138.](https://journals-sagepub-com.proxy-um.researchport.umd.edu/doi/full/10.1177/0022002717728104) ([dataverse](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/1ZPOPB))
+
+The authors examine the role of religious conflict in religious oppression. While it seems fairly intuitive that conflict might drive states to repress, untangling the relationship is plagued by simultaneity bias: conflict shapes repression and repression drives conflict.
+
+To address this, the authors use everyone's favorite instrument: rough terrain! If we think that rough terrain will drive repression only through its impact on conflict, then we can overcome this bias.
+
+```{r}
+library(tidyverse)
+library(labelled)
+library(ivreg)
+library(modelsummary)
+
+
+data<- dataverse::get_dataframe_by_name(
+  filename = 'Taming the Gods Replication Data.dta',
+  .f = haven::read_dta,
+  dataset = '10.7910/DVN/1ZPOPB', 
+  server = "dataverse.harvard.edu")|>
+  mutate(ccode = factor(ccode),
+         year = factor(year)
+         )
+
+
+data <- data |>
+  set_variable_labels(
+    "RAS4" = "Religious Repression",
+    "logpop" = "Log GDP",
+    "logpop" = "Log Population",
+    "Ethnic" = "Ethnic Fractionalization",
+    "democracy" = "Democracy score",
+    "Int_maxyear" = "Conflict Intensity",
+    "LND_TOTL" = "Total Landmass",
+    "relconflict" = "Religious Conflict",
+    "pctforest" = "% forest",
+    "lmtnest" = "% mountainous terrain"
+  )
+
+data <- data |>
+  drop_na(
+    RAS4,
+    loggdp,
+    logpop ,
+    Ethnic,
+    democracy ,
+    Int_maxyear ,
+    LND_TOTL ,
+    relconflict,
+    pctforest ,
+    lmtnest
+  )
+
+
+
+
+```
+
+
+| RAS4        | Religious Repression     | DV              |
+|-------------|--------------------------|-----------------|
+| loggdp      | Log GDP                  | Control         |
+| logpop      | Log Population           | Control         |
+| Ethnic      | Ethnic Fractionalization | Control         |
+| democracy   | Democracy score          | Control         |
+| Int_maxyear | Conflict intensity       | Control         |
+| LND_TOTL    | Total Land Mass          | Control         |
+| relconflict | Religious Conflict       | Causal Variable |
+| pctforest   | \% Forest                | Instrument 1    |
+| lmtnest     | \% Mountainous terrain   | Instrument 2    |
+
+# Does the instrument correlate? 
+
+Our first question is whether the instruments correlate with the causal variable.
+
+```{r}
+
+data|>
+  select(relconflict, pctforest, lmtnest)|>
+  cor()
+```
+
+
+
+# Regressions
+
+We can start by using an OLS model that just includes all of the predictors as controls: 
+
+```{r}
+ols_model <- lm(RAS4 ~ loggdp + logpop + 
+                  Ethnic + democracy + Int_maxyear +
+                  LND_TOTL  +  relconflict  + pctforest + lmtnest , data=data)
+
+
+
+```
+
+
+Next, we'll use the IVReg package to estimate our instrumental variable model. 
+
+The formula here has three parts, separated by `|` symbols. 
+
+The first part are the exogenous predictors, the second are the endogenous predictors, and the last should be the instruments used to predict the endogenous predicts. 
+
+```{r}
+
+
+
+iv_model <- ivreg(RAS4 ~ loggdp + logpop + Ethnic + democracy + 
+                  Int_maxyear +LND_TOTL 
+              | relconflict 
+              | pctforest + lmtnest ,
+              data=data
+              )
+
+
+
+```
+
+
+The summary output from IV reg prints some useful tests we can use to assess the quality of the instrument here. 
+
+The "Weak instruments" tests for weak associations between the instrument and the endogenous predictor. Weak instruments can be biased in small samples, and in larger ones will result in inflated standard errors. The null here is a weak instrument, so we can reject that possibility.
+
+The Wu-Hausman test looks for evidence of endogeneity. If there is no endogeneity bias in the stage 2 regression, then there's probably no reason to use the instrument. The null hypothesis is "we'd be better off using OLS"
+
+The Sargan test looks for endogeneity in models with more instruments than endogenous predictors. The null hypothesis here is "the instruments are valid". The results here suggest an issue, although it would take a bit more digging to determine the nature of the problem. One possibility is that one of the two instruments is extraneous, or it fails to satisfy the exclusion restriction, or the two instruments have different effects on the endogenous predictors. 
+
+
+```{r}
+
+summary(iv_model)
+
+```
+
+Assuming we've moved beyond this concern, we can get our results and compare models. Here I'm getting bootstrapped standard errors with clustering on year and country: 
+
+
+```{r}
+modelsummary(list(
+  "ols" =ols_model,
+  "Instrumental Variables"=iv_model), 
+ # coef_rename = TRUE,
+  cov = "bootstrap", 
+  R = 1000, 
+  cluster = ~ccode + year)
+            
+```

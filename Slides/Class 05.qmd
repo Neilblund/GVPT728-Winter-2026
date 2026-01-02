@@ -1,0 +1,485 @@
+---
+title: "Autocorrelation and Clustering"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+code-annotations: select
+slide-level: 3
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+
+library(modelsummary)
+library(tidyverse)
+
+```
+
+## What's wrong with this model?
+
+::::: columns
+::: {.column width="50%"}
+-   DV: County level GOP vote share
+
+-   IV: Number of years after founding that the state joined the union
+:::
+
+::: {.column width="50%"}
+```{r, cache=TRUE}
+library(tidyverse)
+library(rvest)
+library(tidycensus)
+
+# county level election results
+counties_24<-read_csv('https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/refs/heads/master/2024_US_County_Level_Presidential_Results.csv')
+
+# list of states by date of joining the union
+page<-read_html('https://en.wikipedia.org/wiki/List_of_U.S._states_by_date_of_admission_to_the_Union')
+
+join_date<-page|>
+  html_element(css='table')|>
+  html_table()|>
+  select(2:4)|>
+  mutate(datestring = str_extract(`Date(admitted or ratified)`, "([A-Z][a-z]+ [0-9]{1,2}, [0-9]{4})"),
+         date = mdy(datestring)
+  )
+counties<-counties_24|>
+  left_join(join_date, by=join_by(state_name==State))|>
+  mutate(join_year = year(date) - 1787,
+         percent_gop = per_gop * 100
+         
+         )|>
+  drop_na(join_year)
+
+model<-lm(percent_gop ~ join_year, data=counties)
+
+
+```
+:::
+:::::
+
+## What's wrong with this model?
+
+Here's what our output looks like:
+
+```{r, echo=FALSE}
+
+
+modelsummary(list('model 1' = model),
+ estimate  = "{estimate}",  
+  statistic = c("conf.int"),
+ conf_level = .95,        
+ coef_map = list('join_year' = 'State year joined union'
+                 ),
+ note = "note: constant = 64.7",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ title= 'DV: County GOP vote % in 2024'
+ )
+
+
+```
+
+## What's wrong with this model?
+
+We can get a better sense of the problem by visualizing the relationship
+
+```{r, echo=FALSE}
+mdata<-model$model
+ggplot(mdata, aes(x=join_year, y=percent_gop)) + 
+  geom_point(shape=21) +
+  theme_bw() +
+  ylab("% GOP") +
+  xlab("Age of US when state joined the union")
+
+
+```
+
+## What's wrong with this model?
+
+Finally, here's what it looks like when we plot the model residuals on a map of the US:
+
+```{r, echo=FALSE, cache=TRUE}
+library(maps)
+library(mapdata)
+counties$std_resid<-rstudent(model)
+
+cfunc<-function(x){
+  x<-x|>
+  str_replace(" County| Parish", "")|>
+    str_squish()|>
+    str_to_lower()
+  return(x)
+}
+
+us_counties <- map_data("county")
+
+prop_won_sf <- us_counties |> 
+  left_join(mutate(counties, region = str_to_lower(state_name), subregion=cfunc(county_name)),
+            by = join_by(region, subregion))
+
+plot<-ggplot(prop_won_sf, aes(x = long, y = lat, fill = (std_resid), group=group)) + 
+  geom_polygon(color = "lightgrey") + 
+  guides(fill = FALSE) + 
+  theme_void() + 
+  coord_fixed(1.3) + 
+  scale_fill_viridis_c() +
+  ggtitle("Model Residuals")
+
+
+
+plot
+
+
+```
+
+# Regression Assumptions
+
+Important regression assumptions:
+
+::: incremental
+-   Linearity in parameters
+
+-   No perfect multicolinearity
+
+-   Constant Variance
+
+-   **Independence of observations**
+:::
+
+. . .
+
+Regression standard errors assume that errors are uncorrelated. Violations of this are referred to as autocorrelation
+
+### Sources of dependence: Hierarchical data
+
+**Hierarchical data** (the present example) data come from different levels of analysis, so the same observation is just being duplicated for each row. This comes up a lot if you want to study stuff like:
+
+-   The effects of immigration levels on public opinion
+
+-   The effect of electoral systems on the characteristics of legislators
+
+-   The effect of classroom size on student outcomes
+
+-   The average effect of a treatment across multiple studies
+
+### Spatial Autocorrelation
+
+Things close to each other will tend to correlate, so even if we use only county-level covariates, we might still have some dependence just due to proximity:
+
+[![From Manuel Gimond](https://mgimond.github.io/Spatial/img/Random_maps.png){fig-align="center"}](https://mgimond.github.io/Spatial/spatial-autocorrelation.html)
+
+### Sources of dependence: time series and panel data
+
+Most things are correlated with their own past values (temporal autocorrelation) and observing the same case multiple times doesn't necessarily mean you've collected totally new data:
+
+```{r, cache=TRUE, echo=FALSE}
+
+vdem<-vdemdata::vdem|>
+  filter(country_name %in%c(
+    'United States of America', 
+    'Mexico',
+    "Canada")
+    )|>
+  filter(year>1800) 
+  
+
+ggplot(vdem, aes(x=year, y=v2x_libdem, color=country_name)) + 
+  geom_line(lty=1, lwd=1) +
+  theme_bw() +
+  scale_color_viridis_d() +
+  guides(color=guide_legend(title="Country")) +
+  ylab("liberal democracy")
+
+
+
+```
+
+### Sources of dependence: Sampling strategies
+
+-   Surveys typically target strata rather than using true random sampling
+
+-   Researchers may target neighborhoods or census tracts rather than individuals when conducting a field experiment
+
+[![](https://upload.wikimedia.org/wikipedia/commons/f/fa/Stratified_sampling.PNG){fig-align="center"}](https://commons.wikimedia.org/wiki/File:Stratified_sampling.PNG)
+
+## Why it matters
+
+::: incremental
+-   Primary issue: unrealistically small standard errors. Which means we underestimate uncertainty (small p.values, narrow confidence intervals etc)
+
+-   We have far fewer **independent** observations than the number rows in our data might imply.
+
+    -   There's over 3,000 counties, but we've got data from 50 states that we've simply duplicated multiple times.
+
+-   We can also have spurious results from certain patterns of autocorrelation: if two variables are increasing over time, they'll look correlated in a time series regression
+:::
+
+# Some Strategies
+
+As usual, the specific matter, and we need to know how things are correlated before we can really address this problem. But once we have that, some options are:
+
+-   Aggregation
+
+-   Cluster robust standard errors
+
+-   Fixed Effects (maybe)
+
+-   Random effects/Mixed models
+
+-   Differencing or lagging (for time series)
+
+## Aggregation
+
+In the election model, we could just aggregate everything up to the state level so we no longer have nested data:
+
+```{r}
+state_data<-counties|>
+  ungroup()|>
+  group_by(state_name)|>
+  summarise(state_total = sum(total_votes),
+            join_year = unique(join_year),
+            perc_gop = sum(votes_gop)/state_total * 100
+            
+            )
+
+
+model_2<-lm(perc_gop ~ join_year, data=state_data)
+
+```
+
+```{r, echo=FALSE}
+
+modelsummary(list('Original' = model, "Aggregated" = model_2),
+ estimate  = "{estimate}",  
+  statistic = c("conf.int"),
+ conf_level = .95,        
+ coef_map = list('join_year' = 'State year joined union'
+                 ),
+ note = "note: constant = 64.7",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.|BIC',
+ title= 'DV: County GOP vote % in 2024'
+ )
+
+
+
+```
+
+## Aggregation
+
+-   Good: This fixes the state-level autocorrelation (although we might still be concerned about regional autocorrelation!)
+
+-   Good: Once we've done this, we just estimate a linear model
+
+-   Bad: we lose a lot of nuance!
+
+    -   We can't include any county-level covariates in the model
+
+    -   Counts all observations equally (here this might make sense, but maybe not in all cases)
+
+    -   Potentially throws out useful information about precision (some estimates should be seen as more precise)
+
+## Standard Error Adjustments
+
+If we have an idea about the nature of the clustering, we can potentially model it an adjust our standard errors accordingly.
+
+### Clustered Bootstrap
+
+-   Bootstrapped Standard Errors: repeatedly resample with replacement from the original data, calculating the same statistic after each step, then measure the variance in those resampled statistics
+
+-   Clustered Bootstrap: repeatedly resample **each cluster** with replacement.
+
+### Clustered Bootstrap
+
+```{r, echo=FALSE}
+
+modelsummary(list('Clustered Bootstrap' = model),
+ estimate  = "{estimate}",  
+  statistic = c("conf.int", 'std.error'),
+ conf_level = .95,        
+ coef_map = list('join_year' = 'State year joined union'
+                 ),
+ note = "note: Standard errors in parentheses",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ title= 'DV: County GOP vote % in 2024',
+ vcov = "bootstrap",
+ cluster=~state_name
+ 
+ )
+
+
+```
+
+### Cluster Robust Errors
+
+Another (faster) solution involves adjusting the standard error calculation so that it increases as clustering increases
+
+A normal standard error
+
+$$
+var(\hat{\beta_1}) = \frac{var(u) \sum_{i=1}^{n}(x_i - \bar{x})^2}{TSS^2_x}
+$$
+
+A cluster robust standard error
+
+$$
+var(\hat{\beta_1}) = \frac{\sum_{i=1}^{n} \sum_{j=1}^{n}(x_i - \bar{x})\hat{u_i}\hat{u_j} (x_j-\bar{x})}{TSS^2_x}
+$$
+
+::: notes
+This really isn't an important thing to know. What is important is that:
+
+1.  covariance is being measured at the cluster level and will get larger when there's greater correlation within clusters
+2.  If there's no within-cluster correlation, this will converge toward the regular standard error in a sufficiently large sample
+:::
+
+### Cluster Robust Errors
+
+```{r, echo=FALSE}
+
+modelsummary(list('Cluster Robust SE' = model),
+ estimate  = "{estimate}",  
+  statistic = c("conf.int", 'std.error'),
+ conf_level = .95,        
+ coef_map = list('join_year' = 'State year joined union'
+                 ),
+ note = "note: Standard errors in parentheses",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ title= 'DV: County GOP vote % in 2024',
+ vcov=~state_name
+ 
+ )
+
+
+```
+
+## Standard Error Adjustments
+
+-   Good: easy to use as long as you know the nature of the clustering
+
+-   In theory, there's no cost here: if there's no clustering, then the standard errors should look normal ones
+
+-   But maybe inappropriate for this kind of hierarchical data
+
+## Fixed Effects Models
+
+-   Create an indicator variable for every "cluster". i.e.: one per country or one per state
+
+-   Include N-1 indicators in a regression model along side your variables of interest
+
+-   Note: this amounts to controlling for **all fixed characteristics of the grouping variable** including characteristics you didn't measure. So everything should be interpreted as an average effect relative to the group mean
+
+    -   This can be great or bad depending on what your goals are
+
+### Fixed Effects Models: example
+
+::::: columns
+::: {.column width="50%"}
+Theory: popular parties want to be seen as competent, so they'll be less likely to emphasize valence issues like corruption
+
+-   Data: 2019 round of the Chapel Hill Expert Survey for Europe
+
+-   Unit of Analysis: political party
+
+-   IV: number of seats
+
+-   DV: corruption salience
+
+. . .
+
+What's the problem here?
+:::
+
+::: {.column width="50%"}
+```{r}
+
+url<-'https://www.chesdata.eu/s/1999-2019_CHES_dataset_meansv3-x7lr.csv'
+ches<-read_csv(url)|>
+  filter(year==2019)
+
+ches<-ches|>
+  mutate(in_gov = factor(govt>0, labels= c("Not in government", "In government"))
+         )|>
+  drop_na(corrupt_salience, seat, in_gov)
+
+
+result<-lm(corrupt_salience ~ 
+            seat, data = ches) 
+
+summary(result)
+
+```
+:::
+:::::
+
+### Fixed Effects Models: example
+
+::::: columns
+::: {.column width="50%"}
+-   Likely some clustering by country (as well as party family, but we'll set that aside)
+
+-   We may also want to account for other country-level characteristics like the actual level of corruption in a state! Fixed effects can do this.
+:::
+
+::: {.column width="50%"}
+```{r}
+library(fixest)
+
+
+# LM would just be : lm(corrupt_salience ~ seat + factor(country), data=ches)
+ches_model<-feols(corrupt_salience ~ seat |country,
+      data=ches)
+modelsummary(ches_model,
+ estimate  = "{estimate}",  
+  statistic = c("conf.int", 'std.error'),
+ conf_level = .95,        
+ note = "note: Standard errors in parentheses",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ title= 'DV: County GOP vote % in 2024'
+ 
+ )
+
+
+```
+:::
+:::::
+
+### Fixed Effects Models: example
+
+We estimate a single regression line, but give each country its own y-intercept:
+
+```{r, echo=FALSE}
+
+
+ches$prediction<-predict(ches_model)
+
+ggplot(ches, aes(x=seat, y=corrupt_salience)) +
+  geom_point() +
+  facet_wrap(~country) +
+  geom_line(aes(x=seat, y=prediction), color='red') +
+  theme_bw()
+
+
+
+```
+
+## Fixed Effects Models
+
+-   Good: accounts for group-level characteristics, including things we never measured or anticipated would matter
+
+-   Good: similar to aggregation or centering variables, but somewhat more flexible
+
+-   Good: Can account for clustering,
+
+    -   But maybe not in some cases, so we just combine it with fixed effects
+
+-   Bad: we can only include things that vary at the level of the fixed effect, so if we wanted to measure the effect of perceived corruption in a state, this won't work.
+
+-   Bad: soaks up a lot of variance. Maybe not necessary.

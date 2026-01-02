@@ -1,0 +1,162 @@
+---
+title: "Class"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+
+
+```{r}
+library(tidyverse)
+library(huxtable)
+library(tidycensus)
+library(fixest)
+
+
+```
+
+# Violating non-independence
+
+Consider a (contrived) scenario where you just accidentally include a bunch of duplicated responses:
+
+```{r, echo=T}
+set.seed(500)
+
+N<-500
+ID = seq(N) # an id for each observation
+X<-rnorm(N) # the IV
+Y<-1  + rnorm(N, 0 ,10) # the DV
+
+df<-data.frame(
+  X,
+  Y,
+  ID
+)
+# duplicating the data
+df_duplicated <- replicate(100, df, simplify=FALSE)|>
+  bind_rows()
+model<-lm(Y ~ X, data=df)
+model_duplicated <- lm(Y ~ X, data=df_duplicated)
+
+```
+
+# Violating non-independence
+
+Obviously, the second model is just vastly overestimating our real sample size. We may have 60 rows in our dataset, but there's only 500 independent observations here.
+
+```{r}
+huxreg(model, model_duplicated)
+
+```
+
+### Clustering error terms
+
+If we know the source of the clustering, we can adjust our standard errors to account for it. Notice that we're able to approximately get the correct standard error size here using the duplicated data:
+
+```{r, echo=T}
+library(sandwich)
+library(lmtest)
+model1_robust <- coeftest(model_duplicated, 
+                          vcov = vcovCL,
+                          type='HC2',
+
+                          cluster = ~ID
+                          )
+model1_robust
+
+
+
+
+
+
+```
+
+Also note that, in the absence of real clustering, there's not much that changes here:
+
+```{r, echo=T}
+set.seed(100)
+
+fakeids<-sample(letters, size=nrow(model$model) ,replace=TRUE)
+
+model0_robust <- coeftest(model, 
+                          vcov = vcovCL,
+                          type='HC2',
+                          cluster = ~fakeids
+                          )
+model0_robust
+
+```
+
+### Fixed effects
+
+We'll bring in the county-level election results data along with some demographic and income measures:
+
+```{r, echo=TRUE}
+library(tidycensus)
+
+# county level election results
+counties_24<-read_csv('https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/refs/heads/master/2024_US_County_Level_Presidential_Results.csv')
+
+county_data<- get_acs(geography = "county", 
+                  variables = c(Pop= "B02001_001",
+                                Income = "B19013_001",
+                                White = "B03002_003", 
+                                AfAm = "B03002_004",
+                                Hisp = "B03002_012",
+                                Asian = "B03002_006"))
+
+county_data_wide<-county_data|>
+  select(-moe)|>
+  pivot_wider(names_from = variable, values_from=estimate)
+
+counties<-left_join(counties_24, county_data_wide,by=join_by(county_fips == GEOID))|>
+  mutate(perc_gop = per_gop * 100, 
+         Income = Income / 1000,
+         White = White/Pop,
+         AfAm = AfAm/Pop,
+         Hisp =Hisp/Pop
+         )
+
+
+
+
+
+```
+
+### Fixed Effects
+
+I *can* use a regular linear regression here, but it gives messy results and its slow. So instead I'll use the fixest package:
+
+```{r}
+
+fmodel<-feols(perc_gop ~ Income + White + AfAm + Hisp  + Asian | state_name, data=counties)
+
+
+
+fmodel
+
+
+
+
+```
+
+```{r}
+
+huxreg(fmodel)
+
+
+```

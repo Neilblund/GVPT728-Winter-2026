@@ -1,0 +1,92 @@
+---
+title: "Homework 1"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+## Required libraries
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+
+```
+
+Use the [FiveThirtyEight presidential elections data](https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv) to answer the following questions about the 2020 general election results.
+
+Remember that you can load this from R by running:
+
+```{r, eval=FALSE}
+
+url<-"https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv"
+presidential_elections<-read_csv(url)
+```
+
+## Question 1
+
+Create a data frame with the two party vote share and the winning candidate for each state (plus D.C.) in the 2020 presidential election. Your results should have 51 rows and will look something like this (use whatever column names you like)
+
+|          |              |           |
+|----------|--------------|-----------|
+| State    | Donald Trump | Joe Biden |
+| Alabama  | 1441170      | 849624    |
+| Alaska   | 189951       | 153778    |
+| Arizona  | 1661686      | 1672143   |
+| Arkansas | 760647       | 423932    |
+
+```{r}
+# Q1
+
+```
+
+## Question 2
+
+Use the data frame you created in the prior step to calculate Biden's share of the two-party vote in each state (i.e. Biden votes / (Biden votes + Trump votes) 
+
+```{r}
+# Q2
+
+```
+
+## Question 3
+
+Use the following code to download the ACS estimated median household income for each state and then use a join to add this column to your data. 
+
+```{r}
+
+median_income <- get_acs(geography = "state", 
+                         variables = c(median_income = "B19013_001"), 
+                         year = 2020)
+```
+
+(note that the "estimate" column will be the estimated median income) 
+
+```{r}
+#Q3
+
+```
+
+## Question 4
+
+Run a linear regression to calculate the effect of median income on Biden's statewide two party vote share. Produce a formatted table to display your results and briefly discuss your findings. 
+
+Submit your response and R code in a nicely formatted R markdown file, or in a document with formatted code in a separate section. 
+
+```{r}
+# Q4
+
+```

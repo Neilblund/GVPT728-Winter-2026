@@ -1,0 +1,81 @@
+---
+title: "Fixed Effects and Clustering"
+format: 
+  html:
+      df_print: paged
+      code_download: true
+      toc: true
+      toc_depth: 3
+      toc_float: true
+      self-contained: true
+editor: visual
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+# Data
+
+Use the code below to download replication data for [Sørensen, Rune J. "The impact of state television on voter turnout." *British Journal of Political Science* 49.1 (2019): 257-278.](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/QGMHHQ) 
+
+Note that, for the purposes of this analysis, you will be using only data from 1963 (the paper itself does something far more interesting, but we'll save it for later!)
+
+```{r}
+library(tidyverse)
+
+turnout_data<- dataverse::get_dataframe_by_name(
+  filename = 'AggregateReplicationTVData.dta',
+  .f = haven::read_dta,
+  dataset = '10.7910/DVN/QGMHHQ', 
+  server = "dataverse.harvard.edu")
+
+# filtering for 1963 ONLY 
+turnout_data<-turnout_data|>
+  filter(nationalelection==0)|>
+  filter(year == 1963)|>
+  mutate(CountyId = factor(CountyId),
+         knr = factor(knr)
+         )
+```
+
+Each row of `turnout_data` contains information on a single municipality. The variables of interest for this analysis are as follows:
+
+| Variable | Description |
+|------------------------------------|------------------------------------|
+| turnout | \% turnout |
+| TVdummy | Does this municipality have television access yet? (**This is the main explanatory variable of interest**) |
+| logpop | Log of municipality population |
+| education | Share of adult population with college education |
+| settlement | \% of population that lives in sparsely populated area |
+| voterpct | \% of the population that is eligible to vote |
+| CountyId | County ID (numeric converted to factor) |
+| knr | Municipality ID (number converted to factor) |
+
+You'll use the following baseline model:
+
+```{r}
+
+model0<-lm(turnout ~ TVdummy + logpop + education + settlement + voterpct, data=turnout_data)
+```
+
+## Question 1
+
+Estimate 3 new versions of `model0` that account for correlations across levels of `CountyId`:
+
+1.  A model with cluster robust standard errors
+2.  A fixed effects model
+3.  A random effects model
+
+Include your output in a formatted regression table and briefly discuss the differences between your results.
+
+```{r}
+### Q1 code
+
+
+
+```
+
+## Question 2
+
+Which of the models above seems like a better approach for this analysis? Briefly discuss some pros and cons for each one.

@@ -1,0 +1,545 @@
+---
+title: "Matching"
+format:
+  revealjs:
+    theme: [moon, custom_styles]
+    width: 1280
+    height: 720
+    df-print: tibble
+    scrollable: true
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+filters:
+  - reveal-header
+  - pseudocode
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+```
+
+```{css, echo = FALSE}
+.output {
+max-height: 500px;
+overflow-y: scroll;
+}
+```
+
+```{=html}
+<script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js""></script>
+<script type="text/javascript">
+  $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+</script>
+```
+
+```{r, include=FALSE}
+
+library(ggdist)
+library(modelsummary)
+library(tidyverse)
+library(ggpubr)
+library(MatchIt)
+library(cobalt)
+library(ggdist)
+library(broom)
+data(lalonde.exp, package='causalsens')
+
+lp<-lalonde|>
+  mutate(group= factor(treat, labels=c('control', 'treated')))|>
+  select(group, age, educ, re74, re75)
+
+plt_list<-list()
+
+for(i in c("age", "educ", "re74", "re75")){
+  dens<-gghistogram(lp, x = i,
+                 add = "mean", rug = TRUE,
+                 color = "group", fill = "group",
+                 add.params = list(linetype = "dashed",size=.7),
+                 add_density = T,
+              
+                 palette = c("#00AFBB", "#E7B800")) 
+  
+  
+  dens<-facet(dens, facet.by='group', ncol=1)
+  
+  stable <- desc_statby(lp, measure.var = i,
+                        grps = "group")
+  stable <- stable[,c('group', 'min', 'max', 'median', 'mean', 'iqr', 'sd', 'range')]
+  stable.p <- ggtexttable(stable, rows = NULL,
+                          theme = ttheme("classic"))
+  
+  plt_list[[i]]<-ggarrange(dens, stable.p,
+                      ncol = 1, nrow = 2,
+                      heights = c(1, 0.5))
+}
+
+
+
+
+plt_list[[1]] + 
+  stat_compare_means(method = "t.test")
+
+
+```
+
+# Lalonde (1986)
+
+-   National Supported Work experiment: qualified applicants randomly assigned to either a treatment or control condition. Treatment group received a guaranteed job for 9-18 months with additional counseling and support
+
+. . .
+
+-   Very positive results!
+
+```{r, echo=F}
+
+ll_exp<-lm(re78 ~ treat , data=lalonde.exp)
+huxtable::huxreg(ll_exp)
+
+```
+
+## Lalonde (1986)
+
+```{r}
+
+library(ggstatsplot)
+plt <- 
+  lalonde.exp|>
+  mutate(group = factor(treat, labels=c('control','treated')))|>
+
+  ggbetweenstats(
+  data = _,
+  x = group,
+  y = re78
+)
+
+plt
+
+```
+
+## Lalonde (1986)
+
+-   Lalonde swapped the control group for a sample from the general population, and demonstrated that a similarly constructed study with observational data would fail to find the correct result, even after controlling for observed characteristics
+
+```{r}
+
+model<-lm(re78 ~ treat ,data=lalonde)
+huxtable::huxreg("vs experimental control"=ll_exp,"vs population"=model)
+
+
+
+```
+
+## Lalonde (1986)
+
+(he tried a bunch of stuff, none of it worked)
+
+![](images/lalonde_results.png)
+
+## Lalonde (1986)
+
+Candidates for job training were unlike the general population. They weren't even especially similar to people with similar income, education, age, race, etc.
+
+. . .
+
+The treatment group differed from the general population in their expected **potential income**. So a naive difference of means would be a combination of the impact of job training and the difference in potential outcomes with the general population.
+
+$$\underbrace{E[Y_i(1) - Y_i(0)|D_i=1]}_\text{job training effect} +  \underbrace{E[Y_i(0)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{differences between applicants and non-applicants}$$
+
+# Observed Imbalance
+
+```{r, fig.width=12}
+library(gtsummary)
+
+ll2<-lalonde.exp|>
+  mutate(educ = education, 
+         race = case_when(hispanic ==1 ~ "hispan",
+                          black == 1 ~ "black",
+                          .default = "white"
+                          )
+         )|>
+  
+  filter(treat==0)|>
+  
+  mutate(treat = 0)|>
+  select(colnames(lalonde))|>
+  bind_rows(lalonde|>mutate(treat = treat+1))|>
+  mutate(group = factor(treat,levels=c(1,0,2), labels=c('population','control', 'treated')))
+  
+
+tab<-ll2|>
+   rename(`income 1974`=re74, 
+         `income 1975`= re75
+         )|>
+  select(-treat, -re78)|>
+  tbl_summary(
+    data=_,
+    #include = c(age, grade, response),
+    by = group, # split table by group
+    missing = "no" # don't list missing data separately
+  ) |>
+  add_n() |> # add column with total number of non-missing observations
+ # add_p() |> # test for a difference between groups
+  modify_header(label = "**Variable**") |> # update the column header
+  bold_labels()
+
+  
+tab|>
+    as_kable_extra(booktabs = TRUE) |>
+  # reduce font size to make table fit. 
+  # you may also use the `latex_options = "scale_down"` argument here.
+  kableExtra::kable_styling(font_size = 35)
+
+```
+
+## Imbalance
+
+Control variables probably can't fix this.
+
+-   large observed differences often imply large unobserved differences
+-   even if all confounding is observed and controlled, regression controls assume a linear relationship between the confounders and the treatment effects.
+
+## Imbalance
+
+Applied for program $\rightarrow$ Earnings
+
+Applied for program $\leftarrow$ Education $\rightarrow$ Earnings
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph mrdag {
+
+  graph [rankdir=TB]
+  node [shape=oval, height=0.3, width=0.3, style=dashed]
+ // S[label="Skills"]
+  node [shape=box, height=0.3, width=0.3, style=solid]
+  E[label="Education"]
+  D[label="Applied for\n program"]
+  Y[label="Earnings"]
+  { rank = same; D,Y }
+  //S -> E
+ // S -> Y
+ // S -> D
+  E -> D
+  D -> Y
+  E -> Y
+}
+```
+
+## Imbalance
+
+```{r, echo=TRUE}
+
+dataFunction<-function(){
+  N<-1000
+  education<-rpois(N, 3) # education
+  D<-rbinom(N, 1, arm::invlogit(education)) # applied to job program
+  Y_1<- 2 + education^2 +  rnorm(100) # potential outcome for training
+  Y_0<- 0 + education^2 +  rnorm(100) # potential outcome for no training
+  ATE<-mean(Y_1-Y_0) # the true effect 
+  Y<-ifelse(D==1, Y_1, Y_0) # the observed outcomes 
+  df<-tibble("income" =Y, Y_0=Y_0, Y_1=Y_1,
+             'treated' = factor(D, labels=c("Control", "Treated")), 
+             education)
+  return(df)
+}
+
+set.seed(9999)
+data<-dataFunction()
+ggplot(data, aes(x=income,y=treated)) + 
+  stat_halfeye() +
+  theme_bw() +
+  xlab("Potential Outcome if Y(1)")
+
+
+
+mean(data$Y_1 - data$Y_0)
+
+
+
+```
+
+## Imbalance
+
+Notably, since the education confounder has a non-linear effect on income, we don't actually get a correct estimate even if we control for it:
+
+```{r}
+ate <- mean(data$Y_1 - data$Y_0)
+ols<-lm(income ~ treated, data=data)
+ols_control<-lm(income ~ treated + education, data=data)
+
+modelsummary(list('no controls'=ols, 'ols + control' =ols_control), 
+             gof_map = c("nobs"),
+             note = sprintf("actual ATE = %s", round(ate,digits=3))
+
+             )
+  
+
+```
+
+# Matching
+
+The experimental ideal allows us to assume this:
+
+$$Y_i(0), Y_i(1), X_i \mathrel{\unicode{x2AEB}} D_i$$ But we could theoretically get the average treatment effect if we can assume that the assignment is **conditionally** independent of expected outcomes.
+
+$$Y_i(0), Y_i(1) \mathrel{\unicode{x2AEB}} D_i |  X_i$$Both matching and regression methods attempt to meet this more relaxed condition, but the former can potentially do so more flexibly.
+
+## Exact matching
+
+-   Match groups with the **exact same** values, discarding levels of the predictor without at least one treated and one control unit.
+-   re-weight each strata so that the treatment and control groups are similar
+
+### Exact matching
+
+```{r, echo=FALSE}
+
+df<-data
+
+matched<-matchit(treated ~ education ,data=df, 
+                 method='exact',
+                 estimand ='ATE'
+                 )
+
+md<-tibble('education'= factor(matched$X$education),  
+                      'treatment' = factor(matched$treat, labels=c("control", "treatment")),
+                      'subclass' = matched$subclass, 
+                      'weight' =matched$weights,
+                      'income' = data$income,
+                      'dropped' = matched$weights==0,
+                     "Y1" = data$Y_1
+                     )|>
+  arrange(treatment, education)
+
+
+ggplot(md, aes(x=education, 
+                         y=income, 
+                         size = weight,
+                         shape = dropped,
+                         fill = treatment,
+                         ), alpha=.5) + 
+  geom_jitter(width=.5, height=.9)+
+  theme_bw() +
+  scale_fill_brewer(palette='Dark2', guide='none') +
+  facet_wrap(~treatment, ncol=1) +
+  scale_shape_manual(values=c(21, 4))
+
+
+```
+
+### Exact matching
+
+```{r}
+
+
+combined<-bind_rows(md, md|>mutate(weight=1),  .id='group')|>
+  mutate(group=factor(group, labels=c("weighted",'unweighted')))
+
+ggplot(combined, aes(x = group, y = Y1, fill = treatment)) +
+  introdataviz::geom_split_violin(alpha = .4, trim = FALSE, aes(weight=weight)) +
+  geom_boxplot(width = .2, alpha = .6, fatten = NULL, show.legend = FALSE, aes(weight=weight)) +
+  scale_fill_brewer(palette = "Dark2", name = "") +
+  theme_minimal() +
+  ylab("Potential Income Y(1)")
+  
+
+
+```
+
+### Exact matching
+
+Exact matching on education, however, actually does get us much closer to the true average treatment effect
+
+```{r, echo=T}
+
+ate<-mean(data$Y_1 - data$Y_0)
+
+matched<-matchit(treated ~ education ,data=data, 
+                 method='exact',
+                 estimand ='ATE'
+                 )
+mdat<-match.data(matched)
+
+exact_match_fit <- lm(income ~ treated + education,
+           data = mdat, weights = weights)
+
+modelsummary(list('no controls'=ols, 
+                  'ols + control' =ols_control, 
+                  'exact matching' =exact_match_fit), 
+             gof_map = c("nobs"),
+             note = sprintf("actual ATE = %s", round(ate,digits=3))
+             )
+
+```
+
+### Exact matching
+
+In repeated simulations, the exact matching estimates are unbiased and have only slightly more variance than the actual average treatment effect:
+
+```{r, echo=TRUE}
+set.seed(999)
+fun<-function(){
+  df <- dataFunction() # re-using the data generating function
+  ATE <- mean(df$Y_1 - df$Y_0)
+  model<-lm(income ~ education + treated, data=df)
+  matched<-matchit(treated ~ education ,data=df, method='exact' ,estimand='ATE')
+
+  mdat<-match.data(matched)
+
+  fit1 <- lm(income ~ treated ,
+           data = mdat, weights = weights)
+  res<-tibble('regression estimate' = coef(model)[3], 
+                  #'matched' = mean(result$difference), 
+              "matched estimate"=coef(fit1)[2],
+              "Average Treatment Effect" = ATE
+              )
+return(res)
+
+}
+
+results<-replicate(500, fun(), simplify = F)|>
+  bind_rows()|>
+  pivot_longer(cols=everything())|>
+  mutate(value = unlist(value))
+
+
+```
+
+### Exact matching
+
+```{r}
+ggplot(results, aes(x=value, fill=name, y=name)) + 
+  theme_bw() +
+  stat_halfeye(alpha=.7)+
+  scale_fill_manual(values=c("#00AFBB", "#E7B800", "#D55E00")) +
+  ylab("group")
+
+
+```
+
+### Exact matching: limitations
+
+In practice, exact matching is not feasible for most data. Most real world data sets will have few, if any, exact matches on multiple characteristics. (think about trying to do this with a continuous covariate!)
+
+## Propensity score matching
+
+Instead of matching on values, PSM matches observations with similar probabilities of receiving treatment.
+
+-   Estimate a model to predict being in the treatment group
+-   Group values with similar treatment probabilities
+-   Reweight the model so that the treated and control groups are similar
+-   Normally, discard observations outside of the "area of common support" where significant overlap exists.
+
+### Propensity score matching
+
+```{r, echo=T}
+
+
+matched<-matchit(treated ~ education ,data=df, 
+                 method='nearest' ,
+                 ratio = 2,
+                 distance = 'glm')
+mdat<-match.data(matched)
+psm_fit <- lm(income ~ treated + education , data=mdat, weights = weights)
+
+modelsummary(list('ols + control' =ols_control, 
+                  "exact matching"=exact_match_fit,
+                  "psm" = psm_fit
+                  ), 
+             gof_map = c("nobs")
+             )
+
+
+
+```
+
+### Propensity scores
+
+```{r}
+plot(matched, type = "jitter", interactive = FALSE)
+
+
+```
+
+### Propensity score matching
+
+In practice propensity scores are often completely fine, but theoretically they can actually worsen bias if the treatment selection process isn't modeled correctly. Other methods are more robust to this kind of mis-specification.
+
+![](https://humboldt-wi.github.io/blog/img/seminar/mathcing_methods_1819/SN13.png)
+
+## Coarsened Exact Matching
+
+::: incremental
+-   "Coarsen" the variables, prune unmatched observations (usually requires some user-input)
+-   Conduct exact matching on the coarsened results
+-   Reweight as needed to match groups
+:::
+
+### Coarsened Exact Matching
+
+![](https://miro.medium.com/v2/resize:fit:1400/1*6p01hxNrmMiJ25-o_AeNoQ.png)
+
+### Coarsened Exact Matching
+
+```{r, echo=T}
+matched<-matchit(treated ~ education ,data=df, method='cem' ,
+                 distance = 'glm', estimand = "ATE")
+mdat<-match.data(matched)
+cem_fit <- lm(income ~ treated + education , data=mdat, weights = weights)
+
+modelsummary(list('ols + control' =ols_control, 
+                  "exact matching"=exact_match_fit,
+                  "psm" = psm_fit,
+                  "cem" = cem_fit
+                  ), 
+             gof_map = c("nobs"),
+             note = sprintf("actual ATE = %s", round(ate,digits=3))
+
+             )
+
+
+
+```
+
+## Standard errors
+
+Methods like CEM will generally group variables together before weighting, so we would expect to see clustering within the strata, but we know how to deal with this!
+
+```{r}
+
+marginaleffects::avg_comparisons(cem_fit, 
+                                 variables='treated', 
+                                 vcov=~subclass, 
+                                 wts='weights')
+```
+
+## Takeaways
+
+-   Matching *can* address some of the limitations of regression models and simulate experimental conditions.
+
+-   Main advantages over regression are:
+
+    -   No assumption of a linear relationship between confounders
+    -   More informally: allows researchers to separate out the treatment selection process from the treatment effect process.

@@ -1,0 +1,519 @@
+---
+title: "Instruments"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [moon, custom_styles]
+    width: 1280
+    height: 720
+    df-print: tibble
+    scrollable: true
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+filters:
+  - reveal-header
+  - pseudocode
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r, echo=FALSE}
+
+library(wooldridge)
+library(lmtest)
+library(sandwich)
+data('bwght')
+
+```
+
+# Problem
+
+-   Matching methods can only address confounding that we actually measure, but a lot of confounding is unobserved
+
+-   Randomization can address unobserved confounding, but most things aren't randomized.
+
+## Unobserved Confounding: protest and change
+
+Does protest *cause* policy changes? Large scale protests are often correlated with profound political shifts
+
+. . .
+
+::::: columns
+::: {.column width="50%"}
+-   Protesters are strategic actors. They're more likely to mobilize when they already have public and elite support.
+:::
+
+::: {.column width="50%"}
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Public Support"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    D[label="Protest turnout"]
+    Y[label="Policy Change"]
+    D->Y [minlen=4]
+    U->D, Y 
+    { rank = same; D Y }
+}
+
+
+```
+:::
+:::::
+
+## Unobserved Confounding: protest and change
+
+Does protest *cause* policy changes? Large scale protests are often correlated with profound political shifts
+
+::::: columns
+::: {.column width="50%"}
+-   Protesters are strategic actors. They're more likely to mobilize when they already have public and elite support.
+
+-   Moreover protests themselves can influence public and elite opinion, so we can't really account for this even with controls.
+:::
+
+::: {.column width="50%"}
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Public Support"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    D[label="Protest turnout"]
+    Y[label="Policy Change"]
+    D->Y [minlen=4]
+    U->D, Y 
+    D->U
+    { rank = same; D Y }
+}
+
+
+```
+:::
+:::::
+
+## Unobserved Confounding: protest and change
+
+Does protest *cause* policy changes? Large scale protests are often correlated with profound political shifts
+
+::::: columns
+::: {.column width="50%"}
+-   Protesters are strategic actors. They're more likely to mobilize when they already have public and elite support.
+
+-   Moreover protests themselves can influence public and elite opinion, so we can't really account for this even with controls.
+
+-   If we can find another variable that influences protest turnout but is **uncorrelated** with the confounding, we can still estimate a causal effect
+:::
+
+::: {.column width="50%"}
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Public sentiment"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    D[label="Protest turnout"]
+    Y[label="Policy Change"]
+    I[label="        "]
+    D->Y [minlen=4]
+    U->D, Y 
+    I->D
+    D->U
+    { rank = same; D Y }
+}
+
+
+
+```
+:::
+:::::
+
+## Unobserved Confounding: protest and change
+
+Bad weather decreases protest turnout, but it should be uncorrelated with public or elite opinion. T
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Public sentiment"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    D[label="Protest turnout"]
+    Y[label="Policy Change"]
+    I[label="Rainfall"]
+    D->Y [minlen=4]
+    U->D, Y 
+    I->D
+    { rank = same; D Y }
+}
+
+
+```
+
+# Imperfect Instruments
+
+The instrument is correlated with our "treatment" of protest turnout, but its not a perfect correlation b because some people protest in bad weather. So how does this impact our results? This can be analogous to a situation that occurs in true randomized experiments.
+
+![](images/protest_rain.jpeg)
+
+## Non-compliance and missing data
+
+Problem: in a voter mobilization study, some households were assigned to the treatment group but turned out to be vacant when someone knocked on the door. Since the sampling used old voter records, its likely these people just moved in the last couple of years.
+
+|                   | Assigned Control | Assigned Treatment |
+|-------------------|------------------|--------------------|
+| Not treated       | 100              | 20                 |
+| Treated           | 0                | 80                 |
+| **Number voting** | **10**           | **50**             |
+
+Can we get meaningful estimates of the effect here?
+
+## DAG for non-compliance
+
+The recent movers may be systematically different from the people who were successfully canvassed, so canvassing is confounded.
+
+```{dot}
+//| echo: false
+
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Tendency to relocate"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    I[label="Selected for canvassing"]
+    D[label="Actually canvassed"]
+    Y[label="Vote turnout"]
+    I->D
+    D->Y [minlen=4]
+    U->D, Y 
+    { rank = same; D Y }
+}
+
+```
+
+. . .
+
+However, treatment *assignment* is still random, so this should be uncorrelated with any potential confounder. **Assignment** should only impact the outcome through its impact on the likelihood of receiving the treatment.
+
+### Intent-to-treat
+
+The simplest approach here, then, is to just ignore the problem and compare the means between the treatment and control groups.
+
+$$ ITT_i = d_i(1) - d_i(0)  $$
+
+. . .
+
+Any observed correlation between treatment assignment and the outcome is presumably functioning through the impact on receiving the treatment. The estimates **will be biased**, but the bias will always be towards zero. So we can assume the real treatment effect is no worse than the ITT.
+
+. . .
+
+In some cases, this may even be a more realistic approximation of the expected real world effect. After all: large scale GOTV campaigns will face the same problem. But, with our rainfall and protest case, we're probably not satisfied with this.
+
+### Compliers and never-takers
+
+To get the average treatment effect, we need to assume something about the nature of the non-compliance. Namely, two "types" of people:
+
+::: incremental
+-   **Compliers** are people who always conform to their assignment. They always answer the door if they're in the treatment group (and no one ever accidentally knocks on their door if they're assigned control)
+
+-   **Never-takers** are people who will never take the treatment. (the empty houses, its a safe bet, will never answer, and this is true regardless of whether they're assigned to the treatment or control group)
+:::
+
+. . .
+
+If this is the only kind of non-compliance, we can actually estimate the treatment effect for the subset of people who complied.
+
+### Non-compliance
+
+ITT = 40%
+
+The complier average causal effect (CACE) is the effect on the subset of respondents who were compliers. If we can assume these are evenly distributed in both treatment and control groups, then the CACE is just the ITT divided by the % non-compliance in the treatment group.
+
+|              | Assigned Control (n=100) | Assigned Treatment (n=100) |
+|--------------|--------------------------|----------------------------|
+| Not treated  | 100 (10 voted)           | 20 (2 voted)               |
+| Treated      | 0                        | 80 (48 voted)              |
+| **% voting** | **10%**                  | **50%**                    |
+
+$$
+CACE = .4/.8 = 50%
+$$
+
+### Non-compliance: two-sided
+
+What if some control units receive the treatment? If we assume a third category of "always compliers" we can still estimate CACE, we just need to subtract the % non-compliance in both groups.
+
+|              | Assigned Control (n=200) | Assigned Treatment (n=200) |
+|--------------|--------------------------|----------------------------|
+| Not treated  | 180 (10% voted)          | 40 (10% voted)             |
+| Treated      | 20 (60% voted)           | 160 (50% voted)            |
+| **% voting** | **15%**                  | **42%**                    |
+
+$$ITT = 27$$ $$CACE = .27/ (.8 - .1) = 39%$$
+
+CACE is a unbiased estimate of the Average Treatment Effect as long as we only have compliers, never-takers, and always takers.
+
+### Two-Stage Least Squares
+
+We can perform the CACE adjustment with a two stage least squares model. In stage one we estimate:
+
+$$\text{Treatment}_i = \text{Treatment Assignment}_i + \epsilon_i$$
+
+And in stage 2, we use the fitted values from the previous model as our predictor.
+
+$$\text{Turnout}_i = \hat{\text{Treatment}}_i + \epsilon_i $$
+
+### Two-Stage Least Squares
+
+```{r, echo=TRUE}
+df<-data.frame(
+           'assigned_treat' = rep(c(0, 1), each=200),
+           'treated' =        rep(c(0, 1, 0,1), c(180, 20, 40 ,160)),
+           'voted' = rep(c(0,1,0,1, 0 ,1,0,1), c(162, 18, 8 ,12,36,4,80,80 ))
+           )
+           
+stage_1<-lm(treated ~ assigned_treat, data=df)
+
+lm(voted ~ stage_1$fitted.values, data=df)|>
+  coef()|>
+  round(digits=2)
+
+
+```
+
+### Two-Stage Least Squares
+
+CACE is a noisy estimate of the actual treatment effect under non-compliance (we'll need to adjust our standard errors to account for the extra uncertainty here)
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(ggdist)
+set.seed(100)
+non_compliance<-function(){
+  N<-1000
+  df<-tibble(
+         groups = sample(c("Always", "Compliers", "Never"), size=N, replace=TRUE),
+         treatment_group = rbinom(N, 1, .5),
+         group_effect = c(model.matrix(~0 + groups) %*% c(.6, 0, -.6)),
+         treated = groups=="Always" | (groups == "Compliers" & treatment_group==1),
+         Y_1 = 1 + group_effect + .5 + rnorm(N),
+         Y_0 = 1 + group_effect +  rnorm(N),
+         Y = ifelse(treated==1, Y_1, Y_0) )
+
+  return(df)
+}
+estimate<-function(){
+  df<-non_compliance()
+  ate<-mean((df$Y_1) - (df$Y_0))
+  atet<-coef(lm(Y ~ treated, data=df))[2]
+  itt<-coef(lm(Y ~ treatment_group, data=df))[2]
+  selection<-lm(treated ~ treatment_group, data=df)
+  cace<-coef(lm(Y ~ selection$fitted.values, data=df))[2]
+  return(data.frame("CACE"=cace, 
+                    "ITT" = itt, 
+                    "ATT"= atet,
+                    "ATE" = ate
+                    ))
+}
+
+res<-replicate(1000, estimate(), simplify=FALSE)|>
+  bind_rows()
+
+res|>
+  pivot_longer(cols=everything())|>
+  mutate(name = fct_relevel(factor(name), "ITT", "CACE", "ATE", "ATT"))|>
+ggplot(aes(x=value, fill=name, y=name)) + 
+  theme_bw() +
+  stat_halfeye(alpha=.7)+
+  scale_fill_manual(values=c("#00AFBB", "#E7B800", "#D55E00", "red"),
+                    name="Estimate"
+                    ) +
+  ylab("group") +
+  geom_vline(xintercept=0.5, lty=2, color='red') +
+  labs(title = "Estimates under two-sided non-compliance")
+
+
+```
+
+### Non-compliance: Defiers
+
+::::: columns
+::: {.column width="50%"}
+-   What if non-compliance is *caused by* the intent to treat? For instance: what if people knocking at your door, rather than actually speaking to a canvasser, causes you to go vote?
+
+-   Under this condition, the treatment works through both the canvassing effect and the effect of assignment. CACE is conditioning on a collider:
+
+    -   Selected for canvassing $\rightarrow$ **Actually Canvassed** $\leftarrow$ Tendency to Relocate $\rightarrow$ Turnout
+:::
+
+::: {.column width="50%"}
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Tendency to relocate"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    I[label="Selected for canvassing"]
+    D[label="Actually canvassed"]
+    Y[label="Vote turnout"]
+    I->D
+    I->Y
+    D->Y [minlen=4]
+    U->D, Y 
+    { rank = same; D Y }
+}
+
+```
+:::
+:::::
+
+### Back to instrumental variables
+
+-   Instrumental variables in regression assume this same basic model: instruments are like treatment assignments with incomplete compliance. The IV regression model estimates a complier averaged causal effect
+
+-   But the **exclusion restriction** is typically harder to justify: rainfall isn't truly random. We're hoping its random with respect to the confounding, but this may not be the case.
+
+. . .
+
+::::: columns
+::: {.column width="50%"}
+-   We might be able to make the instrument conditionally independent. For instance: maybe rainfall is only independent after we control for region. This is still fine as long as we make the right adjustment.
+:::
+
+::: {.column width="50%"}
+```{dot}
+//| fig-cap: "Rainfall conditionally independent"
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Public sentiment"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    D[label="Protest turnout"]
+    Y[label="Policy Change"]
+    I[label="Rainfall"]
+    J[label="Location"]
+    D -> Y [minlen=4]
+    U -> D, Y 
+    J -> I
+    J -> U
+    I -> D
+    { rank = same; D Y }
+}
+
+```
+:::
+:::::
+
+### Assumptions
+
+::: incremental
+1.  The instrument must have an effect on the causal variable of interest. The stronger the better.
+2.  The instrument should be random or conditionally random with respect to the causal variable and the outcome
+3.  Exclusion restriction: The instrument has no effect on the outcome, except indirectly through the treatment
+4.  Monotonicity: the instrument needs to operate in the same "direction". If some people love to protest in the rain, then we have a problem.
+:::
+
+### Additional Caveats
+
+-   We need to adjust our standard errors! 
+-   We may need to include controls or multiple instruments.
+-   The 2SLS model means we're using two linear probability models. There's conflicting advice on the size of this problem, but the more common practice is to ignore it and use OLS at least for the first stage.
+
+# Examples
+
+## Education and outcomes
+
+[Angrist and Krueger 1991](https://academic-oup-com.proxy-um.researchport.umd.edu/qje/article-abstract/106/4/979/1873496): getting more years in school should improve educational outcomes, but people drop out early so there's confounding.
+
+. . .
+
+-   Students born early in the year start school later. But they could drop out as soon as they reach 16-17.
+
+. . .
+
+-   Early-year births would have fewer total years of schooling.
+
+### Compulsory Education and Earnings
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Ability"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    I[label="Birth month"]
+    D[label="Years of Schooling"]
+    Y[label="Wages"]
+    D -> Y [minlen=4]
+    U -> D, Y 
+    I -> D
+    { rank = same; D Y }
+}
+```
+
+### Compulsory Education and Earnings
+
+![from Angrist and Krueger, 1991 (Reprinted in Mostly Harmless Econometrics)](images/angrist_schooling.png)
+
+### Compulsory Education and Earnings
+
+![from Angrist and Krueger, 1991 (Reprinted in Mostly Harmless Econometrics)](images/Angrist_schooling2.png)
+
+### Compulsory Education and Earnings
+
+![from Angrist and Krueger, 1991 (Reprinted in Mostly Harmless Econometrics)](images/angrist_schooling3.png)
+
+## Fox viewership and Covid
+
+-   Ash et al: did Fox News make people less likely to social distance?
+
+-   Cable News viewership obviously self-directed and reflects preferences
+
+### Fox viewership and Covid
+
+![](images/foxnews.png)
+
+
+
+# Considerations
+
+The first question to ask is: does this satisfy the *exclusion restriction*? This isn't necessarily testable.
+
+### Problems
+
+![](images/toomany.png)

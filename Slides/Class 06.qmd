@@ -1,0 +1,519 @@
+---
+title: "Random Effects Models and Panel Data"
+date: last-modified
+author: Neil Lund
+format:
+  revealjs:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+code-annotations: select
+slide-level: 3
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+
+library(tidyverse)
+library(huxtable)
+```
+
+# Autocorrelation
+
+Possible fixes (that don't require throwing out data )
+
+. . .
+
+::: incremental
+-   Clustered Standard Errors: using either the bootstrap or a sandwich estimator to adjust the standard errors up
+
+-   Fixed effects: make a dummy for each group and include it in the model, (potentially) eliminating the autocorrelation while also controlling for unobserved differences across groups
+
+-   Random effects
+:::
+
+## "Random" vs. Fixed
+
+(the terminology here is [inconsistent and contested](https://statmodeling.stat.columbia.edu/2005/01/25/why_i_dont_use/), but no one has come up with better words yet)
+
+-   Fixed Effects Models give every group its own y-intercept. The effects of "Texas" vs. "Tennessee" are assumed to be fixed and unrelated.
+
+    -   In this sense, you're usually assuming a fixed effect any time you run a standard OLS model.
+
+-   Random Effects Models assume that group intercepts are random draws from a common distribution. They can vary just like any other random variable, but they vary in a predictable way
+
+## An example: students in classrooms
+
+::::: columns
+::: {.column width="50%"}
+-   You want to estimate the effect of time spent studying on student achievment
+
+-   But you also want to account for differences between teachers: you suspect some are slightly better than others.
+:::
+
+::: {.column width="50%"}
+```{mermaid}
+%%| fig-height: 1
+flowchart LR
+Z[School] --> A
+Z --> G
+Z --> L
+A[Classroom 1] --> B(Student A)
+A --> C(Student B)
+A --> E(Student D)
+G[Classroom 2] --> H(Student H)
+G --> I(Student I)
+G --> K(Student K)
+L[Classroom 3] --> M(Student M)
+
+```
+:::
+:::::
+
+## An example: students in classrooms
+
+You calculate some averages and your results look like this:
+
+|                |                        |                       |
+|----------------|------------------------|-----------------------|
+| **Instructor** | **Number of students** | **Average SAT score** |
+| Teacher 1      | 50                     | 1029                  |
+| Teacher 2      | 25                     | 1020                  |
+| Teacher 3      | 5                      | 1120                  |
+
+. . .
+
+Under a fixed effects assumption, each teacher's effect is a fixed parameter, and knowing the mean score for teacher 1 and 2 doesn't tell you anything about what the mean score should be for teacher 3.
+
+. . .
+
+Under a random effects assumption, the teacher effect is drawn from a larger distribution that has a central tendency and a variance. So you might look at the value for teacher 3 and conclude: "this seems implausible, in reality, this effect should probably be closer to the effect for the other two"
+
+## An example: students in classrooms
+
+So we could assume something like this:
+
+$$
+SAT = \text{teacher effect} + b\_\text{studying effect} \times \text{study time} + \epsilon
+$$ $$ 
+\epsilon \sim \mathcal{N}(0, \sigma)
+$$
+
+But we could assume a model with some kind of a "teacher effect" that also had a normal distribution like the error term:
+
+$$ SAT = (\text{teacher effect}) + b\_\text{studying effect} \times \text{study time} + \epsilon$$
+
+$$
+\text{teacher effect} \sim \mathcal{N}(0, \tau)
+$$
+
+. . .
+
+In the second case, we estimate a model that *slightly* biases teacher effects towards the grand mean
+
+## Random Effect
+
+```{r, echo=FALSE}
+library(lme4)
+library(ggeffects)
+sleepstudy <- sleepstudy |>
+  as_tibble() |>
+  mutate(Subject = as.character(Subject))
+xlab <- "X"
+ylab <- "Y"
+
+# Add two fake participants
+df_sleep <- bind_rows(
+  sleepstudy,
+  tibble(Reaction = c(286, 288), Days = 0:1, Subject = "374"),
+  tibble(Reaction = 245, Days = 0, Subject = "373"))
+
+m_pooled <- lm(Reaction ~ Days, df_sleep) 
+
+# Repeat the intercept and slope terms for each participant
+df_pooled <- tibble(
+  Model = "Complete pooling",
+  Subject = unique(df_sleep$Subject),
+  Intercept = coef(m_pooled)[1], 
+  Slope_Days = coef(m_pooled)[2]
+)
+
+df_no_pooling <- lmList(Reaction ~ Days | Subject, df_sleep) %>% 
+  coef() %>% 
+  # Subject IDs are stored as row-names. Make them an explicit column
+  rownames_to_column("Subject") %>% 
+  rename(Intercept = `(Intercept)`, Slope_Days = Days) %>% 
+  add_column(Model = "No pooling") %>% 
+  # Remove the participant who only had one data-point
+  filter(Subject != "373")
+
+
+df_models <- bind_rows(df_pooled, df_no_pooling) %>% 
+  left_join(df_sleep, by = "Subject")
+
+m <- lmer(Reaction ~ 1 + Days + (1 + Days | Subject), df_sleep)
+
+# Make a dataframe with the fitted effects
+df_partial_pooling <- coef(m)[["Subject"]] %>% 
+  rownames_to_column("Subject") %>% 
+  as_tibble() %>% 
+  rename(Intercept = `(Intercept)`, Slope_Days = Days) %>% 
+  add_column(Model = "Partial pooling")
+
+p_model_comparison <- ggplot(df_models) + 
+  aes(x = Days, y = Reaction) + 
+  # Set the color mapping in this layer so the points don't get a color
+  geom_abline(
+    aes(intercept = Intercept, slope = Slope_Days, color = Model),
+    size = .75
+  ) + 
+  geom_point() +
+  facet_wrap("Subject") +
+  labs(x = xlab, y = ylab) + 
+  scale_x_continuous(breaks = 0:4 * 2) + 
+  # Fix the color palette 
+  scale_color_brewer(palette = "Dark2") + 
+  theme(legend.position = "top", legend.justification = "left")
+
+df_models <- bind_rows(df_pooled, df_no_pooling, df_partial_pooling) %>% 
+  left_join(df_sleep, by = "Subject")
+
+# Replace the data-set of the last plot
+p_model_comparison %+% df_models +
+  theme_bw()
+
+
+```
+
+## What to use
+
+-   Fixed Effects model are best when you
+
+    -   Want to control for un-modeled differences across groups
+
+    -   You think groups are fundamentally "different"
+
+    -   You don't want to control for any group-level characteristics
+
+-   Random Effects models are preferable when you
+
+    -   There are lots of small groups with very few members
+
+    -   You're less worried about unmeasured heterogeneity between clusters
+
+    -   You want to include characteristics across different "levels" or even allow the slopes to vary or certain observations
+
+# Temporal autocorrelation
+
+-   OLS assumes that data are independent, but your height today is not independent of your height yesterday.
+
+-   autocorrelation: a value correlates with itself.
+
+    -   Temporal autocorrelation is when a current value depends on a prior value.
+
+### Problem: autocorrelation
+
+Current values often depend on prior values. The democracy score of Paraguay in 2000 is a good predictor of current democracy scores in Paraguay.
+
+```{r}
+
+
+vdem<-vdemdata::vdem|>
+  filter(e_regionpol == "2")|>
+  select(country_name, year, v2x_polyarchy, e_gdppc, e_pop)
+
+vdem|>
+  filter(country_name=='Paraguay')|>
+ggplot(aes(x=year, y=v2x_polyarchy)) +
+  geom_line()  +
+  facet_wrap(~country_name) +
+  theme_minimal()
+
+
+```
+
+### Problem: autocorrelation
+
+Lack of independence poses similar problems to what we observed with clustered samples: we will generally overstate our level of confidence in estimates. We actually have very few truly independent observations here.
+
+```{r, echo=TRUE}
+
+model<-vdem|>
+  filter(country_name=='Paraguay')|>
+  filter(year>=1995)|>
+  lm(v2x_polyarchy ~ log(e_gdppc), data=_)
+
+huxreg(model)
+  
+
+
+
+
+```
+
+### Problem: autocorrelation
+
+```{r}
+plot(model)
+
+```
+
+### Spurious correlation
+
+Time trends can also be a source of spuriousness. Lots of things increase over time, so it will all look significant in a naive model.
+
+::: notes
+There's a general post WWII trend towards higher levels of democratization, so anything correlated with decade is likely to appear significant in a time series.
+:::
+
+```{r}
+
+vdem|>
+ggplot(aes(x=log(e_pop), y=v2x_polyarchy)) +
+  geom_line()  +
+  geom_smooth(method='lm', se=FALSE)+
+  facet_wrap(~country_name) +
+  theme_minimal() +
+  xlab('logged population') +
+  ylab('polyarchy score')
+
+
+```
+
+### Seasonality
+
+Failure to account for cycles can also just lead to poor prediction in the face of complex trends. The overall trend in total airline flights looks like this:
+
+```{r, echo=TRUE}
+
+
+flights <- readRDS("C:/Users/neilb/Documents/GVPT728_Winter24/flights.RData")|>
+  mutate(date =as.Date(date),
+         year = year(date),
+         quarter = quarter(date)
+         )
+ggplot(flights, aes(x=date, y=total_flights)) + 
+  geom_line() +
+  theme_minimal() + 
+  geom_smooth(method ='lm', se=FALSE) +
+  ylab("total flights") +
+  xlab('date') 
+```
+
+### Seasonality
+
+... but we do a poor job of capturing that if we're only looking at a few years of data:
+
+```{r}
+
+
+ggplot(flights, aes(x=date, y=total_flights)) + 
+  geom_line() +
+  theme_minimal() + 
+  geom_smooth(method ='lm', se=FALSE) +
+  ylab("total flights") +
+  xlab('date') +
+  facet_wrap(~year, scales='free')
+  
+
+
+```
+
+## Potential fixes: more fixed or random effects
+
+-   We could treat time as a factor and include it as a random effect (but we can't do time AND case fixed effects because then nothing varies!)
+
+-   Would could treat time as a random effect term
+
+-   We could control for time linearly or with a polynomial or spline function
+
+## Potential fixes: differencing
+
+-   If data depends on prior values, taking the first difference should address it
+
+-   difference = current_value - prior_value
+
+### Differences
+
+```{r}
+
+
+vdem|>
+  filter(country_name=='Paraguay')|>
+  mutate(polyarchy = v2x_polyarchy - dplyr::lag(v2x_polyarchy),
+         group='differenced'
+         )|>
+  bind_rows(vdem|>filter(country_name=="Paraguay")|>
+              mutate(group='original',
+            polyarchy = v2x_polyarchy)
+            )|>
+ggplot(aes(x=year, y=polyarchy, color=group)) +
+  geom_line()  +
+  facet_wrap(~group) +
+  theme_minimal() +
+  ylab('Paraguay democracy score')
+
+
+```
+
+### Differences
+
+Taking the difference of both polyarchy and GDP in this model should eliminate the time trend effect. But it also alters what we're actually regressing.
+
+```{r, echo=TRUE}
+
+differenced_model<-vdem|>
+  filter(country_name=='Paraguay')|>
+  mutate(diff_polyarchy = v2x_polyarchy - dplyr::lag(v2x_polyarchy),
+         diff_gdp = log(e_gdppc) - log(dplyr::lag(e_gdppc))
+         
+         )|>
+  filter(year>=1995)|>
+  lm(diff_polyarchy ~ diff_gdp, data=_)
+
+huxreg("original_model"= model, "differenced_model" =differenced_model)
+
+
+```
+
+### Differences
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+
+plot(differenced_model)
+```
+
+### Differences: change vs. level
+
+A change in the rate of change in the GDP with lead to a change in the rate of change of the democracy score.
+
+```{r}
+huxreg("differenced_model" =differenced_model)
+
+```
+
+### Differencing pros and cons
+
+-   Pro: can account for the primary time series problem without adding any new parameters
+
+-   Con: is actually a different model! Estimates changes, not levels!
+
+-   Con: transforms the data in a way that makes it difficult to get predictions
+
+## Potential fixes: lagged variable model
+
+Another option is to include a lagged variable itself as a covariate. This is typically referred to as an autoregressive model.
+
+```{r}
+ar_model<-vdem|>
+  filter(country_name=='Paraguay')|>
+  arrange(year)|>
+  mutate(lag_polyarchy = dplyr::lag(v2x_polyarchy),
+         lag_gdp = dplyr::lag(e_gdppc)
+         
+         )|>
+  filter(year>=1995)|>
+  lm(v2x_polyarchy ~ lag_polyarchy  + log(e_gdppc)  + log(lag_gdp) , data=_)
+
+
+```
+
+### AR model
+
+```{r}
+huxreg('autoregressive' = ar_model)
+
+```
+
+### AR model: multiple lags
+
+One advantage of this approach is that you can simultaneously test multiple lags, which helps if you think there's more than one source of trend.
+
+```{r}
+ar_model2<-vdem|>
+  filter(country_name=='Paraguay')|>
+  mutate(lag_polyarchy = dplyr::lag(v2x_polyarchy),
+         lag_gdp = dplyr::lag(e_gdppc),
+         lag_gdp2 = dplyr::lag(e_gdppc, 2),
+         lag_polyarchy2= dplyr::lag(v2x_polyarchy, 2),
+         )|>
+  filter(year>=1995)|>
+  lm(v2x_polyarchy ~ lag_polyarchy  + lag_polyarchy2+
+       log(e_gdppc)  + 
+       log(lag_gdp)  + 
+       log(lag_gdp2), data=_)
+
+huxreg(ar_model2)
+
+
+```
+
+::: notes
+One advantage to this approach is that it can be more interpretable since you aren't really altering data.
+:::
+
+### AR model: pros and cons
+
+-   Pro: allows a much more complex model specification and also tests for autocorrelation
+
+-   Con: interpretation is weird, and it adds a lot of parameters and inevitable multicollinearity
+
+## Other fixes
+
+-   Including a fixed effect for time can work if you have multiple observations for different periods or if you only suspect a cyclical trend
+
+-   More complicated autocorrelation structures can be modeled with a regression, and then OLS can be used on the residuals from that model
+
+### ACF plots
+
+ACF plots can be used to visualize autocorrelations. If the lagged correlation is above the blue line, then there's statistically meaningful autocorrelation.
+
+```{r}
+
+vdem|>
+  filter(country_name=='Paraguay')|>
+  arrange(year)|>
+  filter(year >1990)|>
+  mutate(diff_gdp = log(e_gdppc) - log(dplyr::lag(e_gdppc)))|>
+  filter(!is.na(diff_gdp))|>
+  with(acf(diff_gdp, lag.max = 5, plot = T))
+
+```
+
+```{r}
+
+
+vdem_p<-vdem|>
+  filter(country_name=='Paraguay')|>
+  arrange(year)|>
+  filter(year >1990)|>
+  mutate(log_gdp = log(e_gdppc))|>
+  filter(!is.na(e_gdppc))|>
+  with(acf(log_gdp, lag.max = 5, plot = T))
+```
+
+### ACF plots: seasonality
+
+This can make it much easier to spot seasonal trends as well:
+
+```{r}
+
+with(flights, acf(total_flights, lag.max=12, plot=T))
+
+
+  
+
+```
+
+### ACF plots of residuals
+
+```{r}
+
+acf(differenced_model$residuals, lag.max=12, plot=T)
+acf(ar_model$residuals, lag.max=12, plot=T)
+
+```

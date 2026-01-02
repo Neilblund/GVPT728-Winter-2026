@@ -1,0 +1,589 @@
+---
+title: "Regression Discontinuity"
+format:
+  revealjs:
+    theme: [moon, custom_styles]
+    width: 1280
+    height: 720
+    df-print: tibble
+    scrollable: true
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+    mermaid:
+      theme: forest
+filters:
+  - reveal-header
+  - pseudocode
+code-annotations: select
+slide-level: 3
+execute:
+  echo: true
+---
+
+```{css, echo = FALSE}
+.output {
+max-height: 500px;
+overflow-y: scroll;
+}
+```
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(huxtable)
+library(fixest)
+library(modelsummary)
+```
+
+## Regression discontinuity
+
+-   "A localized experiment at the cutoff point"
+
+## Regression discontinuity
+
+-   Hard to distinguish effects of specific policies from variables that cause those policies to be implemented.
+
+-   But arbitrary cutoffs are extremely common in policy: "need" may be a complex latent characteristic that is nearly impossible to measure, but "is your household income less than 130% of the federal poverty line?" is just a check box.
+
+## Health insurance rates by age
+
+![](https://www.census.gov/content/dam/Census/library/stories/2020/10/uninsured-rates-highest-for-young-adults-aged-19-to-34-figure-1.jpg)
+
+## Birth date and age at time of entering first grade
+
+[![McEwan, P. J., & Shapiro, J. S. (2008). The benefits of delayed primary school enrollment: Discontinuity estimates using exact birth dates. Journal of human Resources, 43(1), 1-29.](images/Day-of-Birth-First-grade-Enrollment-Age-and-First-grade-Retention.png)](https://jhr-uwpress-org.proxy-um.researchport.umd.edu/content/43/1/1.short)
+
+![]()
+
+## Discontinuity assumptions
+
+-   Characteristics like age aren't randomly distributed, but they have a random **component.**
+
+. . .
+
+-   As you get closer to a hard cutoff, "randomness" accounts for a proportionally larger share of the difference in outcomes: birth year is fairly non random, but being born at 11:59 PM on February 4th is not really different from being born on February 5th at 12:01 AM.
+
+. . .
+
+-   Depending on how much noise there is, randomness could account for 100% of the difference within a window near the discontinuity.
+
+. . .
+
+-   The causal statement here is: "but for \[the cutoff\] there would be a continuous line through different values of X"
+
+## RDD essentials
+
+::: incremental
+-   We need a **running variable** and a discontinuity/cutoff. The running variable must be ordinal/continuous
+
+-   The cutoff should impact our outcome only through its impact on the IV of interest
+
+    -   This can be problematic for things like age and income because you qualify for multiple things at age 65 or x% of the federal poverty limit
+
+-   Units near the cutoff should be as similar as possible
+
+    -   They won't be identical by definition, but you can control for the "forcing" characteristic.
+
+-   The amount of random variation shouldn't suddenly increase near the cutoff
+:::
+
+## Example: Carpenter and Dobkin
+
+-   Carpenter Dobkin (2011): does setting the drinking age at 21 accomplish anything?
+
+. . .
+
+Observational research suggests compliance is quite low.
+
+![](https://dbknews.s3.amazonaws.com/uploads/2019/05/2014-06-1fc6fc8c258e1d8c1097fa2af21d85f2-2.jpg)
+
+But this is a federal law, so we don't have a reasonable comparison group.
+
+### Minimum drinking age
+
+However, the age cutoff itself could be a source of a discontinuity.
+
+```{r}
+cardob<-stevedata::mm_mlda
+
+ggplot(cardob, aes(x=agecell, y=all)) + 
+  geom_point() +
+  theme_bw() +
+  ylab("all cause mortality per 100,000") +
+  xlab("age") +
+  labs(caption = 'Data from Carpenter and Dobkin (2009)')
+```
+
+### Minimum drinking age
+
+```{r}
+
+cardob<-stevedata::mm_mlda
+
+ggplot(cardob, aes(x=agecell, y=all, group=agecell>=21)) + 
+  geom_point() +
+  theme_bw() +
+  ylab("all cause mortality per 100,000") +
+  xlab("age") +
+  geom_vline(xintercept=21, color='red', lty=2) +
+  labs(caption = 'Data from Carpenter and Dobkin (2009)')
+  #geom_smooth(method='lm', se=FALSE)
+
+```
+
+### Minimum drinking age
+
+The simplest way to estimate the effect is a linear model with a control for the running variable and an indicator for the treatment. (we can also center the "age" at 21 to simplify the interpretation
+
+:::::: columns
+::: {.column width="50%"}
+```{r, echo=F}
+cardob<-cardob|>
+  # minimum legal drinking age:
+  mutate(mmlda = agecell>=21,
+         age_centered = agecell - 21
+         )
+  
+lmodel<-lm(all ~ age_centered + mmlda, data=cardob)
+modelsummary(list('model 1' = lmodel), 
+             statistic = 'conf.int',
+             coef_map = list(`(Intercept)`="constant",age_centered= "age", mmldaTRUE='over 21?'),
+             gof_map = c("nobs", "r.squared"),
+             output = 'kableExtra',
+             notes = "Age centered at 0 = 21",
+             title ='DV = all cause mortality.'
+             )
+
+```
+:::
+
+:::: {.column width="50%"}
+::: fragment
+That said, this probably isn't the best method because the slopes are different before and after the cutoff.
+
+```{r}
+ggplot(cardob, aes(x=agecell, y=all, group=agecell>=21)) + 
+  geom_point() +
+  theme_bw() +
+  ylab("all cause mortality per 100,000") +
+  xlab("age") +
+  geom_vline(xintercept=21, color='red', lty=2) +
+  geom_smooth(method='lm', se=FALSE) +
+  labs(caption = 'Data from Carpenter and Dobkin (2009)')
+
+
+```
+:::
+::::
+::::::
+
+### Minimum drinking age
+
+::::: columns
+::: {.column width="50%"}
+Using an interaction term allows the slope of the line to be different before and after the cutoff.
+
+```{r, echo=F}
+cardob<-cardob|> # minimum legal drinking age: 
+  mutate(mmlda = agecell>=21, 
+         # centering at the cutoff 
+         age_centered = agecell - 21 ) 
+i_model<-lm(all ~ age_centered * mmlda, data=cardob) 
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+
+modelsummary(list('model 1' = lmodel,
+                  'model 2' = i_model
+                  ), 
+             statistic = 'conf.int',
+             coef_map = list(`(Intercept)`="constant",
+                             age_centered= "age", 
+                             mmldaTRUE='over 21?',
+                             `age_centered:mmldaTRUE` = 'age x over 21'
+                             ),
+             gof_map = c("nobs", "r.squared"),
+             output = 'kableExtra',
+             notes = "Age centered at 0 = 21",
+             title ='DV = all cause mortality.'
+             )
+
+
+```
+:::
+:::::
+
+### Minimum drinking age
+
+::::: columns
+::: {.column width="50%"}
+-   Assuming we've got the right model here, hitting the minimum legal drinking age results in about 8 more deaths per 100,000 people. But the negative slope after 21 might indicate the effect wears off and then \*reverses\*
+:::
+
+::: {.column width="50%"}
+```{r}
+ggplot(cardob, aes(x=agecell, y=all, group=agecell>=21)) + 
+  geom_point() +
+  theme_bw() +
+  ylab("all cause mortality per 100,000") +
+  xlab("age") +
+  geom_vline(xintercept=21, color='red', lty=2) +
+  geom_smooth(method='lm', se=FALSE) +
+  labs(caption = 'Data from Carpenter and Dobkin (2009)')
+
+```
+:::
+:::::
+
+### Minimum drinking age
+
+However, the dis-aggregated results suggest that this isn't the case: its more likely there are two separate trends.
+
+```{r}
+
+cod_long<-cardob|>
+  pivot_longer(c(internal,
+                 alcohol,
+                 homicide, suicide, mva,drugs, externalother), 
+               names_to='cause', values_to='rate')
+  
+ggplot(cod_long, aes(x=agecell, y=rate, group=paste0(mmlda, cause), shape=cause)) +   geom_smooth(method='lm', se=FALSE, aes(color=cause)) +
+
+  geom_point() +
+  theme_bw() +
+  ylab("all cause mortality per 100,000") +
+  xlab("age") +
+  geom_vline(xintercept=21, color='red', lty=2) 
+
+
+```
+
+## Non-linearity
+
+One important consideration here is accounting for non-linearity. Properly controlling for the effect of the running variable requires us to get the functional form right.
+
+Assuming a linear effect when the effect is cubic will produce a spurious result. Note that there appears to be a discontinuity here when using a linear model.
+
+```{r}
+set.seed(100)
+# simultate nonlinearity
+dat <- tibble(
+    x = rnorm(1000, 100, 50)
+  ) |> 
+  mutate(
+    x = case_when(x < 0 ~ 0, TRUE ~ x),
+    D = case_when(x > 140 ~ 1, TRUE ~ 0),
+    x2 = x*x,
+    x3 = x*x*x,
+    y3 = 10000 + 0 * D - 100 * x + x2 + rnorm(1000, 0, 1000)
+  ) |> 
+  filter(x < 280)
+
+
+ggplot(aes(x, y3, colour = factor(D)), data = dat) +
+  geom_point(alpha = 0.2) +
+  geom_vline(xintercept = 140, colour = "grey", linetype = 2) +
+  stat_smooth(method = "lm", se = F) +
+
+  labs(x = "Test score (X)", y = "Potential Outcome (Y)") +
+  theme_bw()
+
+```
+
+### Non-linearity
+
+-   Adding polynomials (squared, cubed, etc versions of the running variable) is one option, but
+
+    -   can result in over-fitting
+
+    -   still can't approximate certain kinds of non-linearity
+
+### Non-linearity: local smoothing
+
+Methods such as LOESS operate by estimating weighted polynomial regressions on a sliding "window" (usually called the bandwidth) of data points and then smoothing that result using a kernel function\*.
+
+All else equal, a smaller window gives greater weight to individual points, while a larger window will result in a smoother line.
+
+```{r}
+set.seed(100)
+df<-tibble('y'=sin(seq(0,10, by=.1)),
+           "x" = seq_len(length(y))
+               )
+df$y<-df$y+rnorm(nrow(df), mean=0, sd=1)
+
+ggplot(df, aes(x=x, y=y)) + 
+  geom_point(alpha = .2) +
+  geom_smooth(
+    method = 'loess',
+    se = FALSE,
+    lwd = 1,
+    aes(color = '#d55e00'),
+    span = .75
+  ) +
+    geom_smooth(
+    method = 'loess',
+    se = FALSE,
+    lwd = 1,
+    aes(color = '#cc79a7'),
+    span = .5
+  ) +
+  geom_smooth(
+    method = 'loess',
+    se = FALSE,
+    lwd = 1,
+    aes(color = '#0072b2'),
+    span = .1
+  ) +
+  scale_colour_manual(name = 'bandwidth', 
+         values =c('#0072b2', '#cc79a7', '#d55e00'), 
+         labels = c('.1','.5', '.75'), guide='legend') +
+  theme_bw()
+
+
+
+
+```
+
+\*as you might guess, this is related to the methods that generate kernel density plots
+
+### Non-linearity: local smoothing
+
+-   Local smoothing is typically not a great tool for hypothesis testing because it doesn't really tell you an "effect" but in the discontinuity case, we really only care about the difference around the cutoff.
+-   The choice of a bandwidth and kernel function adds some additional complexity, but there are some ways to estimate an optimal window.
+
+## Example: Incumbency effects
+
+Is the incumbency advantage real? How could we estimate it? Are there reasons to doubt it exists?
+
+### Vote share and winning a two-party election
+
+Obviously, there's a built-in discontinuity here!
+
+```{r, out.width='90%'}
+library(plotly)
+library(ggrepel)
+gov<-read_csv("https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_gubernatorial.csv")|>
+  filter(cycle==2022)|>
+  
+  group_by(state)|>
+  arrange(votes)|>
+  slice_tail(n=2)|>
+  mutate(two_party = sum(votes),
+         share = votes/two_party
+  )|>
+  filter(ballot_party == "REP")
+  
+  
+govs<-ggplot(gov, aes(x=share, y=winner, label=state_abbrev)) + 
+  geom_point() +
+  geom_vline(xintercept=0.5, col='red', lty=2)  +
+
+  geom_label_repel() +
+  theme_minimal() +
+  xlab("Republican share of two-party vote") +
+  ylab("became governor") +
+  ggtitle("2022 governor's races")
+
+govs
+
+```
+
+### Incumbency effects
+
+```{r}
+library(haven)
+library(tidyverse)
+library(rdrobust)
+
+
+if(!file.exists('cit2024cup.dta')){
+  url<-'https://github.com/rdpackages-replication/CIT_2024_CUP/raw/refs/heads/main/CIT_2024_CUP_locrand.dta'
+  download.file(url, dest='cit2024cup.dta', mode='wb')
+}
+
+
+
+
+data<-read_dta('cit2024cup.dta')
+
+
+data$demshare_t2<-data$Y # outcome: voteshare at t plus 2
+data$dem_margin<-data$X # margin in first election
+data$dem_win <-data$T # Dem victory
+
+
+data|>
+ 
+
+  ggplot(aes(x=dem_margin, y=demshare_t2,  group=dem_win)) + 
+  geom_point(alpha=.3) + 
+  geom_vline(xintercept=0, color='red', lty=2) +
+  theme_bw() +
+  ylab("Democratic vote share at time 2") +
+  xlab("Democratic vote share at time 1")
+
+
+```
+
+### Incumbency effects
+
+The relationship is a bit easier to spot if we focus on observations near the cutoff point, but still messy, and good reason to suspect the effect is non-linear
+
+```{r}
+data|>
+  filter(dem_margin>=-10, dem_margin<=10)|>
+
+  ggplot(aes(x=dem_margin, y=demshare_t2,  group=dem_win)) + 
+  geom_point(alpha=.3) + 
+  geom_vline(xintercept=0, color='red', lty=2) +
+  theme_bw()  +
+  ylab("Democratic vote share at time 2") +
+  xlab("Democratic vote share at time 1")
+
+```
+
+### Incumbency effects
+
+```{r}
+
+data|>
+  filter(dem_margin>=-10, dem_margin<=10)|>
+
+  ggplot(aes(x=dem_margin, y=demshare_t2,  group=dem_win)) + 
+  geom_point(alpha=.3) + 
+  geom_vline(xintercept=0, color='red', lty=2) +
+  theme_bw() +
+  geom_smooth(method='loess', span=1, se=FALSE) +
+    ylab("Democratic vote share at time 2") +
+  xlab("Democratic vote share at time 1")
+```
+
+### Vote share and winning a two-party election
+
+Using `rdrobust` to estimate an optimal bin size:
+
+```{r, echo=TRUE}
+library(rdrobust)
+
+out <- rdplot(data$demshare_t2, 
+              data$dem_margin,  p = 3, 
+              kernel ='uniform',
+               x.label = 'Democratic margin at time 1', 
+              y.label = 'Dem voteshare at time 2', title = '', hide=TRUE)
+out$rdplot
+
+```
+
+### Vote share and winning a two-party election
+
+```{r, echo=TRUE}
+
+out <- rdrobust(data$demshare_t2, 
+                data$dem_margin, 
+                kernel = 'uniform',  
+                p = 3, bwselect = 'mserd')
+
+data.frame(coef=out$coef, se=out$se, z=out$z, ci=out$ci)|>
+  slice_head(n=1)
+
+```
+
+## Testing assumptions near the cutoff
+
+A simple test for the assumptions for RDD is to set a different cutoff and see if the results are still significant.
+
+```{r}
+library(rdrobust)
+out <- rdplot(data$demshare_t2, 
+              data$dem_margin,  p = 3, 
+              c = -5,
+              binselect = 'esmv', x.label = 'Democratic margin at time 1', 
+              y.label = 'Dem voteshare at time 2', title = '', hide=TRUE)
+out$rdplot +
+  geom_vline(xintercept=0, lty=2, color='red')
+
+
+```
+
+## Testing assumptions near the cutoff
+
+```{r}
+
+out <- rdrobust(data$demshare_t2, 
+                data$dem_margin, 
+                kernel = 'uniform',
+                c=-1,
+                p = 3, bwselect = 'mserd')
+
+
+
+data.frame(coef=out$coef, se=out$se, z=out$z, ci=out$ci)|>
+  slice_head(n=1)
+
+```
+
+## Vote share as a discontinuity
+
+Vote share is the most common design for political scientists
+
+-   [Cattaneo, Frandsen, and Titiunik (2014)](https://www.degruyter.com/document/doi/10.1515/jci-2013-0010/html?lang=en): the incumbency advantage for U.S. Senators
+
+-   [Meyerson (2014)](https://www.jstor.org/stable/24029175): election of Islamic political parties and educational attainment for women
+
+-   [Pettersson-Lidbom (2008)](https://www.jstor.org/stable/40283092): election of left-wing governments in Sweden and unemployment/taxation
+
+## What are we estimating here?
+
+-   Technically, we're estimating a local average treatment effect near the cutoff. This only matches the average treatment effect if the effects are similar across all values of the running variable. So consider:
+
+    ::: incremental
+    -   People near an income threshold undoubtedly benefit more from income assistance compared to people far away
+
+    -   Swing districts may be more economically volatile than more partisan ones.
+
+    -   People around age 21 may do riskier stuff when they drink compared to older people.
+    :::
+
+. . .
+
+Whether this matters is partly a question of interpretation.
+
+## Fuzzy and sharp boundaries
+
+-   Plurality elections impose a sharp boundary, but other boundaries may be "soft"
+
+    -   Not everyone who is eligible for food stamps will enroll
+
+    -   Some elected officials resign or never take their seats
+
+    -   The thresholds themselves may be measured with error (blood alcohol content, registration, place of residence)
+
+-   This could be considered similar to the problem of "non-compliance": some units should be treated, but aren't. Methods are similar: estimate a 2 stage regression model to adjust for non-compliance
+
+## Others
+
+Hopkins (2004): county threshold for language minorities and ballot assistance
+
+Posner: Regression discontinuity and cultural cleavage
+
+## Considerations
+
+-   Are observations near the cutoff fundamentally unlike observations elsewhere?
+
+-   Is it possible some cases are changing their behavior in response to being "near" the cutoff?
+
+-   Do small changes to the method for fitting the running variable cause big changes in the estimated effect? If so, the results might be spurious.
+
+-   Does a placebo test give null results?
+
+    -   Testing "fake" cutoffs shortly before or after the real one
+
+    -   Checking for discontinuities on other variables that seem like they shouldn't be responsive to the treatment (i.e. do homicides also spiking around 21 might indicate a different process)
