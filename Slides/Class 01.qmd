@@ -1,10 +1,8 @@
 ---
 title: "Introductions"
-date: last-modified
-author: Neil Lund
 format:
   revealjs:
-    theme: [default, custom_styles]
+    theme: [serif, clean]
     df-print: paged
     smaller: true
     slide-number: true
@@ -31,7 +29,7 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 :::
 
 ::: {.column width="50%"}
-[![George Box: "All models are wrong, but some are useful"](https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/GeorgeEPBox_%28cropped%29.jpg/800px-GeorgeEPBox_%28cropped%29.jpg){width="50%"}](https://en.wikipedia.org/wiki/George_E._P._Box)
+[![George Box: "All models are wrong, but some are useful"](images/GeorgeEPBox_(cropped).jpg){width="400"}](https://en.wikipedia.org/wiki/George_E._P._Box)
 :::
 :::::
 
@@ -123,7 +121,12 @@ Who is going to win the presidential election?
 
 ### Explaining: does smoking cause cancer?
 
+
 (I mean yeah, but bear with me)
+
+
+. . .
+
 
 ::::: columns
 ::: {.column width="50%"}
@@ -169,9 +172,7 @@ Ultimately, multiple lines of evidence can help us rule out Fisher's claim:
 -   Instrumental variables and discontinuities (look at death rates after external factors like cigarette taxes reduce consumption)
 
 -   Randomized trials:
-
     -   Of smoking *cessation* as opposed to randomly telling people to smoke
-
     -   Using animal models
 :::
 
@@ -196,25 +197,15 @@ You should be able to:
 # Course outline
 
 -   Part 1: Basics
-
     -   Regression model assumptions
-
     -   Communicating and interpreting results, uncertainty, and model fit
-
     -   Handling complexity and data limitations: non-linearity, interactions, missing data etc.
-
     -   Handling time series and panel data
-
 -   Part 2: Limited dependent variable models
-
     -   Models for binary outcomes, counts, durations, and multiple categories
-
     -   Making sense of output
-
 -   Part 3: Dealing with omitted variables
-
     -   Recognize omitted variable bias and how it impacts estimates
-
     -   Know some widely used strategies for eliminating or minimizing omitted variable bias and their strengths and limitations
 
 # Structure of classes
@@ -223,21 +214,15 @@ You should be able to:
 -   Review homework/quizzes
 
 -   Reading Discussion (check ELMS under the "Discussion Readings" header)
-
     -   Use the discussant sign up sheet on ELMS to sign up for a slot (everyone should pick 2)
-
     -   As a discussant, you'll write a short summary/response and come prepared with a quick outline and some basic reading questions the day after the reading is listed on ELMs
-
     -   Everyone else: read the paper, and come with questions. Pay special attention to the data/methods and how they attempt to address limitations
 
 -   Lecture Slides (that would be this)
 
 -   Guided practice (check ELMS modules under the "Code" heading for an R file)
-
     -   Hit the "code" button in the top right of the file to get the markdown code. Paste it in to Rstudio so you can follow along
-
     -   Be prepared to answer questions/do some coding on your own or in a small group.
-
     -   Stop me if you're lost.
 
 -   Quiz (where applicable)

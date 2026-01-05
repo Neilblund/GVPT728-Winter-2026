@@ -34,7 +34,7 @@ This document will walk through some methods for exploring models using Monte Ca
 3.  Repeat steps 1 and 2 a bunch of times (1000 or more)
 4.  Describe the distribution of results
 
-Monte Carlo simulations are useful for understanding how models behave because they give us a straightforward way to judge performance: we made the data, so we know the "true" values of our parameters, and so we can easily calculate things like the bias or variance of an estimator under a whole range of hypothetical scenarios.
+Monte Carlo simulations are useful for understanding how models behave because they give us a straightforward way to judge performance: we made the data, so we know the "true" values of our parameters, and so we can easily calculate things like the bias or variance of an estimator under a whole range of hypothetical scenarios - including cases w
 
 ## Quick note on (Pseudo) - Randomness
 
@@ -77,6 +77,7 @@ $$
 Where $y$ is a dependent variable, $x$ is an independent variable, $\epsilon$ is some random error and $\beta_0$ and $\beta_1$ are the intercept and slope coefficients, respectively. We can simulate this data generation process with a few lines of code:
 
 ```{r}
+
 set.seed(2000)
 N <-  500 # the sample size
 X <- rnorm(N, mean=0, sd=1) # an independent variable
@@ -84,6 +85,8 @@ e <- rnorm(N, mean=0, sd=1) # the error term
 beta_0 <- 1
 beta_1 <- 0.1
 Y <- beta_0 + X * beta_1 + e # the dependent variable
+
+
 ```
 
 How well does the linear regression model perform when trying to estimate those coefficient values?
@@ -97,9 +100,25 @@ lm(Y ~ X)
 
 Pretty close! There's a small difference between our actual parameters and the ones inferred by our model. This is probably the result of random sampling error.
 
+You can try modifying various parameters to see what changes in the results here. For instance, we could increase the sample size from 500 to 5000 and we should expect the estimates to get closer to the correct value:
+
+```{r}
+set.seed(2000)
+N <-  5000 # the sample size
+X <- rnorm(N, mean=0, sd=1) # an independent variable
+e <- rnorm(N, mean=0, sd=1) # the error term
+beta_0 <- 1
+beta_1 <- 0.1
+Y <- beta_0 + X * beta_1 + e # the dependent variable
+
+lm(Y~ X)
+
+```
+
 Now lets run a bunch of simulations and see if our estimates are close to the correct answer on average: [We'll use 1,000 iterations for the simulations in this document, but in general more iterations is usually better. The only real downside is that more iterations takes more time and more computing power]{.aside}
 
 ```{r}
+
 set.seed(2000)
 iterations<-1000
 N <-  500 # the sample size
@@ -112,7 +131,7 @@ for(i in 1:iterations){
   e <- rnorm(N, mean=0, sd=1) # the error term 
   Y <- beta_0 + X * beta_1 + e # the dependent variable
   mod<- lm(Y ~ X)
-  coefs[[i]]<- tidy(mod, conf.int = TRUE)
+  coefs[[i]]<- tidy(mod, conf.int = TRUE) # make a data frame from the model
 }
 
 
@@ -178,9 +197,6 @@ Use `coefmat` to calculate the proportion of simulations where we would **fail t
 ```{r}
 # Your code here
 
-coefmat|>
-  filter(term == "X")|>
-  summarise(p_greater_than_05 = mean(p.value>=.05))
 
 
 ```
@@ -192,9 +208,7 @@ Using the results from the previous simulation, estimate how often a 95% confide
 ```{r}
 # Your code here
 
-coefmat|>
-  filter(term == "X")|>
-  summarise(outside_ci = mean(conf.low > 0.1  | conf.high < 0.1))
+
 
 
 ```
@@ -206,32 +220,12 @@ Using the loop above as a template, create a new simulation for a model where X 
 (we'll keep the sample size at 500 and the number of iterations at 1000)
 
 ```{r}
-# keeping interations, random seed and sample size the same:
+# your code here
+
+# keeping iterations, random seed and sample size the same:
 set.seed(999)
 iterations<-1000
 N <-  500 
-# write the loop below: 
-beta_0 <- 1  # the y intercept
-beta_1<- 0 # the effect of X on Y
-coefs<-list()
-
-for(i in 1:iterations){
-  X <- rnorm(N, mean=0, sd=1) # an independent variable
-  e <- rnorm(N, mean=0, sd=1) # the error term 
-  Y <- beta_0 + X * beta_1 + e # the dependent variable
-  mod<- lm(Y ~ X)
-  coefs[[i]]<- tidy(mod, conf.int = TRUE)
-}
-
-
-
-# combine results from all iterations
-coefmat<-bind_rows(coefs, .id='iteration')
-
-coefmat|>
-  filter(term == "X")|>
-  summarise(mean(p.value<.05))
-
 
 
 
@@ -331,9 +325,104 @@ result_frame|>
 
 ```
 
-## Using a simulation function
+### Omitted variable bias
 
-writing multiple nested loops can get a little unwieldy, so we can simplify some of the code here by creating functions to handle the repetitive parts of this process.
+We can use the same general approach to explore the effects of omitted variable bias. Omitted variable bias happens when there are variables correlated with predictors AND with the outcome of interest that are left out of the model. The code below uses `mvrnorm` to create two correlated random variables that both influence Y, but then estimates a model that only includes the first of those correlated predictor variables.
+
+```{r}
+betas <- c(1, 3) # Make a vector of betas
+corr_x <- .8
+intercept <- 1
+Sigma <- matrix(c(1, corr_x, corr_x, 1), ncol=2)
+X <- MASS::mvrnorm(N, mu=c(0, 0), Sigma=Sigma)
+e <- rnorm(N, 0 , sd=1) # the variance of the error term
+Y <- intercept  + X %*% betas + e
+mod <- lm(Y ~ X[,1]) # Omitting X[,2] from the regression model
+coefs<-tidy(mod, conf.int = TRUE, conf.level = .95)
+
+
+```
+
+```{r}
+#| collapsed: true
+
+coefs
+
+```
+
+Now we can see how our model performs when the omitted variables have a negative correlation, no correlation, or a positive correlation with the other predictor:
+
+```{r}
+
+iterations<- 500
+betas <- c(1, 3) # Make a vector of betas
+intercept <- 1
+correlations <- c(-.8, 0, .8)
+results<-tibble()
+
+for(ci in correlations) {
+  coefs<-list()
+  for (i in 1:iterations) {
+    Sigma <- matrix(c(1, ci, ci, 1), ncol = 2)
+    X <- MASS::mvrnorm(N, mu = c(0, 0), Sigma = Sigma)
+    e <- rnorm(N, 0 , sd = 1) # the variance of the error term
+    Y <- intercept  + X %*% betas + e
+    mod <- lm(Y ~ X[, 1]) # Omitting X[,2] from the regression model
+    coefs[[i]] <- tidy(mod, conf.int = TRUE, conf.level = .95)
+  }
+  coefmat<-bind_rows(coefs, .id='iteration')
+  coefmat$correlation<-paste("r = ", ci)
+
+  results<-bind_rows(results, coefmat)
+
+}
+
+
+
+```
+
+How much do our estimates differ from the correct answer? And how does the relationship between these variables change the results?
+
+```{r}
+
+
+results |> 
+  filter(term == "X[, 1]") |>
+  # calculate the bias (estimated beta_1 minus the value set in the data generating function)
+  mutate(bias = estimate - 1)|>
+  ggplot(aes(x = bias, y = correlation, )) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  geom_vline(xintercept = 0,
+             lty = 2,
+             col = 'red') +
+  xlab("Estimated Beta_1 - Actual B_1") +
+  ggtitle("Effects of omitted variable bias on coefficient estimates")
+
+
+
+```
+
+## Question 4
+
+Rewrite the code above so that the effect of $\beta_2$ (the omitted variable) is negative instead of positive. How does this impact your results?
+
+```{r}
+# Code
+
+
+
+```
+
+# Extra code: Using a simulation function
+
+Writing multiple nested loops can get a little unwieldy, so we can simplify some of the code here by creating functions to handle the repetitive parts of this process.
 
 The `runSim` function will take a data generating function `func` as an argument along with a data frame containing the arguments to use in each run of the simulation. The `aggregateResults` function will give us some summary statistics for the coefficient estimates across each run:
 
@@ -513,57 +602,127 @@ results |>
 
 ```
 
-### Omitted variable bias
+# Solutions
 
-We can use the same general approach to explore the effects of omitted variable bias. Omitted variable bias happens when there are variables correlated with predictors AND with the outcome of interest that are left out of the model. The code below uses `mvrnorm` to create two correlated random variables that both influence Y, but then estimates a model that only includes the first of those correlated predictor variables.
+## Question 1
+
+This amounts to asking how frequently the p values are greater than or equal to .05:
 
 ```{r}
 
-genFunc <- function(corr_x=0, e_sd=1, N=1000, betas=c(1,1)){
-  intercept = 1
-  Sigma = matrix(c(1, corr_x, corr_x, 1), ncol=2)
-  X = MASS::mvrnorm(N, mu=c(0, 0), Sigma=Sigma)
-  e = rnorm(N, 0 , sd=e_sd) # the variance of the error term
-  Y <- intercept  + X %*% betas + e
-  mod <- lm(Y ~ X[,1]) # Omitting X[,2] from the regression model
-  coefs<-tidy(mod, conf.int = TRUE, conf.level = .95)
-  return(coefs)
+set.seed(2000)
+iterations<-1000
+N <-  500 # the sample size
+beta_0 <- 1  # the y intercept
+beta_1<- 0.1 # the effect of X on Y
+coefs<-list()
 
+for(i in 1:iterations){
+  X <- rnorm(N, mean=0, sd=1) # an independent variable
+  e <- rnorm(N, mean=0, sd=1) # the error term 
+  Y <- beta_0 + X * beta_1 + e # the dependent variable
+  mod<- lm(Y ~ X)
+  coefs[[i]]<- tidy(mod, conf.int = TRUE) # make a data frame from the model
 }
 
 
-```
 
-Now we can see how our model performs when the omitted variables have a negative correlation, no correlation, or a positive correlation with the other predictor:
-
-```{r}
-
-plist<-list(
-  'r=-.7' =list(corr_x = -0.7),
-  'r=  0' =list(corr_x =  0.0),
-  'r= .7' =list(corr_x =  0.7)
-)
+# combine results from all iterations
+coefmat<-bind_rows(coefs, .id='iteration')
 
 
-results<-runSim( func=genFunc,
-                 parmlist = plist,
-                 seed = 999
-                 )
 
-
+coefmat|>
+  filter(term == "X")|>
+  summarise(p_greater_than_05 = mean(p.value>=.05))
 
 
 ```
 
-How much do our estimates differ from the correct answer?
+## Question 2
+
+We already stored the estimated confidence interval for each result, so we just need to check how many confidence intervals do not contain 0.1:
 
 ```{r}
+# re-using coefmat from above
+
+coefmat|>
+  filter(term == "X")|>
+  summarise(outside_ci = mean(conf.low > 0.1  | conf.high < 0.1))
+
+
+```
+
+## Question 3
+
+This is equivalent to asking how frequently the p values are less than .05 across our simulated results
+
+```{r}
+
+
+set.seed(999)
+iterations<-1000
+N <-  500 
+# write the loop below: 
+beta_0 <- 1  # the y intercept
+beta_1<- 0 # the effect of X on Y
+coefs<-list()
+
+for(i in 1:iterations){
+  X <- rnorm(N, mean=0, sd=1) # an independent variable
+  e <- rnorm(N, mean=0, sd=1) # the error term 
+  Y <- beta_0 + X * beta_1 + e # the dependent variable
+  mod<- lm(Y ~ X)
+  coefs[[i]]<- tidy(mod, conf.int = TRUE)
+}
+
+
+
+# combine results from all iterations
+coefmat<-bind_rows(coefs, .id='iteration')
+
+coefmat|>
+  filter(term == "X")|>
+  summarise(mean(p.value<.05))
+
+
+```
+
+## Question 4
+
+Flipping the sign should flip the effect of the omitted variable (a negative effect with a negative correlation will result in a positive bias)
+
+```{r}
+
+iterations<- 500
+betas <- c(1, -3) # Make a vector of betas
+intercept <- 1
+correlations <- c(-.8, 0, .8)
+results<-tibble()
+
+for(ci in correlations) {
+  coefs<-list()
+  for (i in 1:iterations) {
+    Sigma <- matrix(c(1, ci, ci, 1), ncol = 2)
+    X <- MASS::mvrnorm(N, mu = c(0, 0), Sigma = Sigma)
+    e <- rnorm(N, 0 , sd = 1) # the variance of the error term
+    Y <- intercept  + X %*% betas + e
+    mod <- lm(Y ~ X[, 1]) # Omitting X[,2] from the regression model
+    coefs[[i]] <- tidy(mod, conf.int = TRUE, conf.level = .95)
+  }
+  coefmat<-bind_rows(coefs, .id='iteration')
+  coefmat$correlation<-paste("r = ", ci)
+
+  results<-bind_rows(results, coefmat)
+
+}
+
 
 results |> 
   filter(term == "X[, 1]") |>
   # calculate the bias (estimated beta_1 minus the value set in the data generating function)
   mutate(bias = estimate - 1)|>
-  ggplot(aes(x = bias, y = condition, )) +
+  ggplot(aes(x = bias, y = correlation, )) +
   stat_halfeye(
     alpha = .5,
     width = .6,
@@ -577,18 +736,6 @@ results |>
              col = 'red') +
   xlab("Estimated Beta_1 - Actual B_1") +
   ggtitle("Effects of omitted variable bias on coefficient estimates")
-
-
-
-```
-
-## Question 4
-
-Rewrite the code above so that $\beta_2$ is negative instead of positive. How does this impact your results?
-
-```{r}
-# Code
-
 
 
 ```
