@@ -18,7 +18,7 @@ code-annotations: select
 
 -   **Credits:** 3 Hours
 
--   **Meeting Time:** MTWRF from 6:00 to 8:45 PM (January 2nd through January 22nd)
+-   **Meeting Time:** MTWRF from 6:00 to 8:45 PM (January 5th through January 23rd)
 
 -   **Location:** Online over Zoom
 
@@ -26,7 +26,7 @@ code-annotations: select
 
     -   Office Hours: by appointment
 
-    -   Email: [nlund\@umd.edu](mailto:nlund@umd.edu) (please don't send messages through ELMS) 
+    -   Email: [nlund\@umd.edu](mailto:nlund@umd.edu) (please don't send messages through ELMS)
 
 # Course description
 
