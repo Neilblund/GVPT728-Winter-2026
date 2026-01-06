@@ -34,59 +34,65 @@ Remember that you can load this from R by running:
 
 url<-"https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv"
 presidential_elections<-read_csv(url)
+
+voteshares <-presidential_elections|>
+  filter(office_name=="U.S. President" & cycle==2020 & stage=="general")|>
+  filter(candidate_name %in% c("Joe Biden", "Donald Trump"))|>
+  filter(!str_detect(state, " CD-\\d+"))|>
+  group_by(state, candidate_name)|>
+  summarise(votes=sum(votes,na.rm =T))|>
+  pivot_wider(names_from = candidate_name, values_from = votes)|>
+    mutate(`Biden Share`=`Joe Biden`/(`Joe Biden`+`Donald Trump`))
+
 ```
+
 
 ## Question 1
 
-Create a data frame with the two party vote share and the winning candidate for each state (plus D.C.) in the 2020 presidential election. Your results should have 51 rows and will look something like this (use whatever column names you like)
-
-|          |              |           |
-|----------|--------------|-----------|
-| State    | Donald Trump | Joe Biden |
-| Alabama  | 1441170      | 849624    |
-| Alaska   | 189951       | 153778    |
-| Arizona  | 1661686      | 1672143   |
-| Arkansas | 760647       | 423932    |
-
-```{r}
-# Q1
-
-```
-
-## Question 2
-
-Use the data frame you created in the prior step to calculate Biden's share of the two-party vote in each state (i.e. Biden votes / (Biden votes + Trump votes) 
-
-```{r}
-# Q2
-
-```
-
-## Question 3
-
-Use the following code to download the ACS estimated median household income for each state and then use a join to add this column to your data. 
+Use the following code to download demographics for each state from the American Community Survey and then use a join to add this column to your data.
 
 ```{r}
 
-median_income <- get_acs(geography = "state", 
-                         variables = c(median_income = "B19013_001"), 
+acs_data <- get_acs(geography = "state", 
+                         variables = c(median_income = "B19013_001",
+                                       bachelors_degree = "B15003_022",
+                                       pop = "B01001_001",
+                                       white_pop = "B02001_002"
+                                       ), 
                          year = 2020)
 ```
 
-(note that the "estimate" column will be the estimated median income) 
+(note: you can ignore the "moe" column and just use the estimates. You'll need to use `pivot_wider` to put these into wide format with one row per state)
+
+
+## Question 2
+
+Run a linear regression to calculate the effect of median income on Biden's statewide two party vote share. Produce a formatted table to display your results and briefly discuss your findings.
+
 
 ```{r}
-#Q3
+# Q3
 
 ```
+
+
+
+## Question 3
+
+Run the previous model, but include Bachelor's degrees and population. Put your results in a formatted table and assess your results. 
+
+```{r}
+
+
+```
+
 
 ## Question 4
 
-Run a linear regression to calculate the effect of median income on Biden's statewide two party vote share. Produce a formatted table to display your results and briefly discuss your findings. 
-
-Submit your response and R code in a nicely formatted R markdown file, or in a document with formatted code in a separate section. 
+Check your model for heteroskedasticity, non-linearity, or influential outliers. Discuss your interpretation.
 
 ```{r}
-# Q4
+
 
 ```
+
