@@ -1,0 +1,888 @@
+---
+title: "Regression Assumptions"
+format:
+  revealjs:
+    theme: [serif, clean]
+    df-print: paged
+    smaller: true
+    slide-number: true
+    header: 
+    header-logo: images/informal_seal_transparent.webp
+    self-contained: true
+code-annotations: select
+slide-level: 3
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(ggbeeswarm)
+library(broom)
+library(ggrepel)
+library(flextable)
+```
+
+# Why Linear Regression
+
+Linear regression is at least a good starting point for a wide variety of social science questions:
+
+-   Make a prediction about Y based on values of X (vote share \~ approval + GDP)
+
+-   Identify a causal effect (% lung cancer deaths \~ % smokers)
+
+-   Describe or quantify a relationship between Y and X (College GPA \~ SAT score)
+
+. . .
+
+Even where OLS is sub-optimal, its a OLS is a good starting point to learn the alternatives.
+
+## Correlation and regression: Galton's peas
+
+::::: columns
+::: {.column width="50%"}
+![](https://cdn.britannica.com/13/11613-050-123A7AEC/Francis-Galton-detail-oil-painting-G-Graef-1882.jpg){width="250"}
+:::
+
+::: {.column width="50%"}
+![Galton's results](images/galtons.png)
+:::
+:::::
+
+::: notes
+Sir Francis Galton: studying genetic heritability
+
+sends 7 friends packets each containing 100 sweet peas of differing sizes and asks them to germinate them and then return the offspring.
+
+The goal here is to study genetic inheritence.
+Partly of interest for agriculture but - if we're being honest - the book this comes from is about 95% eugenics and 5% peas.
+:::
+
+## Regression: peas
+
+```{r}
+library(tidyverse)
+data<-data.frame(parent = c(6,6,6,10,10,10, 14,14,14), 
+                 offspring= c(4, 7, 10, 5,9,13, 8, 11, 14)
+                 ) 
+
+
+
+ggplot(data, aes(x=parent, y=offspring)) + 
+  geom_vline(xintercept=10, lty=3) +
+  geom_hline(yintercept=9, lty=3) +
+  geom_point() + 
+  xlim(2, 18)  +
+  ylim(2, 18) +
+  theme_minimal() +
+
+  ggtitle(label = "hypothethical results")
+
+```
+
+::: notes
+A simplified result.
+How would you summarize this?
+You could probably draw this one just by eyeballing this relationship, (and Galton apparently initially calculated this by hand drawing)
+:::
+
+## Regression: peas
+
+```{r}
+data<-data.frame(parent = c(6,6,6,10,10,10, 14,14,14), 
+                 offspring= c(4, 7, 10, 5,9,13, 8, 11, 14)
+                 ) 
+
+  
+ggplot(data, aes(x=parent, y=offspring)) + 
+  geom_vline(xintercept=10, lty=3) +
+  geom_hline(yintercept=9, lty=3) +
+  geom_point() + 
+  xlim(2, 18)  +
+  ylim(2, 18) +
+  theme_minimal() +
+  geom_smooth(method ='lm', se=FALSE) +
+
+  ggtitle(label = "hypothethical results")
+
+```
+
+::: notes
+And indeed, if you just took out a ruler and hand drew this, you would basically derive the regression line with zero actual calculation.
+Galton never actually made it this far, but his student (Karl Pearson) derived the regression equation partly by building on Galton's initial work.
+:::
+
+## Covariance
+
+$$\frac{\sum\limits_{i=1}^n (\bar{X} - X_{i}) (\bar{Y} - Y_{i}) }{n}$$
+
+. . .
+
+| parent | parent - mean(parent) | offspring | offspring - mean(offspring) | product |
+|----|----|----|----|----|
+| 6 | -4 | 4 | -5 | 20 |
+| 6 | -4 | 7 | -2 | 8 |
+| 6 | -4 | 10 | 1 | -4 |
+| 10 | 0 | 5 | -4 | 0 |
+| 10 | 0 | 9 | 0 | 0 |
+| 10 | 0 | 13 | 4 | 0 |
+| 14 | 4 | 8 | -1 | -4 |
+| 14 | 4 | 11 | 2 | 8 |
+| 14 | 4 | 14 | 5 | 20 |
+|  |  |  |  | 48 / 9 = 5.3 |
+
+## Correlation
+
+$$\frac{cov(X, Y)}{\sigma_{x}\sigma_{y}}  $$
+
+. . .
+
+| parent SD | offspring SD | product           | Correlation    |
+|-----------|--------------|-------------------|----------------|
+| 3.3       | 3.2          | 3.3 X 3.2 = 10.56 | 5.3/10.56 = .5 |
+
+. . .
+
+(note: correlation is constrained between -1 to 1 because its standardized by the variance of X and Y)
+
+## Slope
+
+$$\frac{cov(X, Y)}{\sigma_{x}^2}$$
+
+. . .
+
+| parent SD | Parent SD squared | Slope             |
+|-----------|-------------------|-------------------|
+| 3.3       | 3.3\^2 = 10.89    | 5.3 / 10.89 \~ .5 |
+
+. . .
+
+(note: Correlation and slope are very similar here, but would diverge when the standard deviation of Y is larger than the standard deviation of X)
+
+## Intercept
+
+$$
+\alpha = \bar{Y} - \beta\bar{X}
+$$
+
+. . .
+
+| offspring mean | parent mean | intercept       |
+|----------------|-------------|-----------------|
+| 9              | 10          | 9 - 10 X .5 = 4 |
+
+. . .
+
+```{r}
+as_flextable(lm(offspring ~ parent, data=data))
+
+```
+
+## The regression equation
+
+$$ Y_{i} = \alpha + \beta X_{i} + u_i $$
+
+-   $X_i$ is a value of an IV
+-   $Y_i$is a value of the DV
+-   beta ($\beta$) is a coefficient (a slope, in geometry)
+-   alpha ($\alpha$) is the constant (or y-intercept)
+-   $u_i$ is an error, also called a residual
+
+. . .
+
+So how do we know we know we've got the best fit?
+
+::: notes
+A coefficient is an estimate of a population parameter.
+So how do we know we've got a good one?
+:::
+
+## Gauss-Markov Theorem: BLUE
+
+Provided we meet the necessary conditions, the Estimator (the sample coefficient) will:
+
+-   Best: minimize the loss function (smallest residuals)
+
+-   Linear: produce linear predictions
+
+-   Unbiased: have an expected value that equals the population parameter (sum of errors = 0)
+
+::::: columns
+::: {.column width="50%"}
+![Andrey Markov](images/Andrei_Markov.jpg){width="150"}
+:::
+
+::: {.column width="50%"}
+![Carl Gauss](images/330px-Carl_Friedrich_Gauss_1840_by_Jensen.jpg){width="150"}
+:::
+:::::
+
+::: notes
+The Gauss-Markov theorem, named for these two guys, states that - given the right conditions - OLS regression will identify the line of best fit.
+i.e. the line that has the smallest sum of squared errors out of all possible regression lines.
+
+Notably, Gauss is (widely and probably undeservedly) credited with first discovering the method of least squares, and his goals were primarily predictive: he used it to predict the orbits of the planets.
+:::
+
+### Minimizing the error
+
+```{r, fig.pos="H"}
+states<-poliscidata::states 
+partisan_lean<-(abs(states$cook_index)) 
+turnout<-states$vep04_turnout 
+model<-lm(turnout~partisan_lean)  
+flextable::as_flextable(model) 
+plot(partisan_lean, turnout) 
+text(partisan_lean, turnout, labels=states$stateid, cex=.7, pos=3)
+```
+
+### Minimizing the error: example
+
+```{r, fig.pos="H"}
+plot(partisan_lean, turnout) 
+abline(model, col="orange", lty=2) 
+text(partisan_lean, turnout, labels=states$stateid, cex=.7, pos=3)
+```
+
+### A single error
+
+The observed value is 63.2, so
+
+$$u_{idaho} = 63.2 - 58.57  = 4.63$$
+
+```{r, fig.pos="H"}
+partisan_lean<-(abs(states$cook_index)) 
+turnout<-states$vep04_turnout 
+plot(partisan_lean, turnout, pch="") 
+abline(model, col="orange", lty=2) 
+text(partisan_lean[13], turnout[13], labels=states$stateid[13], cex=.7, pos=3) 
+
+points(partisan_lean[13], turnout[13], col="black", pch=19) 
+points(partisan_lean[13], 58.56924, col="orange", pch=19)  
+text(partisan_lean[13]+1.1, 57.56924, "prediction", pos=3, cex=.7)  
+segments(x0=partisan_lean[13], x1=partisan_lean[13], y0=58.56924, y1=turnout[13], lty=2, col="orange")
+```
+
+### The RSS
+
+$$RSS = \sum\limits_{i=1}^n (\hat{Y}_{i} - Y_i)^{2} = 1771.9$$
+
+```{r, fig.pos="H"}
+partisan_lean<-(abs(states$cook_index)) 
+turnout<-states$vep04_turnout 
+plot(partisan_lean, turnout, xlab="") 
+abline(model, col="orange", lty=2)    
+segments(x0=partisan_lean, x1=partisan_lean, y0=predict(model), y1=turnout, lty=2, col="orange")
+```
+
+::: notes
+Summing this without squaring would simply equal zero.
+But squaring the errors gives us a positive number that gets larger or smaller depending on the goodness of fit while also assigning a greater penalty to larger errors.
+
+The "best" part means that this is the lowest RSS out of all possible lines, but this has more important downstream implications.
+:::
+
+### The RSS and the standard error of the model
+
+$$ \hat{\sigma}^2 = \frac{RSS}{n-k} = \frac{1771.9}{48} = 36.91453  $$
+
+::: notes
+Dividing the RSS by the sample size minus the number of parameters gives us the standard error for the model
+:::
+
+### The RSS and the standard error of beta
+
+$$se(\hat{\beta}) = \sqrt{\frac{\sigma^{2}}{\sum_{i=1}^{n}(X_{i} - \bar{X})^2}} = \sqrt{\frac{36.91}{1219.572}} = 0.174$$
+
+::: notes
+Dividing by the sum of squared deviations from X and taking the square root gives us the standard error of B.
+So: smaller RSS (all else equal) means a smaller standard error on our beta coefficient.
+In other words: the BLUE estimate is the one that has the smallest sampling variability of all possible estimates.
+:::
+
+### The best RSS
+
+The Gauss-Markov theorem states that any other version of this line would have a larger RSS (thus, larger errors/more uncertainty/more variation in accuracy)
+
+```{r, echo=TRUE}
+states<-poliscidata::states 
+partisan_lean<-(abs(states$cook_index)) 
+turnout<-states$vep04_turnout 
+model<-lm(turnout~partisan_lean)  
+# The OLS estimate:  
+t_hat <- predict(model) 
+sum((t_hat - turnout)^2)  
+
+# an alternative 
+t_hat_2 <- 65.0834 + -0.4 * partisan_lean  
+sum((t_hat_2 - turnout)^2)
+```
+
+## The conditions for BLUE
+
+The OLS estimate is only "best" under certain conditions.
+So what are they?
+
+-   **Linearity**
+
+-   **Homoskedasticity**
+
+-   **Limited Multicollinearity**
+
+-   Exogeneity
+
+# Linearity
+
+Interpretation 1: Y must be a linear function of X
+
+::::::: columns
+:::: {.column width="50%"}
+::: fragment
+There's clearly something more complicated than a linear relationship here:
+
+```{r}
+
+set.seed(2000)
+N <-  100 # the sample size
+beta_0 <- 1
+beta_1 <- 5
+
+model<-tibble(
+  X = rnorm(N, mean = 0, sd = 1),
+  e = rnorm(N, mean = 0, sd = 3) ,
+  Y = beta_0 + X^2 * beta_1 + e 
+)
+
+ggplot(model, aes(x=X, y=Y)) + 
+  geom_point(shape=1) + 
+  geom_smooth(method='lm', color='orange', se=FALSE) +
+  theme_minimal()
+
+
+
+```
+:::
+::::
+
+:::: {.column width="50%"}
+::: fragment
+That said, we can make this a linear relationship by squaring X:
+
+```{r}
+
+set.seed(2000)
+N <-  100 # the sample size
+beta_0 <- 1
+beta_1 <- 5
+
+model<-tibble(
+  X = rnorm(N, mean = 0, sd = 1),
+  e = rnorm(N, mean=0, sd=1),
+  Y = beta_0 +  X^2 * beta_1 + e
+  
+)
+
+
+
+ggplot(model, aes(x=X^2, y=Y)) + 
+  geom_point(shape=1) + 
+  geom_smooth(method='lm', color='orange', se=FALSE) +
+  theme_minimal()
+
+
+
+```
+:::
+::::
+:::::::
+
+## Linearity in the parameters
+
+Linearity in the parameters, by contrast, means that the $\beta$ coefficients themselves are non-linear in some way.
+For instance, in a logistic regression model, the part of the model we want to estimate is itself non-linear.
+
+$$P(Y_i=1) = \frac{1}{1+e^{-(\beta_0 + \beta_1X_i...)}}$$
+
+We can transform the stuff we've observed, but we can't transform a parameter before we estimate it.
+So this is going to require a different approach.
+
+
+
+# Homoscedasticity
+
+OLS assumes that the error term $\epsilon$ has a constant variance across levels of the IV.
+
+
+
+# Homoscedasticity
+
+
+::::::: columns
+:::: {.column width="50%"}
+::: fragment
+The residuals from this model are pretty constant as we move from higher to lower expected values of Y
+
+```{r}
+
+set.seed(500)
+N <-  1000 # the sample size
+
+beta_0 <- -1
+beta_1 <- .5
+
+data<-tibble(
+  X = rnorm(N, mean = 0, sd = 1),
+  e = rnorm(N, mean=0, sd=1),
+  Y  = beta_0 + beta_1 * X + e
+)
+
+model<-lm(Y ~ X, data=data)
+mdf<-tibble('Predicted Y' = predict(model),
+            `Residuals` = model$residuals
+            )
+lim<-6
+
+ggplot(mdf, aes(x=`Predicted Y`, y=Residuals)) + 
+  geom_point(shape=1) +
+  geom_hline(yintercept=0, color='red', lty=2, lwd=1) +
+  theme_minimal() +
+  ylim(c(-lim, lim))
+
+
+
+```
+:::
+::::
+
+:::: {.column width="50%"}
+::: fragment
+But in this case, we see heteroscedasticity: the variance changes as Y gets big.
+
+```{r}
+
+set.seed(500)
+N <-  1000 # the sample size
+
+beta_0 <- -1
+beta_1 <- .5
+
+data<-tibble(
+  X = rnorm(N, mean = 0, sd = 1),
+  e = rnorm(N, mean=0, sd=exp(X/2)),
+  Y  = beta_0 + beta_1 * X + e
+)
+
+model<-lm(Y ~ X, data=data)
+mdf<-tibble('Predicted Y' = predict(model),
+            `Residuals` = model$residuals
+            )
+
+
+ggplot(mdf, aes(x=`Predicted Y`, y=Residuals)) + 
+  geom_point(shape=1) +
+  geom_hline(yintercept=0, color='red', lty=2, lwd=1) +
+  theme_minimal() +
+  ylim(c(-lim, lim))
+
+
+```
+:::
+::::
+:::::::
+
+## Homoscedasticity in practice
+
+::::: columns
+::: {.column width="50%"}
+-   Data: Chapel Hill Expert Survey 1999-2019 trend file
+
+-   DV: party positioning on immigration (as measured by area experts)
+
+-   IV: % seats in lower house of parliament
+:::
+
+::: {.column width="50%"}
+```{r, cache=TRUE}
+
+ches<-read_csv('https://www.chesdata.eu/s/1999-2019_CHES_dataset_meansv3-x7lr.csv')
+
+
+model<-lm(immigrate_policy ~ seat, data=ches|>filter(year==2019))
+
+mdf<-tibble('Predicted Y' = predict(model),
+            model$model,
+            `Residuals` = model$residuals
+            )
+
+
+#ggplot(mdf, aes(x=`Predicted Y`, y=Residuals)) + 
+#  geom_point(shape=1) +
+#  geom_hline(yintercept=0, color='red', lty=2, lwd=1) +
+#  theme_minimal() +
+#  ylim(c(-lim, lim))
+
+
+ggplot(mdf, aes(x=seat, y=immigrate_policy)) + 
+  geom_point(shape=1) +
+  theme_minimal() +
+  ylab("Immigration policy (higher = more restrictive") +
+  xlab("% seats in lower house of parliament")
+
+
+```
+:::
+:::::
+
+## Homoscedasticity in practice
+
+::::: columns
+::: {.column width="50%"}
+-   Data: Current Population Survey 2007
+
+-   DV: Hourly Earnings
+
+-   IV: Years of Education
+:::
+
+::: {.column width="50%"}
+```{r}
+library(AER)
+data("CPSSWEducation")
+
+
+model <- lm(earnings ~ education, data=CPSSWEducation)
+
+
+mdf<-tibble('Predicted Y' = predict(model),
+            model$model,
+            `Residuals` = model$residuals,
+            `Studentized Residuals` =rstudent(model)
+            )
+
+
+
+ggplot(mdf, aes(x=factor(education), y= earnings)) + 
+  geom_quasirandom(method = "smiley", shape=1)+
+  theme_minimal() +
+  geom_boxplot(outliers=FALSE, fill='lightblue', alpha=.8) +
+  ylab("Average Hourly Earnings ($)") +
+  xlab("Years of education")
+
+```
+:::
+:::::
+
+
+
+
+
+
+
+## So what should be done here?
+
+Don't overreact!
+
+-   Heteroscedasticity can point to other problems with model specification that you want to address.
+    So you should consider things like:
+
+    -   Omitted variables
+
+    -   Non-linear relationships
+
+    -   Outliers or skew
+    
+## So what should be done here?
+
+-   Heteroskedasticity-consistent standard errors are an easy fix and viewed as basically "cost free"
+
+-   Bootstrapping! 
+
+
+
+# No perfect multicollinearity
+
+For multiple regression, it must be feasible to actually estimate the effect of X independently of Y.
+
+. . .
+
+```{r, echo=T}
+set.seed(100)
+
+X = rnorm(100)
+X2 = X
+Y = 1 + X*2 
+
+lm(Y ~ X +X2)
+
+
+
+```
+
+::: notes
+A more technical way of saying this is that the matrix of X must have full rank.
+Extreme forms of multi-collinearity make this literally impossible.
+Intuitively: it makes no sense to attempt to estimate the effect of X controlling for X.
+For "perfect" multicollinearity, R will simply give up and drop one of the variables.
+:::
+
+## Or imperfect multicolinearity
+
+```{r, echo=T}
+library(faux)
+N = 100
+set.seed(100)
+data <- rnorm_multi(n = N , 
+                  mu = c(0, 0, 0),
+                  sd = c(1, 1, 1),
+                  r = c(0.99, .99, .99),
+                  varnames = c("X1", "X2", "X3"),
+                  empirical = FALSE)
+
+data$Y = data$X1 + data$X2  + data$X3 + rnorm(N)
+
+lm(Y ~ X1 + X2 + X3, data=data)|>as_flextable()
+
+
+```
+
+::: notes
+but there are also less drastic versions of this that can cause problems for estimating standard errors.
+In short: the stronger the collinearity the more difficult it will be to consistently estimate the impact of each covariate separately.
+Note here that the model as a whole is a good predictor (the r2 value is kind of absurdly high) but none of the coefficients are significant.
+The estimates will converge on the correct betas, but they will do so far less efficiently than a better model.
+:::
+
+### Or imperfect multicollinearity
+
+When we include a control variable, we're essentially "taking out" the portions of X1 and Y that are correlated with X2 and X3.
+
+::::: columns
+::: {.column width="50%"}
+```{r}
+data$X_controlled = data$X1 - predict(lm(X1 ~ X2 + X3, data=data))
+data$Y_controlled = data$Y-predict(lm(Y ~ X2 + X3, data=data))
+
+ggplot(data,aes(x=X1, y=Y)) + geom_point()  + ylim(-8, 8)  +xlim(-3, 3)
+
+```
+:::
+
+::: {.column width="50%"}
+```{r}
+ggplot(data,aes(x=X_controlled, y=Y_controlled)) + geom_point() +
+  ylim(-8, 8)  +
+  xlim(-3, 3) +
+  theme_minimal()
+
+```
+:::
+:::::
+
+::: notes
+One way to think about this is that it means that the you're losing variance in X with each added colinear variable you include.
+Which doesn't actually impact your ability to get an unbiased estimate of X, but it will impact the size of your coefficient standard error.
+:::
+
+### Implications of multicollinearity
+
+$$ RSS = \sum\limits_{i=1}^n (\hat{Y}_{i} - Y_i)^{2} $$
+
+. . .
+
+$$ \hat{\sigma}^2 = \frac{RSS}{n-k} $$
+
+. . .
+
+$$
+se(\hat{\beta}) = \sqrt{\frac{\sigma^{2}}{\sum_{i=1}^{n}(X_{i} - \bar{X})^2}}
+$$
+
+::: notes
+This may seem counterintuitive, but if you think back to the standard error formula, the variance in X makes up the denominator.
+So: for fixed values of the model standard deviation, less variance in X means higher standard errors.
+3/1 is greater than 3/2.
+
+If we have a good control variable, we can expected a net reduction in the RSS because we're improving our predictions.
+But in this case: the controls are strongly correlated so they add almost no useful information to our model.
+We're shrinking the denominator but we're barely moving the numerator.
+
+The implications here are important to think through: on the one hand estimating X1 on its own would result in a biased estimate of beta_1, but beta_1 is actually an important covariate.
+:::
+
+## So what should be done here?
+
+- (imperfect) Multicollinearity, on its own, is never a reason to drop a variable
+
+- Multicollinearity usually doesn't matter that much. But in severe cases, you might try:
+  - Combining correlated variables to make an index
+  - Using a penalized regression (ridge or lasso)
+  - Using a Bayesian model
+  
+
+# Regression Outliers
+
+Not a requirement for BLUE, but related!
+
+What is a regression outlier?
+
+-   *Conditionally* unusual observations: not just high values of Y or X but higher than expected values of Y given X
+
+-   Related to problems with skew, but you can have skew without outliers and vice versa
+
+-   Outliers in small samples can undermine the normality and constant variance assumptions, but we're usually most concerned about their potential to influence results.
+
+## Conditional unusualness
+
+::::::: columns
+::::: {.column width="50%"}
+-   **Data:** Varieties of Democracy (V-DEM)
+-   **DV:** Liberal-Democracy Score in most recent year available
+-   **IV:** per-capita GDP in the same year
+
+::: fragment
+Red is the original model, black is the model after excluding the two observations highlighted in red
+:::
+
+::: fragment
+What's going on here?
+Does it make sense to drop these observations?
+:::
+:::::
+
+::: {.column width="50%"}
+```{r, cache=TRUE}
+
+library(ggpubr)
+
+
+vdem<-vdemdata::vdem|>
+    group_by(country_name)|>
+    arrange(year)|>
+    fill(e_total_resources_income_pc, 
+                              .direction='down')|>
+  select(e_gdppc, v2x_libdem, year, country_name, country_text_id,
+         e_total_resources_income_pc
+         )|>
+
+  drop_na()|>
+  filter(year==max(year))
+
+
+
+vdd<-vdem|>
+  mutate(outliers = country_text_id %in% c("ARE", "QAT"), 
+         labels = case_when(outliers == TRUE ~ country_name),
+         `GDPPC` = e_gdppc,
+         `VDEM liberal democracy` = v2x_libdem 
+         
+         
+         
+  )
+
+
+ggplot(vdd, aes(x = `GDPPC`,
+             y = `VDEM liberal democracy`)) + 
+  geom_point( aes(color=outliers), alpha=.5) +
+    geom_smooth(method = 'lm', se = FALSE, color='red', lty=2) +
+    theme_minimal() +
+  xlab("GDP per capita") +
+  ylab("VDEM Liberal Democracy Score") +
+  scale_color_manual(guide='none', values=c('black','red'))+
+  stat_regline_equation(label.x = 2, label.y = 1.0, color='red') +
+  stat_regline_equation(label.x = 2, label.y = 1.1, color='black',
+                        data = vdd|>filter(outliers==FALSE)
+                        
+                        ) +
+  geom_smooth( data = vdd|>filter(outliers==FALSE),
+               method = 'lm', 
+
+               se = FALSE, color='black', lty=2)
+
+
+```
+:::
+:::::::
+
+## Cook's Distance
+
+How big is the problem?
+
+One way to quantify an outlier is to calculate the effect of dropping an observation on the results.
+Cooks D for observation i is:
+
+$$D_i = \frac{\sum^n_{j=1}(\hat{Y_j} - \hat{Y_{j(i)}})^2}{MSE}$$
+
+-   $\hat{Y_j}$ the prediction for observation j from the full regression
+
+-   $\hat{Y_{j(i)}}$ the prediction for observation j after eliminating observation i
+
+-   $MSE$ the mean squared error of the regression
+
+So, higher values mean that observation i is exerting more influence on our results.
+
+::: fragment
+A rule of thumb suggests examining outliers that have a D value over $4/n$ where $n$ is the number of observations
+:::
+
+## Cook's Distance
+
+```{r}
+
+fit<-lm(`VDEM liberal democracy` ~ GDPPC, data=vdd)
+
+data<-augment(fit)
+data$country_name <- vdd$country_name
+data<-data|>
+  mutate(label = case_when(.cooksd >  4/n() ~ country_name))
+
+ggplot(data, aes(x=seq(nrow(data)), y=.cooksd, label=label)) +
+  geom_point() +
+  theme_minimal() +
+  geom_hline(yintercept = 4/nrow(data), lty=2, color='red') +
+  geom_label_repel() +
+  xlab("index")
+  
+
+
+
+
+```
+
+## So what should be done here?
+
+Don't just drop stuff!
+First consider:
+
+-   Check for errors.
+    (if some joker told a survey taker they were 120 years old, then you can probably justify dropping them, but then you might want to check for other bad responses)
+
+-   Consider transforming variables.
+    For continuous positive numbers, the natural log can make things far more normal
+
+-   Model it.
+    Especially if you can come up with a systematic explanation for why certain observations are weird.
+
+## So what should be done here?
+
+Here's the result after logging GDP and including a control variable for logged oil revenues
+
+```{r}
+
+
+fit<-lm(`VDEM liberal democracy` ~ log(GDPPC) + 
+          log(e_total_resources_income_pc+1), data=vdd)
+
+data<-augment(fit)
+data$country_name <- vdd$country_name
+data<-data|>
+  mutate(label = case_when(.cooksd >  4/n() ~ country_name))
+
+ggplot(data, aes(x=seq(nrow(data)), y=.cooksd, label=label)) +
+  geom_point() +
+  theme_minimal() +
+  geom_hline(yintercept = 4/nrow(data), lty=2, color='red') +
+  geom_label_repel() +
+  xlab("index") +
+  ylim(c(0, 6))
+  
+
+```
