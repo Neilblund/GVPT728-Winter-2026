@@ -4384,7 +4384,7 @@ window.Quarto = {
   </ul>
 </li>
   <li>
-<a href="#modeling-heteroscedasticity" id="toc-modeling-heteroscedasticity" class="nav-link" data-scroll-target="#modeling-heteroscedasticity">Modeling heteroscedasticity</a>
+<a href="#modeling-heteroskedasticity" id="toc-modeling-heteroskedasticity" class="nav-link" data-scroll-target="#modeling-heteroskedasticity">Modeling heteroskedasticity</a>
   <ul class="collapse">
 <li><a href="#simulation-what-does-heteroskedasticity-do-to-our-results" id="toc-simulation-what-does-heteroskedasticity-do-to-our-results" class="nav-link" data-scroll-target="#simulation-what-does-heteroskedasticity-do-to-our-results">Simulation: What does heteroskedasticity do to our results?</a></li>
   </ul>
@@ -4408,8 +4408,7 @@ window.Quarto = {
   
 
 
-</header><p>Load in some functions and code from the previous class:</p>
-<div class="cell">
+</header><div class="cell">
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org">tidyverse</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://mjskay.github.io/ggdist/">ggdist</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://broom.tidymodels.org/">broom</a></span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -4545,7 +4544,7 @@ window.Quarto = {
 <span>  <span class="va">results</span> <span class="op">|&gt;</span></span>
 <span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">term</span> <span class="op">==</span> <span class="va">term</span><span class="op">)</span><span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span><span class="va">estimate</span>, y <span class="op">=</span> <span class="va">condition</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="http://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
 <span>    alpha <span class="op">=</span> <span class="fl">.5</span>,</span>
 <span>    width <span class="op">=</span> <span class="fl">.6</span>,</span>
 <span>    .width <span class="op">=</span> <span class="fl">0</span>,</span>
@@ -4558,7 +4557,7 @@ window.Quarto = {
 <section id="increasing-n" class="level3"><h3 class="anchored" data-anchor-id="increasing-n">Increasing N</h3>
 <p>Here’s an example of doing the same simulation we ran above using the <code>runSim</code> function. Instead of generating a nested loop, we just set up a list-of-lists containing the arguments that we want to pass to <code>genFunc</code>.</p>
 <div class="cell">
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># a data generation function with defaults (replaces the inner loop in the prior examples)</span></span>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># a data generation function with defaults (replaces the inner loop in the prior examples)  </span></span>
 <span><span class="va">genFunc</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">N</span>, <span class="va">betas</span><span class="op">)</span><span class="op">{</span></span>
 <span>  <span class="va">X</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">N</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="va">intercept</span> <span class="op">=</span> <span class="fl">1</span></span>
@@ -4570,10 +4569,12 @@ window.Quarto = {
 <span></span>
 <span><span class="op">}</span></span>
 <span></span>
+<span></span>
 <span><span class="va">plist</span><span class="op">&lt;-</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
 <span>  <span class="st">&#39;N=50,   beta_1=0.05&#39;</span> <span class="op">=</span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span><span class="fl">0.05</span>, N<span class="op">=</span><span class="fl">50</span><span class="op">)</span>,</span>
 <span>  <span class="st">&#39;N=100,  beta_1=0.05&#39;</span><span class="op">=</span>   <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span><span class="fl">0.05</span>, N<span class="op">=</span><span class="fl">100</span><span class="op">)</span>,</span>
-<span>  <span class="st">&#39;N=1000, beta_1=0.05&#39;</span> <span class="op">=</span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span><span class="fl">0.05</span>, N<span class="op">=</span><span class="fl">1000</span><span class="op">)</span></span>
+<span>  <span class="st">&#39;N=1000, beta_1=0.05&#39;</span> <span class="op">=</span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span><span class="fl">0.05</span>, N<span class="op">=</span><span class="fl">1000</span><span class="op">)</span>,</span>
+<span>  <span class="st">&quot;N=5000 beta_1 = 0.05 &quot;</span> <span class="op">=</span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span><span class="fl">0.05</span>, N<span class="op">=</span><span class="fl">5000</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Then we pass <code>genFunc</code> and <code>plist</code> as arguments to <code>runSim</code></p>
@@ -4591,7 +4592,7 @@ window.Quarto = {
 <div class="cell-output-display">
 <div data-pagedtable="false">
   <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["condition"],"name":[1],"type":["fct"],"align":["left"]},{"label":["term"],"name":[2],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["median"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["2.5th percentile"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["97.5th percentile"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["proportion p>=.05"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"N=50,   beta_1=0.05","2":"X","3":"0.05754167","4":"0.05485753","5":"0.14661228","6":"-0.23437526","7":"0.3472896","8":"0.922"},{"1":"N=100,  beta_1=0.05","2":"X","3":"0.04490034","4":"0.04490392","5":"0.10264734","6":"-0.16453195","7":"0.2355700","8":"0.925"},{"1":"N=1000, beta_1=0.05","2":"X","3":"0.04876857","4":"0.04912001","5":"0.03245521","6":"-0.01280081","7":"0.1101104","8":"0.650"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["condition"],"name":[1],"type":["fct"],"align":["left"]},{"label":["term"],"name":[2],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["median"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["2.5th percentile"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["97.5th percentile"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["proportion p>=.05"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"N=50,   beta_1=0.05","2":"X","3":"0.05754167","4":"0.05485753","5":"0.14661228","6":"-0.23437526","7":"0.34728955","8":"0.922"},{"1":"N=100,  beta_1=0.05","2":"X","3":"0.04490034","4":"0.04490392","5":"0.10264734","6":"-0.16453195","7":"0.23556999","8":"0.925"},{"1":"N=1000, beta_1=0.05","2":"X","3":"0.04876857","4":"0.04912001","5":"0.03245521","6":"-0.01280081","7":"0.11011037","8":"0.650"},{"1":"N=5000 beta_1 = 0.05","2":"X","3":"0.04940107","4":"0.04967229","5":"0.01370838","6":"0.02135950","7":"0.07732701","8":"0.059"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 </div>
@@ -4601,7 +4602,7 @@ window.Quarto = {
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">plist</span><span class="op">&lt;-</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
 <span>  <span class="st">&#39;N=50, beta_1=0.05&#39;</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span> <span class="fl">.05</span>, N<span class="op">=</span><span class="fl">50</span><span class="op">)</span>,</span>
 <span>  <span class="st">&#39;N=50, beta_1=0.1&#39;</span> <span class="op">=</span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span> <span class="fl">0.1</span>, N<span class="op">=</span><span class="fl">50</span><span class="op">)</span>,</span>
-<span>  <span class="st">&#39;N=50, beta_1=0.5&#39;</span> <span class="op">=</span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span> <span class="fl">0.5</span>, N<span class="op">=</span><span class="fl">50</span><span class="op">)</span></span>
+<span>  <span class="st">&#39;N=50, beta_1=1&#39;</span> <span class="op">=</span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>betas<span class="op">=</span> <span class="fl">1</span>, N<span class="op">=</span><span class="fl">50</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">results</span><span class="op">&lt;-</span> <span class="fu">runSim</span><span class="op">(</span>func<span class="op">=</span><span class="va">genFunc</span>, </span>
@@ -4615,7 +4616,7 @@ window.Quarto = {
 <div class="cell-output-display">
 <div data-pagedtable="false">
   <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["condition"],"name":[1],"type":["fct"],"align":["left"]},{"label":["term"],"name":[2],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["median"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["2.5th percentile"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["97.5th percentile"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["proportion p>=.05"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"N=50, beta_1=0.05","2":"X","3":"0.05754167","4":"0.05485753","5":"0.1466123","6":"-0.2343753","7":"0.3472896","8":"0.922"},{"1":"N=50, beta_1=0.1","2":"X","3":"0.10143920","4":"0.09350106","5":"0.1444887","6":"-0.1881363","7":"0.3926948","8":"0.891"},{"1":"N=50, beta_1=0.5","2":"X","3":"0.50518117","4":"0.50993189","5":"0.1411302","6":"0.2255388","7":"0.7910497","8":"0.075"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["condition"],"name":[1],"type":["fct"],"align":["left"]},{"label":["term"],"name":[2],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["median"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["2.5th percentile"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["97.5th percentile"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["proportion p>=.05"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"N=50, beta_1=0.05","2":"X","3":"0.05754167","4":"0.05485753","5":"0.1466123","6":"-0.2343753","7":"0.3472896","8":"0.922"},{"1":"N=50, beta_1=0.1","2":"X","3":"0.10143920","4":"0.09350106","5":"0.1444887","6":"-0.1881363","7":"0.3926948","8":"0.891"},{"1":"N=50, beta_1=1","2":"X","3":"1.00518117","4":"1.00993189","5":"0.1411302","6":"0.7255388","7":"1.2910497","8":"0.000"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 </div>
@@ -4665,7 +4666,7 @@ window.Quarto = {
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">results</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">term</span> <span class="op">==</span> <span class="st">&quot;X&quot;</span><span class="op">)</span><span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">estimate</span>, y <span class="op">=</span> <span class="va">condition</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="http://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
 <span>    alpha <span class="op">=</span> <span class="fl">.5</span>,</span>
 <span>    width <span class="op">=</span> <span class="fl">.6</span>,</span>
 <span>    .width <span class="op">=</span> <span class="fl">0</span>,</span>
@@ -4717,7 +4718,7 @@ window.Quarto = {
 <span>  <span class="co"># calculate the bias (estimated beta_1 minus the value set in the data generating function)</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span>bias <span class="op">=</span> <span class="va">estimate</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">bias</span>, y <span class="op">=</span> <span class="va">condition</span>, <span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="http://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
 <span>    alpha <span class="op">=</span> <span class="fl">.5</span>,</span>
 <span>    width <span class="op">=</span> <span class="fl">.6</span>,</span>
 <span>    .width <span class="op">=</span> <span class="fl">0</span>,</span>
@@ -4740,18 +4741,56 @@ window.Quarto = {
 </section></section><section id="question" class="level2"><h2 class="anchored" data-anchor-id="question">Question</h2>
 <p>Rewrite the code above so that <span class="math inline">\(\beta_2\)</span> is negative instead of positive. How does this impact your results?</p>
 <div class="cell">
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Code</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># Code</span></span>
+<span><span class="va">plist</span><span class="op">&lt;-</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span></span>
+<span>  <span class="st">&#39;r=-.7&#39;</span> <span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>corr_x <span class="op">=</span> <span class="op">-</span><span class="fl">0.7</span>, betas<span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="op">-</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="st">&#39;r=  0&#39;</span> <span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>corr_x <span class="op">=</span>  <span class="fl">0.0</span>,betas<span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="op">-</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="st">&#39;r= .7&#39;</span> <span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>corr_x <span class="op">=</span>  <span class="fl">0.7</span>, betas<span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="op">-</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span></span>
+<span><span class="va">results</span><span class="op">&lt;-</span><span class="fu">runSim</span><span class="op">(</span> func<span class="op">=</span><span class="va">genFunc</span>,</span>
+<span>                 parmlist <span class="op">=</span> <span class="va">plist</span>,</span>
+<span>                 seed <span class="op">=</span> <span class="fl">999</span></span>
+<span>                 <span class="op">)</span></span>
+<span></span>
+<span><span class="va">results</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">term</span> <span class="op">==</span> <span class="st">&quot;X[, 1]&quot;</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="co"># calculate the bias (estimated beta_1 minus the value set in the data generating function)</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span>bias <span class="op">=</span> <span class="va">estimate</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span><span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">bias</span>, y <span class="op">=</span> <span class="va">condition</span>, <span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
+<span>    alpha <span class="op">=</span> <span class="fl">.5</span>,</span>
+<span>    width <span class="op">=</span> <span class="fl">.6</span>,</span>
+<span>    .width <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>    justification <span class="op">=</span> <span class="op">-</span><span class="fl">.2</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_boxplot.html">geom_boxplot</a></span><span class="op">(</span>width <span class="op">=</span> <span class="fl">.15</span>, outlier.shape <span class="op">=</span> <span class="cn">NA</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html">theme_bw</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html">geom_vline</a></span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>             lty <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>             col <span class="op">=</span> <span class="st">&#39;red&#39;</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">xlab</a></span><span class="op">(</span><span class="st">&quot;Estimated Beta_1 - Actual B_1&quot;</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">&quot;Effects of omitted variable bias on coefficient estimates&quot;</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure"><p><img src="data:image/png;base64,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" class="img-fluid figure-img" width="672"></p>
+</figure>
 </div>
-</section></section><section id="modeling-heteroscedasticity" class="level1"><h1>Modeling heteroscedasticity</h1>
-<p>We can model heteroscedastic data by making the variance of <span class="math inline">\(\epsilon\)</span> depend on values of one of the predictors:</p>
+</div>
+</div>
+</section></section><section id="modeling-heteroskedasticity" class="level1"><h1>Modeling heteroskedasticity</h1>
+<p>We can model heteroskedastic data by making the variance of <span class="math inline">\(\epsilon\)</span> depend on values of one of the predictors:</p>
 <div class="cell">
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">N</span> <span class="op">=</span> <span class="fl">100</span></span>
 <span><span class="va">betas</span> <span class="op">&lt;-</span> <span class="fl">0.5</span></span>
 <span><span class="va">intercept</span> <span class="op">=</span> <span class="fl">1</span></span>
 <span></span>
 <span><span class="va">data</span><span class="op">&lt;-</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html">tibble</a></span><span class="op">(</span>X <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">N</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>       e <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">N</span>, <span class="fl">0</span> , <span class="fu"><a href="https://rdrr.io/r/base/Log.html">exp</a></span><span class="op">(</span><span class="va">X</span> <span class="op">)</span> <span class="op">)</span>,</span>
+<span>       e <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html">rnorm</a></span><span class="op">(</span><span class="va">N</span>, <span class="fl">0</span> , <span class="fu"><a href="https://rdrr.io/r/base/Log.html">exp</a></span><span class="op">(</span><span class="va">X</span> <span class="op">)</span><span class="op">)</span>,</span>
 <span>       Y <span class="op">=</span> <span class="va">intercept</span>  <span class="op">+</span> <span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html">%*%</a></span> <span class="va">betas</span> <span class="op">+</span> <span class="va">e</span><span class="op">)</span></span>
+<span></span>
+<span></span>
 <span></span>
 <span><span class="va">model</span><span class="op">&lt;-</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">Y</span> <span class="op">~</span> <span class="va">X</span>, data<span class="op">=</span><span class="va">data</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -4838,20 +4877,22 @@ window.Quarto = {
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">aggregateResults</span><span class="op">(</span><span class="va">results</span><span class="op">)</span><span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">term</span><span class="op">==</span><span class="st">&quot;X&quot;</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">term</span><span class="op">==</span><span class="st">&quot;X&quot;</span><span class="op">)</span><span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="va">condition</span>, <span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html">starts_with</a></span><span class="op">(</span><span class="st">&quot;proportion&quot;</span><span class="op">)</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div data-pagedtable="false">
   <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["condition"],"name":[1],"type":["fct"],"align":["left"]},{"label":["term"],"name":[2],"type":["chr"],"align":["left"]},{"label":["mean"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["median"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["sd"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["2.5th percentile"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["97.5th percentile"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["proportion p>=.05"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"N=50 homoskedastic","2":"X","3":"0.5075417","4":"0.5048575","5":"0.14661228","6":"0.2156247","7":"0.7972896","8":"0.079"},{"1":"N=50 heteroskedastic","2":"X","3":"0.5013179","4":"0.4945106","5":"0.19476546","6":"0.1191365","7":"0.9069245","8":"0.176"},{"1":"N=100 heteroskedastic","2":"X","3":"0.4970050","4":"0.5003336","5":"0.12592212","6":"0.2076575","7":"0.7411552","8":"0.077"},{"1":"N=1000 heteroskedastic","2":"X","3":"0.4985079","4":"0.4999901","5":"0.04209759","6":"0.4058147","7":"0.5839662","8":"0.002"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["condition"],"name":[1],"type":["fct"],"align":["left"]},{"label":["proportion p>=.05"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"N=50 homoskedastic","2":"0.079"},{"1":"N=50 heteroskedastic","2":"0.176"},{"1":"N=100 heteroskedastic","2":"0.077"},{"1":"N=1000 heteroskedastic","2":"0.002"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 </div>
 </div>
+<p>Now plot the results…</p>
 <div class="cell">
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">results</span><span class="op">|&gt;</span></span>
 <span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">term</span> <span class="op">==</span><span class="st">&quot;X&quot;</span><span class="op">)</span><span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span><span class="va">estimate</span>, y <span class="op">=</span> <span class="va">condition</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="http://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://mjskay.github.io/ggdist/reference/stat_halfeye.html">stat_halfeye</a></span><span class="op">(</span></span>
 <span>    alpha <span class="op">=</span> <span class="fl">.5</span>,</span>
 <span>    width <span class="op">=</span> <span class="fl">.6</span>,</span>
 <span>    .width <span class="op">=</span> <span class="fl">0</span>,</span>
@@ -5391,207 +5432,207 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a><span class="in">knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)</span></span>
 <span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>Load in some functions and code from the previous class: </span>
-<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggdist)</span>
-<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(broom)</span>
-<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggdist)</span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(broom)</span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a><span class="fu"># Comparing multiple conditions</span></span>
 <span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a><span class="fu"># Comparing multiple conditions</span></span>
-<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a>In many cases, we&#39;ll want to compare results from a model under a wide range of different conditions so we can explore things like the relationship between sample size and Type II error rates. We can use a nested loop to run simulations across a range of different parameter values.</span>
-<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a>For instance, here&#39;s how we would run the same simulation at a sample size of 50, 500, and 5000:</span>
-<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">999</span>)</span>
-<span id="cb24-45"><a href="#cb24-45" aria-hidden="true" tabindex="-1"></a>sample_size<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">500</span>, <span class="dv">5000</span>)</span>
-<span id="cb24-46"><a href="#cb24-46" aria-hidden="true" tabindex="-1"></a>result_frame<span class="ot">&lt;-</span><span class="fu">tibble</span>()</span>
-<span id="cb24-47"><a href="#cb24-47" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(N <span class="cf">in</span> sample_size){</span>
-<span id="cb24-48"><a href="#cb24-48" aria-hidden="true" tabindex="-1"></a>  iterations<span class="ot">&lt;-</span><span class="dv">1000</span></span>
-<span id="cb24-49"><a href="#cb24-49" aria-hidden="true" tabindex="-1"></a>  beta_0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
-<span id="cb24-50"><a href="#cb24-50" aria-hidden="true" tabindex="-1"></a>  beta_1 <span class="ot">&lt;-</span> <span class="fl">0.05</span></span>
-<span id="cb24-51"><a href="#cb24-51" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">list</span>()</span>
-<span id="cb24-52"><a href="#cb24-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># The simulation </span></span>
-<span id="cb24-53"><a href="#cb24-53" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>iterations) {</span>
-<span id="cb24-54"><a href="#cb24-54" aria-hidden="true" tabindex="-1"></a>    X <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) <span class="co"># an independent variable</span></span>
-<span id="cb24-55"><a href="#cb24-55" aria-hidden="true" tabindex="-1"></a>    e <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) <span class="co"># the error term</span></span>
-<span id="cb24-56"><a href="#cb24-56" aria-hidden="true" tabindex="-1"></a>    Y <span class="ot">&lt;-</span> beta_0 <span class="sc">+</span> X <span class="sc">*</span> beta_1 <span class="sc">+</span> e <span class="co"># the dependent variable</span></span>
-<span id="cb24-57"><a href="#cb24-57" aria-hidden="true" tabindex="-1"></a>    mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
-<span id="cb24-58"><a href="#cb24-58" aria-hidden="true" tabindex="-1"></a>    coefs[[i]] <span class="ot">&lt;-</span> <span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
-<span id="cb24-59"><a href="#cb24-59" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb24-60"><a href="#cb24-60" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb24-61"><a href="#cb24-61" aria-hidden="true" tabindex="-1"></a>  <span class="co"># combine results </span></span>
-<span id="cb24-62"><a href="#cb24-62" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(coefs, <span class="at">.id=</span><span class="st">&#39;iteration&#39;</span>)</span>
-<span id="cb24-63"><a href="#cb24-63" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add a variable to indicate the condition applied for this loop</span></span>
-<span id="cb24-64"><a href="#cb24-64" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="sc">$</span>sample_size <span class="ot">&lt;-</span> N</span>
-<span id="cb24-65"><a href="#cb24-65" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add the rows to a data frame</span></span>
-<span id="cb24-66"><a href="#cb24-66" aria-hidden="true" tabindex="-1"></a>  result_frame<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(result_frame, coefmat)</span>
-<span id="cb24-67"><a href="#cb24-67" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb24-68"><a href="#cb24-68" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb24-69"><a href="#cb24-69" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-70"><a href="#cb24-70" aria-hidden="true" tabindex="-1"></a><span class="co"># how often do we have a type II error at N=50, 500, or 5000?</span></span>
-<span id="cb24-71"><a href="#cb24-71" aria-hidden="true" tabindex="-1"></a>result_frame<span class="sc">|&gt;</span></span>
-<span id="cb24-72"><a href="#cb24-72" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(term <span class="sc">==</span> <span class="st">&quot;X&quot;</span>)<span class="sc">|&gt;</span></span>
-<span id="cb24-73"><a href="#cb24-73" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(sample_size)<span class="sc">|&gt;</span></span>
-<span id="cb24-74"><a href="#cb24-74" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="st">`</span><span class="at">proportion p&gt;=.05</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">mean</span>(p.value<span class="sc">&gt;=</span>.<span class="dv">05</span>))</span>
-<span id="cb24-75"><a href="#cb24-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a>In many cases, we&#39;ll want to compare results from a model under a wide range of different conditions so we can explore things like the relationship between sample size and Type II error rates. We can use a nested loop to run simulations across a range of different parameter values.</span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>For instance, here&#39;s how we would run the same simulation at a sample size of 50, 500, and 5000:</span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">999</span>)</span>
+<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a>sample_size<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">500</span>, <span class="dv">5000</span>)</span>
+<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a>result_frame<span class="ot">&lt;-</span><span class="fu">tibble</span>()</span>
+<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(N <span class="cf">in</span> sample_size){</span>
+<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a>  iterations<span class="ot">&lt;-</span><span class="dv">1000</span></span>
+<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a>  beta_0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb24-45"><a href="#cb24-45" aria-hidden="true" tabindex="-1"></a>  beta_1 <span class="ot">&lt;-</span> <span class="fl">0.05</span></span>
+<span id="cb24-46"><a href="#cb24-46" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">list</span>()</span>
+<span id="cb24-47"><a href="#cb24-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># The simulation </span></span>
+<span id="cb24-48"><a href="#cb24-48" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>iterations) {</span>
+<span id="cb24-49"><a href="#cb24-49" aria-hidden="true" tabindex="-1"></a>    X <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) <span class="co"># an independent variable</span></span>
+<span id="cb24-50"><a href="#cb24-50" aria-hidden="true" tabindex="-1"></a>    e <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) <span class="co"># the error term</span></span>
+<span id="cb24-51"><a href="#cb24-51" aria-hidden="true" tabindex="-1"></a>    Y <span class="ot">&lt;-</span> beta_0 <span class="sc">+</span> X <span class="sc">*</span> beta_1 <span class="sc">+</span> e <span class="co"># the dependent variable</span></span>
+<span id="cb24-52"><a href="#cb24-52" aria-hidden="true" tabindex="-1"></a>    mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
+<span id="cb24-53"><a href="#cb24-53" aria-hidden="true" tabindex="-1"></a>    coefs[[i]] <span class="ot">&lt;-</span> <span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
+<span id="cb24-54"><a href="#cb24-54" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb24-55"><a href="#cb24-55" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb24-56"><a href="#cb24-56" aria-hidden="true" tabindex="-1"></a>  <span class="co"># combine results </span></span>
+<span id="cb24-57"><a href="#cb24-57" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(coefs, <span class="at">.id=</span><span class="st">&#39;iteration&#39;</span>)</span>
+<span id="cb24-58"><a href="#cb24-58" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add a variable to indicate the condition applied for this loop</span></span>
+<span id="cb24-59"><a href="#cb24-59" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="sc">$</span>sample_size <span class="ot">&lt;-</span> N</span>
+<span id="cb24-60"><a href="#cb24-60" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add the rows to a data frame</span></span>
+<span id="cb24-61"><a href="#cb24-61" aria-hidden="true" tabindex="-1"></a>  result_frame<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(result_frame, coefmat)</span>
+<span id="cb24-62"><a href="#cb24-62" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb24-63"><a href="#cb24-63" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb24-64"><a href="#cb24-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-65"><a href="#cb24-65" aria-hidden="true" tabindex="-1"></a><span class="co"># how often do we have a type II error at N=50, 500, or 5000?</span></span>
+<span id="cb24-66"><a href="#cb24-66" aria-hidden="true" tabindex="-1"></a>result_frame<span class="sc">|&gt;</span></span>
+<span id="cb24-67"><a href="#cb24-67" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(term <span class="sc">==</span> <span class="st">&quot;X&quot;</span>)<span class="sc">|&gt;</span></span>
+<span id="cb24-68"><a href="#cb24-68" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(sample_size)<span class="sc">|&gt;</span></span>
+<span id="cb24-69"><a href="#cb24-69" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="st">`</span><span class="at">proportion p&gt;=.05</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">mean</span>(p.value<span class="sc">&gt;=</span>.<span class="dv">05</span>))</span>
+<span id="cb24-70"><a href="#cb24-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-71"><a href="#cb24-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-72"><a href="#cb24-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-73"><a href="#cb24-73" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-74"><a href="#cb24-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-75"><a href="#cb24-75" aria-hidden="true" tabindex="-1"></a>What if we wanted to look at our Type II error rates when N=50 while varying the effect size for $\beta_1$?</span>
 <span id="cb24-76"><a href="#cb24-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-77"><a href="#cb24-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-78"><a href="#cb24-78" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-79"><a href="#cb24-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-80"><a href="#cb24-80" aria-hidden="true" tabindex="-1"></a>What if we wanted to look at our Type II error rates when N=50 while varying the effect size for $\beta_1$?</span>
-<span id="cb24-81"><a href="#cb24-81" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-82"><a href="#cb24-82" aria-hidden="true" tabindex="-1"></a>To do this, we just need to change a few lines of our loop:</span>
-<span id="cb24-83"><a href="#cb24-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-86"><a href="#cb24-86" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-87"><a href="#cb24-87" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">999</span>)</span>
-<span id="cb24-88"><a href="#cb24-88" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">50</span>                  <span class="co"># set a fixed value for N </span></span>
-<span id="cb24-89"><a href="#cb24-89" aria-hidden="true" tabindex="-1"></a>betas <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.1</span>, <span class="dv">1</span>) <span class="co"># Make a vector of betas</span></span>
-<span id="cb24-90"><a href="#cb24-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-91"><a href="#cb24-91" aria-hidden="true" tabindex="-1"></a>result_frame<span class="ot">&lt;-</span><span class="fu">tibble</span>()</span>
-<span id="cb24-92"><a href="#cb24-92" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(b <span class="cf">in</span> betas){</span>
-<span id="cb24-93"><a href="#cb24-93" aria-hidden="true" tabindex="-1"></a>  iterations<span class="ot">&lt;-</span><span class="dv">1000</span></span>
-<span id="cb24-94"><a href="#cb24-94" aria-hidden="true" tabindex="-1"></a>  beta_0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
-<span id="cb24-95"><a href="#cb24-95" aria-hidden="true" tabindex="-1"></a>  beta_1 <span class="ot">&lt;-</span> b</span>
-<span id="cb24-96"><a href="#cb24-96" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">list</span>()</span>
-<span id="cb24-97"><a href="#cb24-97" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>iterations) {</span>
-<span id="cb24-98"><a href="#cb24-98" aria-hidden="true" tabindex="-1"></a>    X <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) </span>
-<span id="cb24-99"><a href="#cb24-99" aria-hidden="true" tabindex="-1"></a>    e <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) </span>
-<span id="cb24-100"><a href="#cb24-100" aria-hidden="true" tabindex="-1"></a>    Y <span class="ot">&lt;-</span> beta_0 <span class="sc">+</span> X <span class="sc">*</span> beta_1 <span class="sc">+</span> e </span>
-<span id="cb24-101"><a href="#cb24-101" aria-hidden="true" tabindex="-1"></a>    mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
-<span id="cb24-102"><a href="#cb24-102" aria-hidden="true" tabindex="-1"></a>    coefs[[i]] <span class="ot">&lt;-</span> <span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
-<span id="cb24-103"><a href="#cb24-103" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb24-104"><a href="#cb24-104" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb24-105"><a href="#cb24-105" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(coefs, <span class="at">.id=</span><span class="st">&#39;iteration&#39;</span>)</span>
-<span id="cb24-106"><a href="#cb24-106" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb24-107"><a href="#cb24-107" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="sc">$</span>beta_1 <span class="ot">&lt;-</span> b <span class="co"># add a column to indicate the beta value in this simulation</span></span>
-<span id="cb24-108"><a href="#cb24-108" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb24-109"><a href="#cb24-109" aria-hidden="true" tabindex="-1"></a>  result_frame<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(result_frame, coefmat)</span>
-<span id="cb24-110"><a href="#cb24-110" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb24-111"><a href="#cb24-111" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb24-77"><a href="#cb24-77" aria-hidden="true" tabindex="-1"></a>To do this, we just need to change a few lines of our loop:</span>
+<span id="cb24-78"><a href="#cb24-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-81"><a href="#cb24-81" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-82"><a href="#cb24-82" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">999</span>)</span>
+<span id="cb24-83"><a href="#cb24-83" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">50</span>                  <span class="co"># set a fixed value for N </span></span>
+<span id="cb24-84"><a href="#cb24-84" aria-hidden="true" tabindex="-1"></a>betas <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">0.1</span>, <span class="dv">1</span>) <span class="co"># Make a vector of betas</span></span>
+<span id="cb24-85"><a href="#cb24-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-86"><a href="#cb24-86" aria-hidden="true" tabindex="-1"></a>result_frame<span class="ot">&lt;-</span><span class="fu">tibble</span>()</span>
+<span id="cb24-87"><a href="#cb24-87" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(b <span class="cf">in</span> betas){</span>
+<span id="cb24-88"><a href="#cb24-88" aria-hidden="true" tabindex="-1"></a>  iterations<span class="ot">&lt;-</span><span class="dv">1000</span></span>
+<span id="cb24-89"><a href="#cb24-89" aria-hidden="true" tabindex="-1"></a>  beta_0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb24-90"><a href="#cb24-90" aria-hidden="true" tabindex="-1"></a>  beta_1 <span class="ot">&lt;-</span> b</span>
+<span id="cb24-91"><a href="#cb24-91" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">list</span>()</span>
+<span id="cb24-92"><a href="#cb24-92" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>iterations) {</span>
+<span id="cb24-93"><a href="#cb24-93" aria-hidden="true" tabindex="-1"></a>    X <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) </span>
+<span id="cb24-94"><a href="#cb24-94" aria-hidden="true" tabindex="-1"></a>    e <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(N, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>) </span>
+<span id="cb24-95"><a href="#cb24-95" aria-hidden="true" tabindex="-1"></a>    Y <span class="ot">&lt;-</span> beta_0 <span class="sc">+</span> X <span class="sc">*</span> beta_1 <span class="sc">+</span> e </span>
+<span id="cb24-96"><a href="#cb24-96" aria-hidden="true" tabindex="-1"></a>    mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
+<span id="cb24-97"><a href="#cb24-97" aria-hidden="true" tabindex="-1"></a>    coefs[[i]] <span class="ot">&lt;-</span> <span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
+<span id="cb24-98"><a href="#cb24-98" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb24-99"><a href="#cb24-99" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb24-100"><a href="#cb24-100" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(coefs, <span class="at">.id=</span><span class="st">&#39;iteration&#39;</span>)</span>
+<span id="cb24-101"><a href="#cb24-101" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb24-102"><a href="#cb24-102" aria-hidden="true" tabindex="-1"></a>  coefmat<span class="sc">$</span>beta_1 <span class="ot">&lt;-</span> b <span class="co"># add a column to indicate the beta value in this simulation</span></span>
+<span id="cb24-103"><a href="#cb24-103" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb24-104"><a href="#cb24-104" aria-hidden="true" tabindex="-1"></a>  result_frame<span class="ot">&lt;-</span><span class="fu">bind_rows</span>(result_frame, coefmat)</span>
+<span id="cb24-105"><a href="#cb24-105" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb24-106"><a href="#cb24-106" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb24-107"><a href="#cb24-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-108"><a href="#cb24-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-109"><a href="#cb24-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-110"><a href="#cb24-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-111"><a href="#cb24-111" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb24-112"><a href="#cb24-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-113"><a href="#cb24-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-113"><a href="#cb24-113" aria-hidden="true" tabindex="-1"></a>And now we can estimate the type II error rate across these simulations:</span>
 <span id="cb24-114"><a href="#cb24-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-115"><a href="#cb24-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-116"><a href="#cb24-116" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-117"><a href="#cb24-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-118"><a href="#cb24-118" aria-hidden="true" tabindex="-1"></a>And now we can estimate the type II error rate across these simulations:</span>
-<span id="cb24-119"><a href="#cb24-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-122"><a href="#cb24-122" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-123"><a href="#cb24-123" aria-hidden="true" tabindex="-1"></a><span class="co"># how often do we have a type II error at b = 0.05, 0.10, or 1 and N = 50?</span></span>
-<span id="cb24-124"><a href="#cb24-124" aria-hidden="true" tabindex="-1"></a>result_frame<span class="sc">|&gt;</span></span>
-<span id="cb24-125"><a href="#cb24-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(term <span class="sc">==</span> <span class="st">&quot;X&quot;</span>)<span class="sc">|&gt;</span></span>
-<span id="cb24-126"><a href="#cb24-126" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(beta_1)<span class="sc">|&gt;</span></span>
-<span id="cb24-127"><a href="#cb24-127" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="st">`</span><span class="at">proportion p&gt;=.05</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">mean</span>(p.value<span class="sc">&gt;=</span>.<span class="dv">05</span>))</span>
-<span id="cb24-128"><a href="#cb24-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-117"><a href="#cb24-117" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-118"><a href="#cb24-118" aria-hidden="true" tabindex="-1"></a><span class="co"># how often do we have a type II error at b = 0.05, 0.10, or 1 and N = 50?</span></span>
+<span id="cb24-119"><a href="#cb24-119" aria-hidden="true" tabindex="-1"></a>result_frame<span class="sc">|&gt;</span></span>
+<span id="cb24-120"><a href="#cb24-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(term <span class="sc">==</span> <span class="st">&quot;X&quot;</span>)<span class="sc">|&gt;</span></span>
+<span id="cb24-121"><a href="#cb24-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(beta_1)<span class="sc">|&gt;</span></span>
+<span id="cb24-122"><a href="#cb24-122" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="st">`</span><span class="at">proportion p&gt;=.05</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">mean</span>(p.value<span class="sc">&gt;=</span>.<span class="dv">05</span>))</span>
+<span id="cb24-123"><a href="#cb24-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-124"><a href="#cb24-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-125"><a href="#cb24-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-126"><a href="#cb24-126" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-127"><a href="#cb24-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-128"><a href="#cb24-128" aria-hidden="true" tabindex="-1"></a><span class="fu">## Using a simulation function</span></span>
 <span id="cb24-129"><a href="#cb24-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-130"><a href="#cb24-130" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-131"><a href="#cb24-131" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-132"><a href="#cb24-132" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-133"><a href="#cb24-133" aria-hidden="true" tabindex="-1"></a><span class="fu">## Using a simulation function</span></span>
-<span id="cb24-134"><a href="#cb24-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-135"><a href="#cb24-135" aria-hidden="true" tabindex="-1"></a>writing multiple nested loops can get a little unwieldy, so we can simplify some of the code here by creating functions to handle the repetitive parts of this process.</span>
-<span id="cb24-136"><a href="#cb24-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-137"><a href="#cb24-137" aria-hidden="true" tabindex="-1"></a>The <span class="in">`runSim`</span> function will take a data generating function <span class="in">`func`</span> as an argument along with a data frame containing the arguments to use in each run of the simulation. The <span class="in">`aggregateResults`</span> function will give us some summary statistics for the coefficient estimates across each run:</span>
-<span id="cb24-138"><a href="#cb24-138" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-139"><a href="#cb24-139" aria-hidden="true" tabindex="-1"></a><span class="in">```{r simulation_function}</span></span>
-<span id="cb24-140"><a href="#cb24-140" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-141"><a href="#cb24-141" aria-hidden="true" tabindex="-1"></a><span class="in"># Runs the simulation across different parameter values  (replaces the outer loop in the prior examples)</span></span>
-<span id="cb24-142"><a href="#cb24-142" aria-hidden="true" tabindex="-1"></a><span class="in">runSim&lt;-function(func, parmlist, iterations=1000, seed=NULL){</span></span>
-<span id="cb24-143"><a href="#cb24-143" aria-hidden="true" tabindex="-1"></a><span class="in">  if(!is.null(seed)){</span></span>
-<span id="cb24-144"><a href="#cb24-144" aria-hidden="true" tabindex="-1"></a><span class="in">    set.seed(seed)</span></span>
-<span id="cb24-145"><a href="#cb24-145" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
-<span id="cb24-146"><a href="#cb24-146" aria-hidden="true" tabindex="-1"></a><span class="in">  all_results&lt;-tibble()</span></span>
-<span id="cb24-147"><a href="#cb24-147" aria-hidden="true" tabindex="-1"></a><span class="in">  for(i in 1:length(parmlist)){</span></span>
-<span id="cb24-148"><a href="#cb24-148" aria-hidden="true" tabindex="-1"></a><span class="in">    result&lt;-replicate(iterations, do.call(func, parmlist[[i]]), simplify=FALSE)|&gt;</span></span>
-<span id="cb24-149"><a href="#cb24-149" aria-hidden="true" tabindex="-1"></a><span class="in">      bind_rows()</span></span>
-<span id="cb24-150"><a href="#cb24-150" aria-hidden="true" tabindex="-1"></a><span class="in">    result$condition&lt;-i</span></span>
-<span id="cb24-151"><a href="#cb24-151" aria-hidden="true" tabindex="-1"></a><span class="in">    all_results&lt;-bind_rows(all_results, result)</span></span>
-<span id="cb24-152"><a href="#cb24-152" aria-hidden="true" tabindex="-1"></a><span class="in">    </span></span>
-<span id="cb24-153"><a href="#cb24-153" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
-<span id="cb24-154"><a href="#cb24-154" aria-hidden="true" tabindex="-1"></a><span class="in">  if(!is.null(names(parmlist))){</span></span>
-<span id="cb24-155"><a href="#cb24-155" aria-hidden="true" tabindex="-1"></a><span class="in">    all_results$condition &lt;- factor(all_results$condition, labels=names(parmlist))</span></span>
-<span id="cb24-156"><a href="#cb24-156" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
-<span id="cb24-157"><a href="#cb24-157" aria-hidden="true" tabindex="-1"></a><span class="in">  </span></span>
-<span id="cb24-158"><a href="#cb24-158" aria-hidden="true" tabindex="-1"></a><span class="in">  return(all_results)</span></span>
-<span id="cb24-159"><a href="#cb24-159" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
-<span id="cb24-160"><a href="#cb24-160" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-161"><a href="#cb24-161" aria-hidden="true" tabindex="-1"></a><span class="in"># Function to get aggregate stats from model results</span></span>
-<span id="cb24-162"><a href="#cb24-162" aria-hidden="true" tabindex="-1"></a><span class="in">aggregateResults&lt;-function(results){</span></span>
-<span id="cb24-163"><a href="#cb24-163" aria-hidden="true" tabindex="-1"></a><span class="in">  agged &lt;- results |&gt;</span></span>
-<span id="cb24-164"><a href="#cb24-164" aria-hidden="true" tabindex="-1"></a><span class="in">    group_by(condition, term) |&gt;</span></span>
-<span id="cb24-165"><a href="#cb24-165" aria-hidden="true" tabindex="-1"></a><span class="in">    summarise(</span></span>
-<span id="cb24-166"><a href="#cb24-166" aria-hidden="true" tabindex="-1"></a><span class="in">      mean = mean(estimate),</span></span>
-<span id="cb24-167"><a href="#cb24-167" aria-hidden="true" tabindex="-1"></a><span class="in">      median = median(estimate),</span></span>
-<span id="cb24-168"><a href="#cb24-168" aria-hidden="true" tabindex="-1"></a><span class="in">      sd = sd(estimate),</span></span>
-<span id="cb24-169"><a href="#cb24-169" aria-hidden="true" tabindex="-1"></a><span class="in">      `2.5th percentile` = quantile(estimate, .025),</span></span>
-<span id="cb24-170"><a href="#cb24-170" aria-hidden="true" tabindex="-1"></a><span class="in">      `97.5th percentile` = quantile(estimate, .975),</span></span>
-<span id="cb24-171"><a href="#cb24-171" aria-hidden="true" tabindex="-1"></a><span class="in">      `proportion p&gt;=.05` = mean(p.value &gt;= .05)</span></span>
-<span id="cb24-172"><a href="#cb24-172" aria-hidden="true" tabindex="-1"></a><span class="in">    )</span></span>
-<span id="cb24-173"><a href="#cb24-173" aria-hidden="true" tabindex="-1"></a><span class="in">  return(agged)</span></span>
-<span id="cb24-174"><a href="#cb24-174" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
-<span id="cb24-175"><a href="#cb24-175" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-176"><a href="#cb24-176" aria-hidden="true" tabindex="-1"></a><span class="in"># function to plot coefficients</span></span>
-<span id="cb24-177"><a href="#cb24-177" aria-hidden="true" tabindex="-1"></a><span class="in">plotCoefs&lt;-function(results, term){</span></span>
-<span id="cb24-178"><a href="#cb24-178" aria-hidden="true" tabindex="-1"></a><span class="in">  results |&gt;</span></span>
-<span id="cb24-179"><a href="#cb24-179" aria-hidden="true" tabindex="-1"></a><span class="in">    filter(term == term)|&gt;</span></span>
-<span id="cb24-180"><a href="#cb24-180" aria-hidden="true" tabindex="-1"></a><span class="in">  ggplot(aes(x =estimate, y = condition)) +</span></span>
-<span id="cb24-181"><a href="#cb24-181" aria-hidden="true" tabindex="-1"></a><span class="in">  stat_halfeye(</span></span>
-<span id="cb24-182"><a href="#cb24-182" aria-hidden="true" tabindex="-1"></a><span class="in">    alpha = .5,</span></span>
-<span id="cb24-183"><a href="#cb24-183" aria-hidden="true" tabindex="-1"></a><span class="in">    width = .6,</span></span>
-<span id="cb24-184"><a href="#cb24-184" aria-hidden="true" tabindex="-1"></a><span class="in">    .width = 0,</span></span>
-<span id="cb24-185"><a href="#cb24-185" aria-hidden="true" tabindex="-1"></a><span class="in">    justification = -.2</span></span>
-<span id="cb24-186"><a href="#cb24-186" aria-hidden="true" tabindex="-1"></a><span class="in">  ) +</span></span>
-<span id="cb24-187"><a href="#cb24-187" aria-hidden="true" tabindex="-1"></a><span class="in">  geom_boxplot(width = .15, outlier.shape = NA) +</span></span>
-<span id="cb24-188"><a href="#cb24-188" aria-hidden="true" tabindex="-1"></a><span class="in">  theme_bw()</span></span>
-<span id="cb24-189"><a href="#cb24-189" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
+<span id="cb24-130"><a href="#cb24-130" aria-hidden="true" tabindex="-1"></a>writing multiple nested loops can get a little unwieldy, so we can simplify some of the code here by creating functions to handle the repetitive parts of this process.</span>
+<span id="cb24-131"><a href="#cb24-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-132"><a href="#cb24-132" aria-hidden="true" tabindex="-1"></a>The <span class="in">`runSim`</span> function will take a data generating function <span class="in">`func`</span> as an argument along with a data frame containing the arguments to use in each run of the simulation. The <span class="in">`aggregateResults`</span> function will give us some summary statistics for the coefficient estimates across each run:</span>
+<span id="cb24-133"><a href="#cb24-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-134"><a href="#cb24-134" aria-hidden="true" tabindex="-1"></a><span class="in">```{r simulation_function}</span></span>
+<span id="cb24-135"><a href="#cb24-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-136"><a href="#cb24-136" aria-hidden="true" tabindex="-1"></a><span class="in"># Runs the simulation across different parameter values  (replaces the outer loop in the prior examples)</span></span>
+<span id="cb24-137"><a href="#cb24-137" aria-hidden="true" tabindex="-1"></a><span class="in">runSim&lt;-function(func, parmlist, iterations=1000, seed=NULL){</span></span>
+<span id="cb24-138"><a href="#cb24-138" aria-hidden="true" tabindex="-1"></a><span class="in">  if(!is.null(seed)){</span></span>
+<span id="cb24-139"><a href="#cb24-139" aria-hidden="true" tabindex="-1"></a><span class="in">    set.seed(seed)</span></span>
+<span id="cb24-140"><a href="#cb24-140" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
+<span id="cb24-141"><a href="#cb24-141" aria-hidden="true" tabindex="-1"></a><span class="in">  all_results&lt;-tibble()</span></span>
+<span id="cb24-142"><a href="#cb24-142" aria-hidden="true" tabindex="-1"></a><span class="in">  for(i in 1:length(parmlist)){</span></span>
+<span id="cb24-143"><a href="#cb24-143" aria-hidden="true" tabindex="-1"></a><span class="in">    result&lt;-replicate(iterations, do.call(func, parmlist[[i]]), simplify=FALSE)|&gt;</span></span>
+<span id="cb24-144"><a href="#cb24-144" aria-hidden="true" tabindex="-1"></a><span class="in">      bind_rows()</span></span>
+<span id="cb24-145"><a href="#cb24-145" aria-hidden="true" tabindex="-1"></a><span class="in">    result$condition&lt;-i</span></span>
+<span id="cb24-146"><a href="#cb24-146" aria-hidden="true" tabindex="-1"></a><span class="in">    all_results&lt;-bind_rows(all_results, result)</span></span>
+<span id="cb24-147"><a href="#cb24-147" aria-hidden="true" tabindex="-1"></a><span class="in">    </span></span>
+<span id="cb24-148"><a href="#cb24-148" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
+<span id="cb24-149"><a href="#cb24-149" aria-hidden="true" tabindex="-1"></a><span class="in">  if(!is.null(names(parmlist))){</span></span>
+<span id="cb24-150"><a href="#cb24-150" aria-hidden="true" tabindex="-1"></a><span class="in">    all_results$condition &lt;- factor(all_results$condition, labels=names(parmlist))</span></span>
+<span id="cb24-151"><a href="#cb24-151" aria-hidden="true" tabindex="-1"></a><span class="in">  }</span></span>
+<span id="cb24-152"><a href="#cb24-152" aria-hidden="true" tabindex="-1"></a><span class="in">  </span></span>
+<span id="cb24-153"><a href="#cb24-153" aria-hidden="true" tabindex="-1"></a><span class="in">  return(all_results)</span></span>
+<span id="cb24-154"><a href="#cb24-154" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
+<span id="cb24-155"><a href="#cb24-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-156"><a href="#cb24-156" aria-hidden="true" tabindex="-1"></a><span class="in"># Function to get aggregate stats from model results</span></span>
+<span id="cb24-157"><a href="#cb24-157" aria-hidden="true" tabindex="-1"></a><span class="in">aggregateResults&lt;-function(results){</span></span>
+<span id="cb24-158"><a href="#cb24-158" aria-hidden="true" tabindex="-1"></a><span class="in">  agged &lt;- results |&gt;</span></span>
+<span id="cb24-159"><a href="#cb24-159" aria-hidden="true" tabindex="-1"></a><span class="in">    group_by(condition, term) |&gt;</span></span>
+<span id="cb24-160"><a href="#cb24-160" aria-hidden="true" tabindex="-1"></a><span class="in">    summarise(</span></span>
+<span id="cb24-161"><a href="#cb24-161" aria-hidden="true" tabindex="-1"></a><span class="in">      mean = mean(estimate),</span></span>
+<span id="cb24-162"><a href="#cb24-162" aria-hidden="true" tabindex="-1"></a><span class="in">      median = median(estimate),</span></span>
+<span id="cb24-163"><a href="#cb24-163" aria-hidden="true" tabindex="-1"></a><span class="in">      sd = sd(estimate),</span></span>
+<span id="cb24-164"><a href="#cb24-164" aria-hidden="true" tabindex="-1"></a><span class="in">      `2.5th percentile` = quantile(estimate, .025),</span></span>
+<span id="cb24-165"><a href="#cb24-165" aria-hidden="true" tabindex="-1"></a><span class="in">      `97.5th percentile` = quantile(estimate, .975),</span></span>
+<span id="cb24-166"><a href="#cb24-166" aria-hidden="true" tabindex="-1"></a><span class="in">      `proportion p&gt;=.05` = mean(p.value &gt;= .05)</span></span>
+<span id="cb24-167"><a href="#cb24-167" aria-hidden="true" tabindex="-1"></a><span class="in">    )</span></span>
+<span id="cb24-168"><a href="#cb24-168" aria-hidden="true" tabindex="-1"></a><span class="in">  return(agged)</span></span>
+<span id="cb24-169"><a href="#cb24-169" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
+<span id="cb24-170"><a href="#cb24-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-171"><a href="#cb24-171" aria-hidden="true" tabindex="-1"></a><span class="in"># function to plot coefficients</span></span>
+<span id="cb24-172"><a href="#cb24-172" aria-hidden="true" tabindex="-1"></a><span class="in">plotCoefs&lt;-function(results, term){</span></span>
+<span id="cb24-173"><a href="#cb24-173" aria-hidden="true" tabindex="-1"></a><span class="in">  results |&gt;</span></span>
+<span id="cb24-174"><a href="#cb24-174" aria-hidden="true" tabindex="-1"></a><span class="in">    filter(term == term)|&gt;</span></span>
+<span id="cb24-175"><a href="#cb24-175" aria-hidden="true" tabindex="-1"></a><span class="in">  ggplot(aes(x =estimate, y = condition)) +</span></span>
+<span id="cb24-176"><a href="#cb24-176" aria-hidden="true" tabindex="-1"></a><span class="in">  stat_halfeye(</span></span>
+<span id="cb24-177"><a href="#cb24-177" aria-hidden="true" tabindex="-1"></a><span class="in">    alpha = .5,</span></span>
+<span id="cb24-178"><a href="#cb24-178" aria-hidden="true" tabindex="-1"></a><span class="in">    width = .6,</span></span>
+<span id="cb24-179"><a href="#cb24-179" aria-hidden="true" tabindex="-1"></a><span class="in">    .width = 0,</span></span>
+<span id="cb24-180"><a href="#cb24-180" aria-hidden="true" tabindex="-1"></a><span class="in">    justification = -.2</span></span>
+<span id="cb24-181"><a href="#cb24-181" aria-hidden="true" tabindex="-1"></a><span class="in">  ) +</span></span>
+<span id="cb24-182"><a href="#cb24-182" aria-hidden="true" tabindex="-1"></a><span class="in">  geom_boxplot(width = .15, outlier.shape = NA) +</span></span>
+<span id="cb24-183"><a href="#cb24-183" aria-hidden="true" tabindex="-1"></a><span class="in">  theme_bw()</span></span>
+<span id="cb24-184"><a href="#cb24-184" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
+<span id="cb24-185"><a href="#cb24-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-186"><a href="#cb24-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-187"><a href="#cb24-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-188"><a href="#cb24-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-189"><a href="#cb24-189" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb24-190"><a href="#cb24-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-191"><a href="#cb24-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-191"><a href="#cb24-191" aria-hidden="true" tabindex="-1"></a><span class="fu">### Increasing N</span></span>
 <span id="cb24-192"><a href="#cb24-192" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-193"><a href="#cb24-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-194"><a href="#cb24-194" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-195"><a href="#cb24-195" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-196"><a href="#cb24-196" aria-hidden="true" tabindex="-1"></a><span class="fu">### Increasing N</span></span>
-<span id="cb24-197"><a href="#cb24-197" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-198"><a href="#cb24-198" aria-hidden="true" tabindex="-1"></a>Here&#39;s an example of doing the same simulation we ran above using the <span class="in">`runSim`</span> function. Instead of generating a nested loop, we just set up a list-of-lists containing the arguments that we want to pass to <span class="in">`genFunc`</span>.</span>
-<span id="cb24-199"><a href="#cb24-199" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-202"><a href="#cb24-202" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-203"><a href="#cb24-203" aria-hidden="true" tabindex="-1"></a><span class="co"># a data generation function with defaults (replaces the inner loop in the prior examples)</span></span>
-<span id="cb24-204"><a href="#cb24-204" aria-hidden="true" tabindex="-1"></a>genFunc <span class="ot">&lt;-</span> <span class="cf">function</span>(N, betas){</span>
-<span id="cb24-205"><a href="#cb24-205" aria-hidden="true" tabindex="-1"></a>  X <span class="ot">=</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>))</span>
-<span id="cb24-206"><a href="#cb24-206" aria-hidden="true" tabindex="-1"></a>  intercept <span class="ot">=</span> <span class="dv">1</span></span>
-<span id="cb24-207"><a href="#cb24-207" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">=</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , <span class="dv">1</span>)</span>
-<span id="cb24-208"><a href="#cb24-208" aria-hidden="true" tabindex="-1"></a>  Y <span class="ot">&lt;-</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e</span>
-<span id="cb24-209"><a href="#cb24-209" aria-hidden="true" tabindex="-1"></a>  mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
-<span id="cb24-210"><a href="#cb24-210" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
-<span id="cb24-211"><a href="#cb24-211" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(coefs)</span>
-<span id="cb24-212"><a href="#cb24-212" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-213"><a href="#cb24-213" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb24-214"><a href="#cb24-214" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-215"><a href="#cb24-215" aria-hidden="true" tabindex="-1"></a>plist<span class="ot">&lt;-</span><span class="fu">list</span>(</span>
-<span id="cb24-216"><a href="#cb24-216" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50,   beta_1=0.05&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span><span class="fl">0.05</span>, <span class="at">N=</span><span class="dv">50</span>),</span>
-<span id="cb24-217"><a href="#cb24-217" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=100,  beta_1=0.05&#39;</span><span class="ot">=</span>   <span class="fu">list</span>(<span class="at">betas=</span><span class="fl">0.05</span>, <span class="at">N=</span><span class="dv">100</span>),</span>
-<span id="cb24-218"><a href="#cb24-218" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=1000, beta_1=0.05&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span><span class="fl">0.05</span>, <span class="at">N=</span><span class="dv">1000</span>)</span>
-<span id="cb24-219"><a href="#cb24-219" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb24-220"><a href="#cb24-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-193"><a href="#cb24-193" aria-hidden="true" tabindex="-1"></a>Here&#39;s an example of doing the same simulation we ran above using the <span class="in">`runSim`</span> function. Instead of generating a nested loop, we just set up a list-of-lists containing the arguments that we want to pass to <span class="in">`genFunc`</span>.</span>
+<span id="cb24-194"><a href="#cb24-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-197"><a href="#cb24-197" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-198"><a href="#cb24-198" aria-hidden="true" tabindex="-1"></a><span class="co"># a data generation function with defaults (replaces the inner loop in the prior examples)  </span></span>
+<span id="cb24-199"><a href="#cb24-199" aria-hidden="true" tabindex="-1"></a>genFunc <span class="ot">&lt;-</span> <span class="cf">function</span>(N, betas){</span>
+<span id="cb24-200"><a href="#cb24-200" aria-hidden="true" tabindex="-1"></a>  X <span class="ot">=</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>))</span>
+<span id="cb24-201"><a href="#cb24-201" aria-hidden="true" tabindex="-1"></a>  intercept <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb24-202"><a href="#cb24-202" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">=</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , <span class="dv">1</span>)</span>
+<span id="cb24-203"><a href="#cb24-203" aria-hidden="true" tabindex="-1"></a>  Y <span class="ot">&lt;-</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e</span>
+<span id="cb24-204"><a href="#cb24-204" aria-hidden="true" tabindex="-1"></a>  mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
+<span id="cb24-205"><a href="#cb24-205" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
+<span id="cb24-206"><a href="#cb24-206" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(coefs)</span>
+<span id="cb24-207"><a href="#cb24-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-208"><a href="#cb24-208" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb24-209"><a href="#cb24-209" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-210"><a href="#cb24-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-211"><a href="#cb24-211" aria-hidden="true" tabindex="-1"></a>plist<span class="ot">&lt;-</span><span class="fu">list</span>(</span>
+<span id="cb24-212"><a href="#cb24-212" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50,   beta_1=0.05&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span><span class="fl">0.05</span>, <span class="at">N=</span><span class="dv">50</span>),</span>
+<span id="cb24-213"><a href="#cb24-213" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=100,  beta_1=0.05&#39;</span><span class="ot">=</span>   <span class="fu">list</span>(<span class="at">betas=</span><span class="fl">0.05</span>, <span class="at">N=</span><span class="dv">100</span>),</span>
+<span id="cb24-214"><a href="#cb24-214" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=1000, beta_1=0.05&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span><span class="fl">0.05</span>, <span class="at">N=</span><span class="dv">1000</span>),</span>
+<span id="cb24-215"><a href="#cb24-215" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;N=5000 beta_1 = 0.05 &quot;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span><span class="fl">0.05</span>, <span class="at">N=</span><span class="dv">5000</span>)</span>
+<span id="cb24-216"><a href="#cb24-216" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-217"><a href="#cb24-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-218"><a href="#cb24-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-219"><a href="#cb24-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-220"><a href="#cb24-220" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb24-221"><a href="#cb24-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-222"><a href="#cb24-222" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-223"><a href="#cb24-223" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-224"><a href="#cb24-224" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-225"><a href="#cb24-225" aria-hidden="true" tabindex="-1"></a>Then we pass <span class="in">`genFunc`</span> and <span class="in">`plist`</span> as arguments to <span class="in">`runSim`</span></span>
-<span id="cb24-226"><a href="#cb24-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-229"><a href="#cb24-229" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-230"><a href="#cb24-230" aria-hidden="true" tabindex="-1"></a>results<span class="ot">&lt;-</span> <span class="fu">runSim</span>(<span class="at">func=</span>genFunc, </span>
-<span id="cb24-231"><a href="#cb24-231" aria-hidden="true" tabindex="-1"></a>                 <span class="at">parmlist =</span> plist,</span>
-<span id="cb24-232"><a href="#cb24-232" aria-hidden="true" tabindex="-1"></a>                 <span class="at">seed =</span> <span class="dv">999</span></span>
-<span id="cb24-233"><a href="#cb24-233" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-222"><a href="#cb24-222" aria-hidden="true" tabindex="-1"></a>Then we pass <span class="in">`genFunc`</span> and <span class="in">`plist`</span> as arguments to <span class="in">`runSim`</span></span>
+<span id="cb24-223"><a href="#cb24-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-226"><a href="#cb24-226" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-227"><a href="#cb24-227" aria-hidden="true" tabindex="-1"></a>results<span class="ot">&lt;-</span> <span class="fu">runSim</span>(<span class="at">func=</span>genFunc, </span>
+<span id="cb24-228"><a href="#cb24-228" aria-hidden="true" tabindex="-1"></a>                 <span class="at">parmlist =</span> plist,</span>
+<span id="cb24-229"><a href="#cb24-229" aria-hidden="true" tabindex="-1"></a>                 <span class="at">seed =</span> <span class="dv">999</span></span>
+<span id="cb24-230"><a href="#cb24-230" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-231"><a href="#cb24-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-232"><a href="#cb24-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-233"><a href="#cb24-233" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-234"><a href="#cb24-234" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb24-235"><a href="#cb24-235" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-236"><a href="#cb24-236" aria-hidden="true" tabindex="-1"></a>Now, we can summarize the results for each condition:</span>
@@ -5612,7 +5653,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb24-255"><a href="#cb24-255" aria-hidden="true" tabindex="-1"></a>plist<span class="ot">&lt;-</span><span class="fu">list</span>(</span>
 <span id="cb24-256"><a href="#cb24-256" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50, beta_1=0.05&#39;</span> <span class="ot">=</span> <span class="fu">list</span>(<span class="at">betas=</span> .<span class="dv">05</span>, <span class="at">N=</span><span class="dv">50</span>),</span>
 <span id="cb24-257"><a href="#cb24-257" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50, beta_1=0.1&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span> <span class="fl">0.1</span>, <span class="at">N=</span><span class="dv">50</span>),</span>
-<span id="cb24-258"><a href="#cb24-258" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50, beta_1=0.5&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span> <span class="fl">0.5</span>, <span class="at">N=</span><span class="dv">50</span>)</span>
+<span id="cb24-258"><a href="#cb24-258" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50, beta_1=1&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">betas=</span> <span class="dv">1</span>, <span class="at">N=</span><span class="dv">50</span>)</span>
 <span id="cb24-259"><a href="#cb24-259" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb24-260"><a href="#cb24-260" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-261"><a href="#cb24-261" aria-hidden="true" tabindex="-1"></a>results<span class="ot">&lt;-</span> <span class="fu">runSim</span>(<span class="at">func=</span>genFunc, </span>
@@ -5754,150 +5795,164 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb24-409"><a href="#cb24-409" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-410"><a href="#cb24-410" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb24-411"><a href="#cb24-411" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-412"><a href="#cb24-412" aria-hidden="true" tabindex="-1"></a><span class="fu">## Question </span></span>
+<span id="cb24-412"><a href="#cb24-412" aria-hidden="true" tabindex="-1"></a><span class="fu">## Question</span></span>
 <span id="cb24-413"><a href="#cb24-413" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-414"><a href="#cb24-414" aria-hidden="true" tabindex="-1"></a>Rewrite the code above so that $\beta_2$ is negative instead of positive. How does this impact your results?</span>
 <span id="cb24-415"><a href="#cb24-415" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-418"><a href="#cb24-418" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
 <span id="cb24-419"><a href="#cb24-419" aria-hidden="true" tabindex="-1"></a><span class="co"># Code</span></span>
-<span id="cb24-420"><a href="#cb24-420" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-421"><a href="#cb24-421" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-422"><a href="#cb24-422" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-423"><a href="#cb24-423" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-424"><a href="#cb24-424" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-420"><a href="#cb24-420" aria-hidden="true" tabindex="-1"></a>plist<span class="ot">&lt;-</span><span class="fu">list</span>(</span>
+<span id="cb24-421"><a href="#cb24-421" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;r=-.7&#39;</span> <span class="ot">=</span><span class="fu">list</span>(<span class="at">corr_x =</span> <span class="sc">-</span><span class="fl">0.7</span>, <span class="at">betas=</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="sc">-</span><span class="dv">1</span>)),</span>
+<span id="cb24-422"><a href="#cb24-422" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;r=  0&#39;</span> <span class="ot">=</span><span class="fu">list</span>(<span class="at">corr_x =</span>  <span class="fl">0.0</span>,<span class="at">betas=</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="sc">-</span><span class="dv">1</span>)),</span>
+<span id="cb24-423"><a href="#cb24-423" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;r= .7&#39;</span> <span class="ot">=</span><span class="fu">list</span>(<span class="at">corr_x =</span>  <span class="fl">0.7</span>, <span class="at">betas=</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb24-424"><a href="#cb24-424" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb24-425"><a href="#cb24-425" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-426"><a href="#cb24-426" aria-hidden="true" tabindex="-1"></a><span class="fu"># Modeling heteroscedasticity</span></span>
-<span id="cb24-427"><a href="#cb24-427" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-428"><a href="#cb24-428" aria-hidden="true" tabindex="-1"></a>We can model heteroscedastic data by making the variance of $\epsilon$ depend on values of one of the predictors: </span>
-<span id="cb24-429"><a href="#cb24-429" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-432"><a href="#cb24-432" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-433"><a href="#cb24-433" aria-hidden="true" tabindex="-1"></a>N <span class="ot">=</span> <span class="dv">100</span></span>
-<span id="cb24-434"><a href="#cb24-434" aria-hidden="true" tabindex="-1"></a>betas <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
-<span id="cb24-435"><a href="#cb24-435" aria-hidden="true" tabindex="-1"></a>intercept <span class="ot">=</span> <span class="dv">1</span></span>
-<span id="cb24-436"><a href="#cb24-436" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-437"><a href="#cb24-437" aria-hidden="true" tabindex="-1"></a>data<span class="ot">&lt;-</span><span class="fu">tibble</span>(<span class="at">X =</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>)),</span>
-<span id="cb24-438"><a href="#cb24-438" aria-hidden="true" tabindex="-1"></a>       <span class="at">e =</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , <span class="fu">exp</span>(X ) ),</span>
-<span id="cb24-439"><a href="#cb24-439" aria-hidden="true" tabindex="-1"></a>       <span class="at">Y =</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e)</span>
-<span id="cb24-440"><a href="#cb24-440" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-441"><a href="#cb24-441" aria-hidden="true" tabindex="-1"></a>model<span class="ot">&lt;-</span><span class="fu">lm</span>(Y <span class="sc">~</span> X, <span class="at">data=</span>data)</span>
-<span id="cb24-442"><a href="#cb24-442" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-443"><a href="#cb24-443" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-444"><a href="#cb24-444" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-445"><a href="#cb24-445" aria-hidden="true" tabindex="-1"></a>A quick visual inspection of the results can give us a pretty good sense that there&#39;s a problem here: </span>
-<span id="cb24-446"><a href="#cb24-446" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-449"><a href="#cb24-449" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-450"><a href="#cb24-450" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(data, <span class="fu">aes</span>(<span class="at">x=</span>X, <span class="at">y=</span>Y)) <span class="sc">+</span> </span>
-<span id="cb24-451"><a href="#cb24-451" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb24-452"><a href="#cb24-452" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method=</span><span class="st">&#39;lm&#39;</span>, <span class="at">se=</span><span class="cn">FALSE</span> ) <span class="sc">+</span></span>
-<span id="cb24-453"><a href="#cb24-453" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() </span>
-<span id="cb24-454"><a href="#cb24-454" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-455"><a href="#cb24-455" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb24-456"><a href="#cb24-456" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-457"><a href="#cb24-457" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-458"><a href="#cb24-458" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-459"><a href="#cb24-459" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-460"><a href="#cb24-460" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-461"><a href="#cb24-461" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-462"><a href="#cb24-462" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-463"><a href="#cb24-463" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-464"><a href="#cb24-464" aria-hidden="true" tabindex="-1"></a>That said, we can also use some diagnostic plots to get a better sense of the results. We want to pay especially close attention to the residuals vs. fitted plot, and scale-location plot. In the first, heteroskedasticity will show up as results that have greater spread at different predicted values of Y. In the second, you want to see a mostly horizontal line. </span>
-<span id="cb24-465"><a href="#cb24-465" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-466"><a href="#cb24-466" aria-hidden="true" tabindex="-1"></a>Compare the heteroskedastic data: </span>
-<span id="cb24-467"><a href="#cb24-467" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-470"><a href="#cb24-470" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-471"><a href="#cb24-471" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(model, <span class="at">which=</span><span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>))</span>
+<span id="cb24-426"><a href="#cb24-426" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-427"><a href="#cb24-427" aria-hidden="true" tabindex="-1"></a>results<span class="ot">&lt;-</span><span class="fu">runSim</span>( <span class="at">func=</span>genFunc,</span>
+<span id="cb24-428"><a href="#cb24-428" aria-hidden="true" tabindex="-1"></a>                 <span class="at">parmlist =</span> plist,</span>
+<span id="cb24-429"><a href="#cb24-429" aria-hidden="true" tabindex="-1"></a>                 <span class="at">seed =</span> <span class="dv">999</span></span>
+<span id="cb24-430"><a href="#cb24-430" aria-hidden="true" tabindex="-1"></a>                 )</span>
+<span id="cb24-431"><a href="#cb24-431" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-432"><a href="#cb24-432" aria-hidden="true" tabindex="-1"></a>results <span class="sc">|&gt;</span> </span>
+<span id="cb24-433"><a href="#cb24-433" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(term <span class="sc">==</span> <span class="st">&quot;X[, 1]&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb24-434"><a href="#cb24-434" aria-hidden="true" tabindex="-1"></a>  <span class="co"># calculate the bias (estimated beta_1 minus the value set in the data generating function)</span></span>
+<span id="cb24-435"><a href="#cb24-435" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">bias =</span> estimate <span class="sc">-</span> <span class="dv">1</span>)<span class="sc">|&gt;</span></span>
+<span id="cb24-436"><a href="#cb24-436" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> bias, <span class="at">y =</span> condition, )) <span class="sc">+</span></span>
+<span id="cb24-437"><a href="#cb24-437" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_halfeye</span>(</span>
+<span id="cb24-438"><a href="#cb24-438" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha =</span> .<span class="dv">5</span>,</span>
+<span id="cb24-439"><a href="#cb24-439" aria-hidden="true" tabindex="-1"></a>    <span class="at">width =</span> .<span class="dv">6</span>,</span>
+<span id="cb24-440"><a href="#cb24-440" aria-hidden="true" tabindex="-1"></a>    <span class="at">.width =</span> <span class="dv">0</span>,</span>
+<span id="cb24-441"><a href="#cb24-441" aria-hidden="true" tabindex="-1"></a>    <span class="at">justification =</span> <span class="sc">-</span>.<span class="dv">2</span></span>
+<span id="cb24-442"><a href="#cb24-442" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb24-443"><a href="#cb24-443" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">width =</span> .<span class="dv">15</span>, <span class="at">outlier.shape =</span> <span class="cn">NA</span>) <span class="sc">+</span></span>
+<span id="cb24-444"><a href="#cb24-444" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb24-445"><a href="#cb24-445" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>,</span>
+<span id="cb24-446"><a href="#cb24-446" aria-hidden="true" tabindex="-1"></a>             <span class="at">lty =</span> <span class="dv">2</span>,</span>
+<span id="cb24-447"><a href="#cb24-447" aria-hidden="true" tabindex="-1"></a>             <span class="at">col =</span> <span class="st">&#39;red&#39;</span>) <span class="sc">+</span></span>
+<span id="cb24-448"><a href="#cb24-448" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">&quot;Estimated Beta_1 - Actual B_1&quot;</span>) <span class="sc">+</span></span>
+<span id="cb24-449"><a href="#cb24-449" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Effects of omitted variable bias on coefficient estimates&quot;</span>)</span>
+<span id="cb24-450"><a href="#cb24-450" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-451"><a href="#cb24-451" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-452"><a href="#cb24-452" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-453"><a href="#cb24-453" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-454"><a href="#cb24-454" aria-hidden="true" tabindex="-1"></a><span class="fu"># Modeling heteroskedasticity</span></span>
+<span id="cb24-455"><a href="#cb24-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-456"><a href="#cb24-456" aria-hidden="true" tabindex="-1"></a>We can model heteroskedastic data by making the variance of $\epsilon$ depend on values of one of the predictors:</span>
+<span id="cb24-457"><a href="#cb24-457" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-460"><a href="#cb24-460" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-461"><a href="#cb24-461" aria-hidden="true" tabindex="-1"></a>N <span class="ot">=</span> <span class="dv">100</span></span>
+<span id="cb24-462"><a href="#cb24-462" aria-hidden="true" tabindex="-1"></a>betas <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb24-463"><a href="#cb24-463" aria-hidden="true" tabindex="-1"></a>intercept <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb24-464"><a href="#cb24-464" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-465"><a href="#cb24-465" aria-hidden="true" tabindex="-1"></a>data<span class="ot">&lt;-</span><span class="fu">tibble</span>(<span class="at">X =</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>)),</span>
+<span id="cb24-466"><a href="#cb24-466" aria-hidden="true" tabindex="-1"></a>       <span class="at">e =</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , <span class="fu">exp</span>(X )),</span>
+<span id="cb24-467"><a href="#cb24-467" aria-hidden="true" tabindex="-1"></a>       <span class="at">Y =</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e)</span>
+<span id="cb24-468"><a href="#cb24-468" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-469"><a href="#cb24-469" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-470"><a href="#cb24-470" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-471"><a href="#cb24-471" aria-hidden="true" tabindex="-1"></a>model<span class="ot">&lt;-</span><span class="fu">lm</span>(Y <span class="sc">~</span> X, <span class="at">data=</span>data)</span>
 <span id="cb24-472"><a href="#cb24-472" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-473"><a href="#cb24-473" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-474"><a href="#cb24-474" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-475"><a href="#cb24-475" aria-hidden="true" tabindex="-1"></a>Vs. data without heteroskedasticity: </span>
+<span id="cb24-473"><a href="#cb24-473" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-474"><a href="#cb24-474" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-475"><a href="#cb24-475" aria-hidden="true" tabindex="-1"></a>A quick visual inspection of the results can give us a pretty good sense that there&#39;s a problem here:</span>
 <span id="cb24-476"><a href="#cb24-476" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-479"><a href="#cb24-479" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-480"><a href="#cb24-480" aria-hidden="true" tabindex="-1"></a>hm_data<span class="ot">&lt;-</span><span class="fu">tibble</span>(<span class="at">X =</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>)),</span>
-<span id="cb24-481"><a href="#cb24-481" aria-hidden="true" tabindex="-1"></a>       <span class="at">e =</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , <span class="dv">1</span>),</span>
-<span id="cb24-482"><a href="#cb24-482" aria-hidden="true" tabindex="-1"></a>       <span class="at">Y =</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e)</span>
-<span id="cb24-483"><a href="#cb24-483" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-484"><a href="#cb24-484" aria-hidden="true" tabindex="-1"></a>model2<span class="ot">&lt;-</span><span class="fu">lm</span>(Y <span class="sc">~</span> X, <span class="at">data=</span>hm_data)</span>
-<span id="cb24-485"><a href="#cb24-485" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(model2, <span class="at">which=</span><span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>))</span>
+<span id="cb24-480"><a href="#cb24-480" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(data, <span class="fu">aes</span>(<span class="at">x=</span>X, <span class="at">y=</span>Y)) <span class="sc">+</span> </span>
+<span id="cb24-481"><a href="#cb24-481" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb24-482"><a href="#cb24-482" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method=</span><span class="st">&#39;lm&#39;</span>, <span class="at">se=</span><span class="cn">FALSE</span> ) <span class="sc">+</span></span>
+<span id="cb24-483"><a href="#cb24-483" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() </span>
+<span id="cb24-484"><a href="#cb24-484" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-485"><a href="#cb24-485" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb24-486"><a href="#cb24-486" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-487"><a href="#cb24-487" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-488"><a href="#cb24-488" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-489"><a href="#cb24-489" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-487"><a href="#cb24-487" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-488"><a href="#cb24-488" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-489"><a href="#cb24-489" aria-hidden="true" tabindex="-1"></a>That said, we can also use some diagnostic plots to get a better sense of the results. We want to pay especially close attention to the residuals vs. fitted plot, and scale-location plot. In the first, heteroskedasticity will show up as results that have greater spread at different predicted values of Y. In the second, you want to see a mostly horizontal line.</span>
 <span id="cb24-490"><a href="#cb24-490" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-491"><a href="#cb24-491" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-491"><a href="#cb24-491" aria-hidden="true" tabindex="-1"></a>Compare the heteroskedastic data:</span>
 <span id="cb24-492"><a href="#cb24-492" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-493"><a href="#cb24-493" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-494"><a href="#cb24-494" aria-hidden="true" tabindex="-1"></a><span class="fu">## Simulation: What does heteroskedasticity do to our results? </span></span>
-<span id="cb24-495"><a href="#cb24-495" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-496"><a href="#cb24-496" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-497"><a href="#cb24-497" aria-hidden="true" tabindex="-1"></a>To run a simulation, we can nest our data generating loop inside a function. We&#39;ll also include an argument that allows us to vary the sample size: </span>
+<span id="cb24-495"><a href="#cb24-495" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-496"><a href="#cb24-496" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(model, <span class="at">which=</span><span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>))</span>
+<span id="cb24-497"><a href="#cb24-497" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-498"><a href="#cb24-498" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-501"><a href="#cb24-501" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-502"><a href="#cb24-502" aria-hidden="true" tabindex="-1"></a>genFunc <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">N=</span><span class="dv">1000</span>, <span class="at">homoskedastic=</span><span class="cn">FALSE</span>){</span>
-<span id="cb24-503"><a href="#cb24-503" aria-hidden="true" tabindex="-1"></a>  betas <span class="ot">&lt;-</span> .<span class="dv">5</span></span>
-<span id="cb24-504"><a href="#cb24-504" aria-hidden="true" tabindex="-1"></a>  X <span class="ot">=</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>))</span>
-<span id="cb24-505"><a href="#cb24-505" aria-hidden="true" tabindex="-1"></a>  intercept <span class="ot">=</span> <span class="dv">1</span></span>
-<span id="cb24-506"><a href="#cb24-506" aria-hidden="true" tabindex="-1"></a>  var <span class="ot">=</span><span class="fu">ifelse</span>(homoskedastic, <span class="dv">1</span>, <span class="fu">exp</span>(X <span class="sc">*</span> .<span class="dv">5</span>))</span>
-<span id="cb24-507"><a href="#cb24-507" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">=</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , var)</span>
-<span id="cb24-508"><a href="#cb24-508" aria-hidden="true" tabindex="-1"></a>  Y <span class="ot">&lt;-</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e</span>
-<span id="cb24-509"><a href="#cb24-509" aria-hidden="true" tabindex="-1"></a>  mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
-<span id="cb24-510"><a href="#cb24-510" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
-<span id="cb24-511"><a href="#cb24-511" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(coefs)</span>
+<span id="cb24-499"><a href="#cb24-499" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-500"><a href="#cb24-500" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-501"><a href="#cb24-501" aria-hidden="true" tabindex="-1"></a>Vs. data without heteroskedasticity:</span>
+<span id="cb24-502"><a href="#cb24-502" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-505"><a href="#cb24-505" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-506"><a href="#cb24-506" aria-hidden="true" tabindex="-1"></a>hm_data<span class="ot">&lt;-</span><span class="fu">tibble</span>(<span class="at">X =</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>)),</span>
+<span id="cb24-507"><a href="#cb24-507" aria-hidden="true" tabindex="-1"></a>       <span class="at">e =</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , <span class="dv">1</span>),</span>
+<span id="cb24-508"><a href="#cb24-508" aria-hidden="true" tabindex="-1"></a>       <span class="at">Y =</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e)</span>
+<span id="cb24-509"><a href="#cb24-509" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-510"><a href="#cb24-510" aria-hidden="true" tabindex="-1"></a>model2<span class="ot">&lt;-</span><span class="fu">lm</span>(Y <span class="sc">~</span> X, <span class="at">data=</span>hm_data)</span>
+<span id="cb24-511"><a href="#cb24-511" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(model2, <span class="at">which=</span><span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>))</span>
 <span id="cb24-512"><a href="#cb24-512" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-513"><a href="#cb24-513" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb24-514"><a href="#cb24-514" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-515"><a href="#cb24-515" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-516"><a href="#cb24-516" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-513"><a href="#cb24-513" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-514"><a href="#cb24-514" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-515"><a href="#cb24-515" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-516"><a href="#cb24-516" aria-hidden="true" tabindex="-1"></a><span class="fu">## Simulation: What does heteroskedasticity do to our results?</span></span>
 <span id="cb24-517"><a href="#cb24-517" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-518"><a href="#cb24-518" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-519"><a href="#cb24-519" aria-hidden="true" tabindex="-1"></a>Now, we can set up a list of parameters to pass along and then run our simulation.</span>
-<span id="cb24-520"><a href="#cb24-520" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-523"><a href="#cb24-523" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-524"><a href="#cb24-524" aria-hidden="true" tabindex="-1"></a>plist<span class="ot">&lt;-</span><span class="fu">list</span>(</span>
-<span id="cb24-525"><a href="#cb24-525" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50 homoskedastic&#39;</span> <span class="ot">=</span> <span class="fu">list</span>(<span class="at">N=</span><span class="dv">50</span>, <span class="at">homoskedastic=</span><span class="cn">TRUE</span>),</span>
-<span id="cb24-526"><a href="#cb24-526" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50 heteroskedastic&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">N=</span><span class="dv">50</span>),</span>
-<span id="cb24-527"><a href="#cb24-527" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=100 heteroskedastic&#39;</span><span class="ot">=</span>   <span class="fu">list</span>(<span class="at">N=</span><span class="dv">100</span>),</span>
-<span id="cb24-528"><a href="#cb24-528" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=1000 heteroskedastic&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">N=</span><span class="dv">1000</span>)</span>
-<span id="cb24-529"><a href="#cb24-529" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb24-530"><a href="#cb24-530" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-531"><a href="#cb24-531" aria-hidden="true" tabindex="-1"></a>results<span class="ot">&lt;-</span> <span class="fu">runSim</span>(<span class="at">func=</span>genFunc, </span>
-<span id="cb24-532"><a href="#cb24-532" aria-hidden="true" tabindex="-1"></a>                 <span class="at">parmlist =</span> plist,</span>
-<span id="cb24-533"><a href="#cb24-533" aria-hidden="true" tabindex="-1"></a>                 <span class="at">seed =</span> <span class="dv">999</span>,</span>
-<span id="cb24-534"><a href="#cb24-534" aria-hidden="true" tabindex="-1"></a>                 <span class="at">iterations=</span><span class="dv">1000</span></span>
-<span id="cb24-535"><a href="#cb24-535" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb24-536"><a href="#cb24-536" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-537"><a href="#cb24-537" aria-hidden="true" tabindex="-1"></a><span class="fu">aggregateResults</span>(results)<span class="sc">|&gt;</span></span>
-<span id="cb24-538"><a href="#cb24-538" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(term<span class="sc">==</span><span class="st">&quot;X&quot;</span>)</span>
+<span id="cb24-518"><a href="#cb24-518" aria-hidden="true" tabindex="-1"></a>To run a simulation, we can nest our data generating loop inside a function. We&#39;ll also include an argument that allows us to vary the sample size:</span>
+<span id="cb24-519"><a href="#cb24-519" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-522"><a href="#cb24-522" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-523"><a href="#cb24-523" aria-hidden="true" tabindex="-1"></a>genFunc <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">N=</span><span class="dv">1000</span>, <span class="at">homoskedastic=</span><span class="cn">FALSE</span>){</span>
+<span id="cb24-524"><a href="#cb24-524" aria-hidden="true" tabindex="-1"></a>  betas <span class="ot">&lt;-</span> .<span class="dv">5</span></span>
+<span id="cb24-525"><a href="#cb24-525" aria-hidden="true" tabindex="-1"></a>  X <span class="ot">=</span> <span class="fu">cbind</span>(<span class="fu">rnorm</span>(N, <span class="dv">0</span>, <span class="dv">1</span>))</span>
+<span id="cb24-526"><a href="#cb24-526" aria-hidden="true" tabindex="-1"></a>  intercept <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb24-527"><a href="#cb24-527" aria-hidden="true" tabindex="-1"></a>  var <span class="ot">=</span><span class="fu">ifelse</span>(homoskedastic, <span class="dv">1</span>, <span class="fu">exp</span>(X <span class="sc">*</span> .<span class="dv">5</span>))</span>
+<span id="cb24-528"><a href="#cb24-528" aria-hidden="true" tabindex="-1"></a>  e <span class="ot">=</span> <span class="fu">rnorm</span>(N, <span class="dv">0</span> , var)</span>
+<span id="cb24-529"><a href="#cb24-529" aria-hidden="true" tabindex="-1"></a>  Y <span class="ot">&lt;-</span> intercept  <span class="sc">+</span> X <span class="sc">%*%</span> betas <span class="sc">+</span> e</span>
+<span id="cb24-530"><a href="#cb24-530" aria-hidden="true" tabindex="-1"></a>  mod <span class="ot">&lt;-</span> <span class="fu">lm</span>(Y <span class="sc">~</span> X)</span>
+<span id="cb24-531"><a href="#cb24-531" aria-hidden="true" tabindex="-1"></a>  coefs<span class="ot">&lt;-</span><span class="fu">tidy</span>(mod, <span class="at">conf.int =</span> <span class="cn">TRUE</span>, <span class="at">conf.level =</span> .<span class="dv">95</span>)</span>
+<span id="cb24-532"><a href="#cb24-532" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(coefs)</span>
+<span id="cb24-533"><a href="#cb24-533" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-534"><a href="#cb24-534" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb24-535"><a href="#cb24-535" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-536"><a href="#cb24-536" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-537"><a href="#cb24-537" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-538"><a href="#cb24-538" aria-hidden="true" tabindex="-1"></a>Now, we can set up a list of parameters to pass along and then run our simulation.</span>
 <span id="cb24-539"><a href="#cb24-539" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-540"><a href="#cb24-540" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-541"><a href="#cb24-541" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-542"><a href="#cb24-542" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb24-543"><a href="#cb24-543" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-544"><a href="#cb24-544" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-547"><a href="#cb24-547" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb24-548"><a href="#cb24-548" aria-hidden="true" tabindex="-1"></a>results<span class="sc">|&gt;</span></span>
-<span id="cb24-549"><a href="#cb24-549" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(term <span class="sc">==</span><span class="st">&quot;X&quot;</span>)<span class="sc">|&gt;</span></span>
-<span id="cb24-550"><a href="#cb24-550" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span>estimate, <span class="at">y =</span> condition)) <span class="sc">+</span></span>
-<span id="cb24-551"><a href="#cb24-551" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_halfeye</span>(</span>
-<span id="cb24-552"><a href="#cb24-552" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha =</span> .<span class="dv">5</span>,</span>
-<span id="cb24-553"><a href="#cb24-553" aria-hidden="true" tabindex="-1"></a>    <span class="at">width =</span> .<span class="dv">6</span>,</span>
-<span id="cb24-554"><a href="#cb24-554" aria-hidden="true" tabindex="-1"></a>    <span class="at">.width =</span> <span class="dv">0</span>,</span>
-<span id="cb24-555"><a href="#cb24-555" aria-hidden="true" tabindex="-1"></a>    <span class="at">justification =</span> <span class="sc">-</span>.<span class="dv">2</span></span>
-<span id="cb24-556"><a href="#cb24-556" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb24-557"><a href="#cb24-557" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">width =</span> .<span class="dv">15</span>, <span class="at">outlier.shape =</span> <span class="cn">NA</span>) <span class="sc">+</span></span>
-<span id="cb24-558"><a href="#cb24-558" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb24-559"><a href="#cb24-559" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept=</span><span class="fl">0.5</span>, <span class="at">lty=</span><span class="dv">2</span>,<span class="at">col=</span><span class="st">&#39;red&#39;</span>)</span>
+<span id="cb24-542"><a href="#cb24-542" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-543"><a href="#cb24-543" aria-hidden="true" tabindex="-1"></a>plist<span class="ot">&lt;-</span><span class="fu">list</span>(</span>
+<span id="cb24-544"><a href="#cb24-544" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50 homoskedastic&#39;</span> <span class="ot">=</span> <span class="fu">list</span>(<span class="at">N=</span><span class="dv">50</span>, <span class="at">homoskedastic=</span><span class="cn">TRUE</span>),</span>
+<span id="cb24-545"><a href="#cb24-545" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=50 heteroskedastic&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">N=</span><span class="dv">50</span>),</span>
+<span id="cb24-546"><a href="#cb24-546" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=100 heteroskedastic&#39;</span><span class="ot">=</span>   <span class="fu">list</span>(<span class="at">N=</span><span class="dv">100</span>),</span>
+<span id="cb24-547"><a href="#cb24-547" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;N=1000 heteroskedastic&#39;</span> <span class="ot">=</span>  <span class="fu">list</span>(<span class="at">N=</span><span class="dv">1000</span>)</span>
+<span id="cb24-548"><a href="#cb24-548" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-549"><a href="#cb24-549" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-550"><a href="#cb24-550" aria-hidden="true" tabindex="-1"></a>results<span class="ot">&lt;-</span> <span class="fu">runSim</span>(<span class="at">func=</span>genFunc, </span>
+<span id="cb24-551"><a href="#cb24-551" aria-hidden="true" tabindex="-1"></a>                 <span class="at">parmlist =</span> plist,</span>
+<span id="cb24-552"><a href="#cb24-552" aria-hidden="true" tabindex="-1"></a>                 <span class="at">seed =</span> <span class="dv">999</span>,</span>
+<span id="cb24-553"><a href="#cb24-553" aria-hidden="true" tabindex="-1"></a>                 <span class="at">iterations=</span><span class="dv">1000</span></span>
+<span id="cb24-554"><a href="#cb24-554" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-555"><a href="#cb24-555" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-556"><a href="#cb24-556" aria-hidden="true" tabindex="-1"></a><span class="fu">aggregateResults</span>(results)<span class="sc">|&gt;</span></span>
+<span id="cb24-557"><a href="#cb24-557" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(term<span class="sc">==</span><span class="st">&quot;X&quot;</span>)<span class="sc">|&gt;</span></span>
+<span id="cb24-558"><a href="#cb24-558" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(condition, <span class="fu">starts_with</span>(<span class="st">&quot;proportion&quot;</span>))</span>
+<span id="cb24-559"><a href="#cb24-559" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-560"><a href="#cb24-560" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-561"><a href="#cb24-561" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb24-562"><a href="#cb24-562" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb24-563"><a href="#cb24-563" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-564"><a href="#cb24-564" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-565"><a href="#cb24-565" aria-hidden="true" tabindex="-1"></a>So what is happening here and how concerned should we be? </span>
-<span id="cb24-566"><a href="#cb24-566" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-567"><a href="#cb24-567" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-568"><a href="#cb24-568" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-569"><a href="#cb24-569" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-570"><a href="#cb24-570" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-571"><a href="#cb24-571" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-564"><a href="#cb24-564" aria-hidden="true" tabindex="-1"></a>Now plot the results...</span>
+<span id="cb24-565"><a href="#cb24-565" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-568"><a href="#cb24-568" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-569"><a href="#cb24-569" aria-hidden="true" tabindex="-1"></a>results<span class="sc">|&gt;</span></span>
+<span id="cb24-570"><a href="#cb24-570" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(term <span class="sc">==</span><span class="st">&quot;X&quot;</span>)<span class="sc">|&gt;</span></span>
+<span id="cb24-571"><a href="#cb24-571" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span>estimate, <span class="at">y =</span> condition)) <span class="sc">+</span></span>
+<span id="cb24-572"><a href="#cb24-572" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_halfeye</span>(</span>
+<span id="cb24-573"><a href="#cb24-573" aria-hidden="true" tabindex="-1"></a>    <span class="at">alpha =</span> .<span class="dv">5</span>,</span>
+<span id="cb24-574"><a href="#cb24-574" aria-hidden="true" tabindex="-1"></a>    <span class="at">width =</span> .<span class="dv">6</span>,</span>
+<span id="cb24-575"><a href="#cb24-575" aria-hidden="true" tabindex="-1"></a>    <span class="at">.width =</span> <span class="dv">0</span>,</span>
+<span id="cb24-576"><a href="#cb24-576" aria-hidden="true" tabindex="-1"></a>    <span class="at">justification =</span> <span class="sc">-</span>.<span class="dv">2</span></span>
+<span id="cb24-577"><a href="#cb24-577" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb24-578"><a href="#cb24-578" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">width =</span> .<span class="dv">15</span>, <span class="at">outlier.shape =</span> <span class="cn">NA</span>) <span class="sc">+</span></span>
+<span id="cb24-579"><a href="#cb24-579" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb24-580"><a href="#cb24-580" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept=</span><span class="fl">0.5</span>, <span class="at">lty=</span><span class="dv">2</span>,<span class="at">col=</span><span class="st">&#39;red&#39;</span>)</span>
+<span id="cb24-581"><a href="#cb24-581" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-582"><a href="#cb24-582" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-583"><a href="#cb24-583" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb24-584"><a href="#cb24-584" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-585"><a href="#cb24-585" aria-hidden="true" tabindex="-1"></a>So what is happening here and how concerned should we be?</span>
 </code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

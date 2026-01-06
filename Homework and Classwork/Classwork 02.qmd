@@ -156,7 +156,8 @@ aggregateResults<-function(results){
       sd = sd(estimate),
       `2.5th percentile` = quantile(estimate, .025),
       `97.5th percentile` = quantile(estimate, .975),
-      `proportion p>=.05` = mean(p.value >= .05)
+      `proportion p>=.05` = mean(p.value >= .05),
+      `proportion p<.05` = mean(p.value < .05)
     )
   return(agged)
 }
@@ -321,9 +322,9 @@ results |>
 
 ```
 
-### Omitted variable bias
+### Multicollinearity
 
-We can use the same general approach to explore the effects of omitted variable bias. Omitted variable bias happens when there are variables correlated with predictors AND with the outcome of interest that are left out of the model. The code below uses `mvrnorm` to create two correlated random variables that both influence Y, but then estimates a model that only includes the first of those correlated predictor variables.
+We can use the same general approach to explore the effects of multicollinearity. 
 
 ```{r}
 
@@ -333,7 +334,7 @@ genFunc <- function(corr_x=0, e_sd=1, N=1000, betas=c(1,1)){
   X = MASS::mvrnorm(N, mu=c(0, 0), Sigma=Sigma)
   e = rnorm(N, 0 , sd=e_sd) # the variance of the error term
   Y <- intercept  + X %*% betas + e
-  mod <- lm(Y ~ X[,1]) # Omitting X[,2] from the regression model
+  mod <- lm(Y ~ X) # Omitting X[,2] from the regression model
   coefs<-tidy(mod, conf.int = TRUE, conf.level = .95)
   return(coefs)
 
@@ -342,14 +343,15 @@ genFunc <- function(corr_x=0, e_sd=1, N=1000, betas=c(1,1)){
 
 ```
 
-Now we can see how our model performs when the omitted variables have a negative correlation, no correlation, or a positive correlation with the other predictor:
+Now we can see how our model performs with differing levels of multicollinearity.
+
 
 ```{r}
 
 plist<-list(
-  'r=-.7' =list(corr_x = -0.7),
-  'r=  0' =list(corr_x =  0.0),
-  'r= .7' =list(corr_x =  0.7)
+  'r=-.7' =list(corr_x =  0.7),
+  'r=  8' =list(corr_x =  0.8),
+  'r= .9' =list(corr_x =  0.9)
 )
 
 
@@ -368,8 +370,7 @@ How much do our estimates differ from the correct answer?
 ```{r}
 
 results |> 
-  filter(term == "X[, 1]") |>
-  # calculate the bias (estimated beta_1 minus the value set in the data generating function)
+  filter(term == "X1") |>
   mutate(bias = estimate - 1)|>
   ggplot(aes(x = bias, y = condition, )) +
   stat_halfeye(
@@ -384,51 +385,39 @@ results |>
              lty = 2,
              col = 'red') +
   xlab("Estimated Beta_1 - Actual B_1") +
-  ggtitle("Effects of omitted variable bias on coefficient estimates")
+  ggtitle("Effects of multicollinearity")
 
 
 
 ```
 
-## Question
 
-Rewrite the code above so that $\beta_2$ is negative instead of positive. How does this impact your results?
+How about the effects on Type I error rates?
 
 ```{r}
-# Code
-plist<-list(
-  'r=-.7' =list(corr_x = -0.7, betas= c(1,-1)),
-  'r=  0' =list(corr_x =  0.0,betas= c(1,-1)),
-  'r= .7' =list(corr_x =  0.7, betas= c(1,-1))
-)
 
+plist<-list(
+  'r=-.7' =list(corr_x =  0.7, betas=c(0,1)),
+  'r=  8' =list(corr_x =  0.8, betas=c(0,1)),
+  'r= .9' =list(corr_x =  0.9, betas=c(0,1))
+)
 
 results<-runSim( func=genFunc,
                  parmlist = plist,
                  seed = 999
                  )
 
-results |> 
-  filter(term == "X[, 1]") |>
-  # calculate the bias (estimated beta_1 minus the value set in the data generating function)
-  mutate(bias = estimate - 1)|>
-  ggplot(aes(x = bias, y = condition, )) +
-  stat_halfeye(
-    alpha = .5,
-    width = .6,
-    .width = 0,
-    justification = -.2
-  ) +
-  geom_boxplot(width = .15, outlier.shape = NA) +
-  theme_bw() +
-  geom_vline(xintercept = 0,
-             lty = 2,
-             col = 'red') +
-  xlab("Estimated Beta_1 - Actual B_1") +
-  ggtitle("Effects of omitted variable bias on coefficient estimates")
+
+results|>
+  filter(term == 'X1')|>
+  summarise(type1 = mean(p.value<=.05))
+
 
 
 ```
+
+
+
 
 # Modeling heteroskedasticity
 
@@ -493,10 +482,10 @@ To run a simulation, we can nest our data generating loop inside a function. We'
 ```{r}
 
 genFunc <- function(N=1000, homoskedastic=FALSE){
-  betas <- .5
-  X = cbind(rnorm(N, 0, 1))
+  betas <- 0
+  X = cbind(runif(N, 1, 10))
   intercept = 1
-  var =ifelse(homoskedastic, 1, exp(X * .5))
+  var =ifelse(homoskedastic, 1, exp(X))
   e = rnorm(N, 0 , var)
   Y <- intercept  + X %*% betas + e
   mod <- lm(Y ~ X)
@@ -504,6 +493,7 @@ genFunc <- function(N=1000, homoskedastic=FALSE){
   return(coefs)
 
 }
+
 
 ```
 
@@ -513,25 +503,27 @@ Now, we can set up a list of parameters to pass along and then run our simulatio
 
 
 plist<-list(
-  'N=50 homoskedastic' = list(N=50, homoskedastic=TRUE),
-  'N=50 heteroskedastic' =  list(N=50),
-  'N=100 heteroskedastic'=   list(N=100),
-  'N=1000 heteroskedastic' =  list(N=1000)
+  'N=20 homoskedastic' = list(N=25, homoskedastic=TRUE),
+  'N=20 heteroskedastic' =  list(N=25),
+  'N=100 homoskedastic' = list(N=100, homoskedastic=TRUE),
+  'N=100 heteroskedastic' =  list(N=100)
 )
 
 results<- runSim(func=genFunc, 
                  parmlist = plist,
                  seed = 999,
-                 iterations=1000
+                 iterations=2000
 )
 
-aggregateResults(results)|>
-  filter(term=="X")|>
-  select(condition, starts_with("proportion"))
+
+
 
 
 
 ```
+
+
+
 
 Now plot the results...
 
@@ -549,6 +541,24 @@ results|>
   geom_boxplot(width = .15, outlier.shape = NA) +
   theme_bw() +
   geom_vline(xintercept=0.5, lty=2,col='red')
+
+
+```
+
+
+
+
+```{r}
+
+results|>
+  filter(term=="X")|>
+  group_by(condition)|>
+  summarize(simulated_sd = sd(estimate),
+            estimated_se = median(std.error)
+         )
+
+
+
 
 
 ```
