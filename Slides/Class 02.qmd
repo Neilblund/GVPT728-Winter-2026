@@ -1,10 +1,8 @@
 ---
 title: "Regression Assumptions"
-date: last-modified
-author: Neil Lund
 format:
   revealjs:
-    theme: [default, custom_styles]
+    theme: [serif, clean]
     df-print: paged
     smaller: true
     slide-number: true
@@ -13,9 +11,6 @@ format:
     self-contained: true
 code-annotations: select
 slide-level: 3
-editor: 
-  markdown: 
-    wrap: sentence
 ---
 
 ```{r setup, include=FALSE }
@@ -213,11 +208,11 @@ Provided we meet the necessary conditions, the Estimator (the sample coefficient
 
 ::::: columns
 ::: {.column width="50%"}
-![Andrey Markov](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Andrei_Markov.jpg/640px-Andrei_Markov.jpg){width="150"}
+![Andrey Markov](images/Andrei_Markov.jpg){width="150"}
 :::
 
 ::: {.column width="50%"}
-![Carl Gauss](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Carl_Friedrich_Gauss_1840_by_Jensen.jpg/330px-Carl_Friedrich_Gauss_1840_by_Jensen.jpg){width="150"}
+![Carl Gauss](images/330px-Carl_Friedrich_Gauss_1840_by_Jensen.jpg){width="150"}
 :::
 :::::
 
@@ -410,9 +405,16 @@ $$P(Y_i=1) = \frac{1}{1+e^{-(\beta_0 + \beta_1X_i...)}}$$
 We can transform the stuff we've observed, but we can't transform a parameter before we estimate it.
 So this is going to require a different approach.
 
+
+
 # Homoscedasticity
 
 OLS assumes that the error term $\epsilon$ has a constant variance across levels of the IV.
+
+
+
+# Homoscedasticity
+
 
 ::::::: columns
 :::: {.column width="50%"}
@@ -569,10 +571,15 @@ ggplot(mdf, aes(x=factor(education), y= earnings)) +
 :::
 :::::
 
+
+
+
+
+
+
 ## So what should be done here?
 
 Don't overreact!
-It's mostly a problem at small sample sizes.
 
 -   Heteroscedasticity can point to other problems with model specification that you want to address.
     So you should consider things like:
@@ -582,8 +589,14 @@ It's mostly a problem at small sample sizes.
     -   Non-linear relationships
 
     -   Outliers or skew
+    
+## So what should be done here?
 
 -   Heteroskedasticity-consistent standard errors are an easy fix and viewed as basically "cost free"
+
+-   Bootstrapping! 
+
+
 
 # No perfect multicollinearity
 
@@ -694,6 +707,16 @@ We're shrinking the denominator but we're barely moving the numerator.
 
 The implications here are important to think through: on the one hand estimating X1 on its own would result in a biased estimate of beta_1, but beta_1 is actually an important covariate.
 :::
+
+## So what should be done here?
+
+- (imperfect) Multicollinearity, on its own, is never a reason to drop a variable
+
+- Multicollinearity usually doesn't matter that much. But in severe cases, you might try:
+  - Combining correlated variables to make an index
+  - Using a penalized regression (ridge or lasso)
+  - Using a Bayesian model
+  
 
 # Regression Outliers
 

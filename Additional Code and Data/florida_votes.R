@@ -3,7 +3,7 @@ library(performance)
 library(ggrepel)
 
 
-florida<-read_csv("Additional Code and Data/florida_votes.csv")|>
+florida<-read_csv("https://raw.githubusercontent.com/Neilblund/GVPT728-Winter-2026/refs/heads/main/Additional%20Code%20and%20Data/florida_votes.csv")|>
   mutate(N = Bush + Gore + Brow + Nade + Har + Hag + Mc + Ph + Mo,
          Buc_sqrt = sqrt(Buc)
          )
