@@ -71,7 +71,7 @@ Run a linear regression to calculate the effect of median income on Biden's stat
 
 
 ```{r}
-# Q3
+# Q2
 
 ```
 
@@ -83,6 +83,8 @@ Run the previous model, but include Bachelor's degrees and population. Put your 
 
 ```{r}
 
+# Q3
+
 
 ```
 
@@ -92,7 +94,7 @@ Run the previous model, but include Bachelor's degrees and population. Put your 
 Check your model for heteroskedasticity, non-linearity, or influential outliers. Discuss your interpretation.
 
 ```{r}
-
+#Q4
 
 ```
 

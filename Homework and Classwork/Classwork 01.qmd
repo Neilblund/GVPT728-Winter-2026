@@ -34,7 +34,7 @@ This document will walk through some methods for exploring models using Monte Ca
 3.  Repeat steps 1 and 2 a bunch of times (1000 or more)
 4.  Describe the distribution of results
 
-Monte Carlo simulations are useful for understanding how models behave because they give us a straightforward way to judge performance: we made the data, so we know the "true" values of our parameters, and so we can easily calculate things like the bias or variance of an estimator under a whole range of hypothetical scenarios - including cases w
+Monte Carlo simulations are useful for understanding how models behave because they give us a straightforward way to judge performance: we made the data, so we know the "true" values of our parameters, and so we can easily calculate things like the bias or variance of an estimator under a whole range of hypothetical scenarios.
 
 ## Quick note on (Pseudo) - Randomness
 
@@ -72,7 +72,7 @@ We'll start with a basic example of generating the data for a linear model with 
 
 $$
 y_i = \beta_0 + x_i\beta_1 + \epsilon_i
-$$
+$$\
 
 Where $y$ is a dependent variable, $x$ is an independent variable, $\epsilon$ is some random error and $\beta_0$ and $\beta_1$ are the intercept and slope coefficients, respectively. We can simulate this data generation process with a few lines of code:
 
@@ -197,6 +197,9 @@ Use `coefmat` to calculate the proportion of simulations where we would **fail t
 ```{r}
 # Your code here
 
+coefmat|>
+  filter(term =="X")|>
+  summarise(type2 = mean(p.value >=.05))
 
 
 ```
@@ -207,8 +210,9 @@ Using the results from the previous simulation, estimate how often a 95% confide
 
 ```{r}
 # Your code here
-
-
+coefmat|>
+  filter(term == "X")|>
+  summarise(outside_ci = mean(conf.low > 0.1  | conf.high < 0.1))
 
 
 ```
@@ -226,6 +230,27 @@ Using the loop above as a template, create a new simulation for a model where X 
 set.seed(999)
 iterations<-1000
 N <-  500 
+beta_0 <- 1  # the y intercept
+beta_1<- 0.0 # the effect of X on Y
+coefs<-list()
+
+for(i in 1:iterations){
+  X <- rnorm(N, mean=0, sd=1) # an independent variable
+  e <- rnorm(N, mean=0, sd=1) # the error term 
+  Y <- beta_0 + X * beta_1 + e # the dependent variable
+  mod<- lm(Y ~ X)
+  coefs[[i]]<- tidy(mod, conf.int = TRUE) # make a data frame from the model
+}
+
+
+
+# combine results from all iterations
+coefmat<-bind_rows(coefs, .id='iteration')
+
+
+coefmat|>
+  filter(term == "X")|>
+  summarize(type1 = mean(p.value<.1))
 
 
 
@@ -331,8 +356,10 @@ We can use the same general approach to explore the effects of omitted variable 
 
 ```{r}
 betas <- c(1, 3) # Make a vector of betas
-corr_x <- .8
+corr_x <- .2
 intercept <- 1
+
+
 Sigma <- matrix(c(1, corr_x, corr_x, 1), ncol=2)
 X <- MASS::mvrnorm(N, mu=c(0, 0), Sigma=Sigma)
 e <- rnorm(N, 0 , sd=1) # the variance of the error term
@@ -415,6 +442,48 @@ Rewrite the code above so that the effect of $\beta_2$ (the omitted variable) is
 
 ```{r}
 # Code
+iterations<- 500
+betas <- c(1, -3) # Make a vector of betas
+intercept <- 1
+correlations <- c(-.8, 0, .8)
+results<-tibble()
+
+for(ci in correlations) {
+  coefs<-list()
+  for (i in 1:iterations) {
+    Sigma <- matrix(c(1, ci, ci, 1), ncol = 2)
+    X <- MASS::mvrnorm(N, mu = c(0, 0), Sigma = Sigma)
+    e <- rnorm(N, 0 , sd = 1) # the variance of the error term
+    Y <- intercept  + X %*% betas + e
+    mod <- lm(Y ~ X[, 1]) # Omitting X[,2] from the regression model
+    coefs[[i]] <- tidy(mod, conf.int = TRUE, conf.level = .95)
+  }
+  coefmat<-bind_rows(coefs, .id='iteration')
+  coefmat$correlation<-paste("r = ", ci)
+
+  results<-bind_rows(results, coefmat)
+
+}
+
+results |> 
+  filter(term == "X[, 1]") |>
+  # calculate the bias (estimated beta_1 minus the value set in the data generating function)
+  mutate(bias = estimate - 1)|>
+  ggplot(aes(x = bias, y = correlation, )) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  geom_vline(xintercept = 0,
+             lty = 2,
+             col = 'red') +
+  xlab("Estimated Beta_1 - Actual B_1") +
+  ggtitle("Effects of omitted variable bias on coefficient estimates")
+
 
 
 
