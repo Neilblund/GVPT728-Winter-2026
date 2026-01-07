@@ -972,6 +972,37 @@ One option is bootstrapping, another is simulation.
 
 
 ```{r}
+set.seed(222)
+nboot<-2000
+model <-lm(demshare ~  poly(pct_bachelors, 2, raw=T), data=voteshares)
+fx<-numeric(nboot)
+
+for(i in 1:nboot){
+  booted<-voteshares|>slice_sample(n=nrow(voteshares), replace=T)
+  boot_model <-lm(model$call, data=booted)
+  obs<- predict(boot_model)
+  higher<-predict(boot_model, newdata = booted|>mutate(pct_bachelors = pct_bachelors + 1) )
+  diff<-mean(higher) - mean(obs)
+  fx[i] <- diff
+
+  
+}
+
+# effect and 95% ci:
+quantile(fx, c(.025, .5, .975))
+
+
+
+
+
+```
+
+
+## Marginal effects and quantities of interest
+
+Another option is to use simulations:
+
+```{r}
 set.seed(999)
 nreps<-1000
 coefs <- mvtnorm::rmvnorm(nreps, coef(model), vcov(model))  #simulate random coefficients
@@ -991,16 +1022,28 @@ Xdiff<-rowMeans(est1) - rowMeans(est0)
 quantile(Xdiff, c(.025, .5, .975))
 
 ```
-The marginal effects package will do this automatically:
+
+## Marginal effects and quantities of interest
+
+
+The [marginal effects](https://marginaleffects.com/) package will do this automatically:
+
+Simulation:
 
 ```{r}
 library(marginaleffects)
 
 avg_comparisons(model, variables='pct_bachelors', method='simulation')
 
+```
+
+Bootstrap:
+
+```{r}
+
+avg_comparisons(model, variables='pct_bachelors', method='boot')
 
 ```
-## Marginal effects and quantities of interest
 
 
 
