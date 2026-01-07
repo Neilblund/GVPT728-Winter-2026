@@ -31,15 +31,14 @@ library(dataverse)   # for accessing replication data on the dataverse
 library(WDI)         # World Developement indicators API 
 library(ggdist)      # Distribution plots
 library(marginaleffects)  # marginal effects estimation tools 
-library(ggfortify) # ggplot style diagnostics
-library(car)         # regression diagnistcs
-library(huxtable)  # regression output formatting
+library(modelsummary)
+library(performance)
 
 ```
 
 Also, if you don't have it already, you'll want to install the `vdemdata` package. This provides easy access to the latest version of the Varieties of Democracy Dataset :
 
-```{r}
+```{r, eval=FALSE}
 
 devtools::install_github("vdeminstitute/vdemdata")
 ```
@@ -115,7 +114,7 @@ gld_joined<-gld_agg|>
 
 # Research Question
 
-The U.S. has a lot of old people in congress. Why is this? How do we compare to other states? And are their structural features that might explain why we've got so many people born before the invention of commerically viable color television in positions of power?
+The U.S. has a lot of old people in congress. Why is this? How do we compare to other states? And are their structural features that might explain why we've got so many people born before the invention of commercially viable color television in positions of power?
 
 ```{r}
 
@@ -124,7 +123,7 @@ gld|>
   ggplot(aes(x=dob)) +
   geom_density(fill='lightblue', alpha=.8) +
   geom_vline(xintercept = as.Date("1954-12-17"), lty=2) +
-  annotate("text", x=as.Date("1957-12-31"), y=0, label="color tv") +
+  annotate("text", x=as.Date("1957-12-31") + 1500, y=.000002, label="invention of color tv") +
   theme_bw() +
   xlab("Birthdates of members of Congress") +
   ylab("")
@@ -134,19 +133,23 @@ gld|>
 
 
 
-# Initial models
+# Model output
+
+We'll run three slightly different models and present them in a single table.
 
 
 
 ```{r}
 
-stats = c("N. obs." = "nobs", 
-               "R squared" = "r.squared",
-               "F statistic" = "statistic",
-               "BIC")
-ci_level = .95
-error_format = "[{conf.low} - {conf.high}]"
-  
+gof_stats <- c(
+  "nobs", "aic", "bic", "r.squared"
+)
+
+coef_names <- c("life_expectancy" = "Life expectancy",
+                "gdp_pcap" = "GDP per-capita",
+                "log(gdp_pcap)" = "Logged GDP per-capita",
+                "public_finance" = "Public financing of elections"
+                )
 
 model_0<-lm(mean_age ~ life_expectancy + gdp_pcap,
           data=gld_joined)
@@ -154,16 +157,26 @@ model_1<-lm(mean_age ~ life_expectancy + log(gdp_pcap), data =gld_joined)
 model_2<-lm(mean_age ~ life_expectancy + log(gdp_pcap) + public_finance , data =gld_joined)
 
 
-huxreg('baseline model' = model_0,
-       'logged IV model' = model_1,
-       'public_finance' = model_2,
-       statistics = stats,
-       ci_level =ci_level,
-       error_format =error_format,
-       note = "95% ci in brackets"
+
+mlist<-list(
+  'Baseline model' = model_0,
+  'Logged GDP model' = model_1,
+  'Public financing' = model_2
+  )
+
+
+modelsummary(mlist,
+       gof_map = gof_stats,
+       coef_rename = coef_names,
+       coef_omit = "Intercept"
+       
        )
 
 ```
+
+
+
+
 
 ## Checks
 
@@ -177,63 +190,102 @@ At a minimum, we should look for evidence of:
 
 -   non-linearity
 
-A visual check of our residuals is a good starting point for investigating these issues: 
+
+The `check_model` function gives us a good starting point for identifying these issues:
 
 ```{r}
+#| fig-width: 8
+#| fig-height: 8
 
-autoplot(model_0)
+
+check_model(model_0)
 
 ```
 
-The Breusch–Pagan test gives us a test against a null hypothesis that the data are homoscedastic:
+The Breusch–Pagan test gives us a way to test for "significant" heteroskedasticity by running a new linear model with the squared residuals as our dependent variable.
+
+The null hypothesis here is homoskedastic data, and the alternative is heteroskedasticity:
 
 ```{r}
 
-ncvTest(model_0)
+
+
+squared_resid<-resid(model_0)^2
+resid_model<-lm(squared_resid ~ life_expectancy + gdp_pcap, data = gld_joined)
+stat<-nrow(resid_model$model) * summary(resid_model)$r.squared
+1-pchisq(stat, df=2)
+
 
 ```
+
+The performance package has a built-in function for running a variation of the Breusch-Pagan test which we can run with `check_heteroskedasticity`
+```{r}
+
+check_heteroskedasticity(model_0)
+
+```
+
+
 
 We might also want to check for evidence of multicollinearity, although this appears to be less of a problem here: 
 
 ```{r}
-vif(model_0)
 
+check_collinearity(model_0)
+
+```
+And checks for individual outliers (defined as cook's distance greater than 0.8)
+
+```{r}
+
+check_outliers(model_0)
 
 ```
 
-
-
-
-
-
-# Question 1 
 
 Based on the analyses above, do you see evidence to support any changes to the model such as transforming variables? 
 
-```{r}
-# code here 
 
 
 
-```
+## Robust Standard Errors
 
+Since we have some clear evidence of heteroskedasticity, it probably makes sense to go ahead and use heteroskedasticity robust standard errors, which relax the assumption of constant variance.
 
-# Robust Standard Errors
+We can get heteroskedasticity consistent standard errors using the coeftest function from the lmtest package. 
 
-Since we have some clear evidence of heteroskedasticity, it probably makes sense to go ahead and use heteroskedasticity robust standard errors, which relax the assumption of constant variance: 
 
 ```{r}
-
+library(lmtest)
 
 
 
 m_0<-coeftest(model_0, vcov = vcovHC(model_0, "HC0"))   
-m_1<-coeftest(model_1, vcov = vcovHC(model_1, "HC0"))   
-m_2<-coeftest(model_2, vcov = vcovHC(model_2, "HC0"))   
+modelsummary(list("classic" = model_0, "robust" = m_0),
+       gof_map = gof_stats,
+       coef_rename = coef_names,
+       coef_omit = "Intercept")
+
+
 
 
 ```
 
+
+The model summary package will also apply these changes directly to a list models, so I can try out different methods of calculating the standard errors and p-values for the same model:
+
+```{r}
+
+modelsummary(model_0,
+       gof_map = gof_stats,
+       coef_rename = coef_names,
+       vcov = c("classical", "HC0", "bootstrap")
+       )
+
+
+
+
+```
 
 ## Model Comparison
 
@@ -242,14 +294,7 @@ Which models are better? We can compare models using BIC/AIC (lower scores mean 
 ```{r}
 
 
-huxreg('baseline model' = m_0,
-       'logged IV model' = m_1,
-       'public_finance' = m_2,
-       statistics = stats,
-       ci_level =ci_level,
-       error_format =error_format,
-       note = "95% ci in brackets"
-       )
+compare_performance(list(model_0, model_1, model_2))
 
 
 
@@ -269,10 +314,12 @@ anova(model_1, model_2)
 
 ```
 
+
+
+
 ## Equivalence Testing
 
-
-What if we want to rule out the possibility that the a PR system would result in younger legislators relative to a majoritarian system? We can see here that the effect is not statistically significant. 
+We can see that the effect of `electoral_system` is not statistically significant, but what if we want to rule out the possibility that the a PR system would result in younger legislators relative to a majoritarian system?
 
 
 
@@ -285,50 +332,48 @@ model<-lm(mean_age ~
             electoral_system, data=gld_joined)
 
 
-summary(model)
+model_robust<-coeftest(model, vcov = vcovHC(model, "HC0"))   
 
+model_robust
 
 ```
+We'll set a minimum effect size of 0.66112. Essentially, we are attempting to rule out the possibility that the effect of proportional representation (relative to majoritarianism) is greater than the effect of public financing for elections:
 
 ```{r}
 
-comp <- avg_comparisons(model, 
-                        variables = list("electoral_system" = c("Majoritarian", 
-                                                                "Proportional")),
-                        vcov = 'HC0'
-                        )
-comp
-
-
-
-
-```
-
-
-We'll set a minimum effect size of 0.66112. Essentially, we are attempting to rule out the possibility that the effect of proportional representation is greater than the effect of public finance for elections.
-
-```{r, cache=TRUE}
-
-
 min_effect <- 0.66112
 
-h<-hypotheses(comp,
-           equivalence = c(-min_effect, min_effect),
-           conf_level = .9,
-           vcov = "HC0"
-           )
-h
+broom::tidy(model_robust, conf.int = TRUE, conf.level = .90)|>
+    filter(term == 'electoral_systemProportional')|>
+    select(term, estimate, conf.low, conf.high)|>
+   mutate(equi_lb = min_effect*-1, 
+          equi_ub = min_effect)|>
+  ggplot(aes(y=term)) + geom_pointrange(aes(xmin=conf.low, xmax=conf.high, x=estimate)) +
+  geom_vline(aes(xintercept=equi_lb), color='red', lty=2) +
+  geom_vline(aes(xintercept=equi_ub), color='red', lty=2) + 
+  theme_bw()
+
+
 
 
 
 ```
+
+
+
+
 
 
 
 An alternative to using heteroskedasticity consistent standard errors is to use the non-parametric bootstrap. This also allows us to generate a useful visualization of the cases where we might see effects above the minimum threshold we set above: 
 
+
+
 ```{r, cache=TRUE}
 
+comp <- avg_comparisons(model,
+                        variables = list("electoral_system" = c("Majoritarian", "Proportional")),
+                        vcov = 'HC0')
 
 booted<-inferences(comp, method='boot', conf_type = 'perc', R=1000)
 draws<-get_draws(booted)
@@ -342,16 +387,15 @@ ggplot(draws, aes(x=draw, y='Simulated Differences'))+
   xlab("Simulated Differences") +
   ylab("")+
   coord_flip()
-```
-
-
-
-# Question 2
-
-See if you can make improvements to the existing model by adding additional covariates, interaction effects, polynomials etc.
-
-```{r}
 
 
 ```
+
+
+
+Based on these results, can we rule out an effect for proportional representation?
+
+
+
+
 

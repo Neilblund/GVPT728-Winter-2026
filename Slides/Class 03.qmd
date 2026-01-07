@@ -1,17 +1,16 @@
 ---
-title: "Significance"
-date: last-modified
-author: Neil Lund
+title: "Significance and model comparison"
 format:
   revealjs:
-    theme: [default, custom_styles]
-    df-print: paged
+    theme: [clean, solarized]
+    df-print: kable
     smaller: true
     slide-number: true
     header: 
     header-logo: images/informal_seal_transparent.webp
     self-contained: true
 code-annotations: select
+incremental: true
 slide-level: 3
 ---
 
@@ -22,6 +21,7 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```{r, include=FALSE}
 
 library(huxtable)
+library(modelsummary)
 library(distributional)
 library(tidyverse)
 library(flextable)
@@ -66,20 +66,22 @@ voteshares<-presidential_elections%>%
   select(state, demshare)
 
 # median age by state
-median_age <- get_decennial(geography = "state", 
-                       variables = "P13_001N", 
-                       format='wide',
-                       year = 2020,
-                       sumfile = "dhc")%>%
-  rename(median_age = value)%>%
-  select(NAME, median_age)
-
+acs_data <- get_acs(geography = "state", 
+                         variables = c(median_income = "B19013_001",
+                                       bachelors_degree = "B15003_022",
+                                       pop = "B01001_001",
+                                       white_pop = "B02001_002",
+                                       median_age = 'B01002_001'
+                                       ),
+                         year = 2020)|>
+  select(-moe)|>
+  pivot_wider(names_from = variable, values_from=estimate)
 
 
 voteshares<-left_join(voteshares, pres_2016, by= join_by(state))
 
 
-voteshares<-left_join(voteshares, median_age, by=join_by(state==NAME))
+voteshares<-left_join(voteshares, acs_data, by=join_by(state==NAME))
 
 
 
@@ -101,9 +103,9 @@ Assume we have the correct model (this is a big assumption!)
 
 -   Confidence Intervals
 
--   Frequentist alternatives
+-   S-Values and model comparisons
 
--   Bayesian Alternatives
+-   Bayesian alternatives
 
 # P-values
 
@@ -159,11 +161,11 @@ Notice: this technically doesn't say anything about the probability that this pe
 
 -   In the broadest sense, p-values indicate the probability of getting a result \>, \<, or absolutely greater than as the one in your sample **if the null hypothesis is true.**
 
-    -   Note, this is a statement about the probability of data given a model, not a statement about the probability of a model.
+-   This is a statement about the probability of a **data** given a **model**, not a statement about the probability of a model.
 
--   In linear regression, p-values are typically calculated based on the normal distribution
+    -   In frequentist statistics, parameters are fixed and hypotheses are either true or false, so it doesn't make sense to talk about the "probability of a model".
 
-### One tail or two
+### One tail or two?
 
 -   Pr(\>\|t\|) = .225 There is a 22.5% chance of seeing a result as extreme as our sample statistic if the null hypothesis is true
 
@@ -216,12 +218,13 @@ plot<-ggplot(normalDistribution, aes(x,y)) +
   geom_segment(aes(x = criticalValues[1], y = 0, xend = criticalValues[1], yend = dnorm(criticalValues[1]))) +
   geom_segment(aes(x = criticalValues[2], y = 0, xend = criticalValues[2], yend = dnorm(criticalValues[2])))  +
   theme_minimal() +
-  annotate('text', x=3, y=.1, label=description1) +
-  annotate('text', x=-3, y=.1, label=description2) +
+#  annotate('text', x=3, y=.1, label=description1) +
+#  annotate('text', x=-3, y=.1, label=description2) +
   labs(
     title = "Two-Tailed P.value = .05",
     caption="Standardized Effects under null distribution")  +
   xlab("Z")
+
 ```
 :::
 
@@ -237,7 +240,7 @@ plot
 p \<.05 means that there's a 1 in 20 chance of seeing a result this extreme if the null hypothesis is true. In other words: 1 in 20 results are false positives. And in practice this is likely much higher
 :::
 
-## What does a p-value not mean?
+## What does a p-value **not** mean?
 
 -   $P(t | h_0) \neq P(h_1)$ P values are not the probability of the alternative
 
@@ -260,6 +263,134 @@ Virtually everything is significant at large enough sample sizes: standard error
 
 Substantive significance is really a normative question.
 :::
+
+## Regression p-values
+
+In regression output, the p-value typically indicates the probability of seeing a T-statistic as extreme as the one in your sample if the null hypothesis is true:
+
+```{r, echo=TRUE}
+
+voteshares$income_over_65k<- voteshares$median_income>65000
+gof_stats <- c(
+  "nobs"
+)
+coef_names <- c("income_over_65kTRUE" = "Median income over >$65K"
+                )
+model_1 <-lm(demshare ~ income_over_65k, data=voteshares)
+modelsummary(list("DV: 2020 statewide Biden %" = model_1), 
+             statistic = c( "p.value"),
+             gof_map = 'nobs',
+             coef_rename = coef_names,
+             notes = "Note: p.values in parentheses"
+             )
+```
+
+Importantly, this assumes that the sampling distribution of coefficients is approximately normal.
+
+## Regression p-values: randomization inference
+
+There are some methods for relaxing this assumption, however. One method, mostly used for experiments, is randomization inference, where a binary treatment is randomly "shuffled":
+
+::::: columns
+::: {.column width="50%"}
+-   Ideally, we would calculate all possible permutations of the treatment, but this is not feasible for samples with more than a handful of observations.
+-   After shuffling, we re-run the regression and calculate an effect size. Then we see how often estimated effects after shuffling are more extreme than the ones we observe.
+:::
+
+::: {.column width="50%"}
+```{r, eval=FALSE, echo=TRUE}
+
+model_1 <-lm(demshare ~ income_over_65k, data=voteshares)
+obs_effect<-model_1$coefficients[2]
+
+set.seed(888)
+perms<-50000
+effects<-numeric(length = perms)
+for(i in 1:perms){
+  permuted <- sample(voteshares$income_over_65k)
+  mod <-lm(demshare ~ permuted, data=voteshares)
+  
+  est_effect<-coef(mod)[2]
+  effects[i] <- est_effect
+  
+}
+
+mean((effects >= obs_effect) | (effects <= obs_effect * -1)) * 100
+
+
+
+```
+
+```{r}
+model_1 <-lm(demshare ~ income_over_65k, data=voteshares)
+obs_effect<-model_1$coefficients[2]
+effects<-readRDS('Slide data/effects.rds')
+mean((effects >= obs_effect) | (effects <= obs_effect * -1)) * 100
+
+
+```
+:::
+:::::
+
+## Regression p-values: randomization inference
+
+::::: columns
+::: {.column width="50%"}
+-   The resulting p-value is said to be "non-parametric" because it doesn't require an assumption of normality.
+-   This means that RI p-values are robust to problems like heteroskedasticity.
+:::
+
+::: {.column width="50%"}
+```{r}
+data.frame(effects)|>
+  ggplot(aes(x=effects)) + 
+  geom_histogram() +
+  geom_vline(xintercept = obs_effect, col='red',lty=2) +
+  geom_vline(xintercept = obs_effect *-1, col='red',lty=2) +
+
+  theme_bw() +
+  labs(x = "Estimated effects under sharp null") 
+
+
+
+```
+:::
+:::::
+
+## Confidence intervals: bootstrapping
+
+Another non-parametric method is the bootstrap, which relies on re-sampling **observations** with replacement and then re-running the regression model.
+
+-   Although the more common and intuitive application is to use the bootstrap to calculate a confidence interval...
+
+```{r, cache=TRUE, echo=TRUE}
+#| output-location: column
+
+model_1 <-lm(demshare ~ income_over_65k, data=voteshares)
+
+iterations<-10000
+results<-vector('list', length=iterations)
+model_data<-model_1$model
+
+for(i in 1:iterations){
+  booted<-model_data|>slice_sample(n = nrow(model_data), replace=T)
+  
+  mod <-lm(demshare ~ income_over_65k, data=booted)
+  results[[i]] <- tidy(mod)
+  
+}
+result_frame<-bind_rows(results, .id='iteration')
+result_frame|>
+  group_by(term)|>
+  summarize(
+    lb = quantile(estimate, .025),
+    est = median(estimate),
+    ub = quantile(estimate, .975),
+    p = min(mean(estimate>0), mean(estimate<0)) * 2
+    )
+```
+
+::: :::::
 
 ## P-values: caveats
 
@@ -336,6 +467,8 @@ ci_plot +
 
 ```
 
+
+
 ## Confidence Intervals
 
 -   Its misleading to say there's a 95% chance that the population $\beta$ falls between the ci boundaries. (frequentist stats assumes that $\beta$ is fixed, so it doesn't have a "chance" of doing anything.)
@@ -348,7 +481,7 @@ ci_plot +
 
 ## Confidence Intervals
 
--   Pro: P.values and Confidence Intervals are based on the same basic assumptions, but CIs can be more informative about uncertainty and don't lend themselves to the same dichotomous interpretation
+-   Pro: P.values and Confidence Intervals are based on the same basic assumptions, but CIs can be more informative about uncertainty and don't lend themselves to the same dichotomous interpretation that a p.value does.
 
 -   Pro: Automatically scaled to the quantity of interest, so harder to confuse with a measure of substantive importance
 
@@ -392,19 +525,18 @@ Increasing values as evidence gets stronger, and the sizes are less extreme:
 
 # Bayesian methods
 
--   Bayesian methods potentially allow us to do the thing we *wish* we could do with p-values: quantify hypothesis probabilities
+-   Bayesian methods potentially allow us to do the thing we *wish* we could do with p-values: quantify hypothesis probabilities.
 
--   Downside is that it sort of requires everyone to adopt a totally different philosophical approach to probabilities.
+-   One downside is that it sort of requires everyone to adopt a totally different philosophical approach to probabilities: Bayesian statistics assume that the model parameters also have a distribution of their own, and we use data to update our knowledge about the nature of those distributions.
+
+-   Another downside is that Bayesian inference requires us to come up with "prior" distributions for model parameters, which invariably involves some subjectivity.
 
 ## Bayes Factors Approximation
 
 Bayes Factors measure the weight of evidence in favor of one hypothesis relative to another.
 
-[Wagenmakers (2007)](https://link-springer-com.proxy-um.researchport.umd.edu/article/10.3758/bf03194105) suggests a frequentist approximation of a Bayes Factor using the Bayesian Information Criterion. 
+[Wagenmakers (2007)](https://link-springer-com.proxy-um.researchport.umd.edu/article/10.3758/bf03194105) suggests a frequentist approximation of a Bayes Factor using the Bayesian Information Criterion.
 
-
-::::: columns
-::: {.column width="50%"}
 -   Run a model with the variable of interest (model 1)
 
 -   Run a model without the variable of interest (model 0)
@@ -413,9 +545,8 @@ Bayes Factors measure the weight of evidence in favor of one hypothesis relative
 
 -   Calculate $\frac{\exp(\text{BIC}_1)/2}{\exp(\text{BIC}_0)/2}$
 
-:::
+## Bayes Factors Approximation
 
-::: {.column width="50%"}
 ```{r, echo=TRUE}
 
 ff<-read_csv("https://vincentarelbundock.github.io/Rdatasets/csv/causaldata/gov_transfers.csv")
@@ -431,10 +562,8 @@ model_1<-lm(Support ~  Participation + Income_Centered + Education + Age, data=f
 exp(-BIC(model_1)/2)/exp(-BIC(model_0)/2)
 
 ```
-:::
-:::::
 
-Numbers greater than 1 indicate evidence in favor of model 1, numbers less than 1 indicate evidence against model 1. 
+Numbers greater than 1 indicate evidence in favor of model 1, numbers less than 1 indicate evidence against model 1.
 
 # Comparing Models
 
@@ -550,16 +679,30 @@ anova(model_0, model_1, model_2)
 This is an overall improvement in the model accuracy
 :::
 
-## BIC
+## BIC and AIC
 
-The F-test requires nested models, but the BIC and AIC allow comparisons across non-nested forms
+-   BIC stands for Bayesian Information Criteria.
+-   AIC stands for Aikake Information Criteria.
+-   Both values are based on the model likelihood, which, for linear models, is based on the sum of squared residuals:
 
-$${\displaystyle \mathrm {BIC} =n\ln(RSS/n)+k\ln(n)\ }$$
+. . .
+
+$${\text{BIC} =n\ln(RSS/n)+k\ln(n)\ }$$
+
+$${\text{AIC} =n\ln(RSS/n)+2k)\ }$$
+
+Note that both the AIC and BIC include a penalty for `k`, which is the number of model parameters. So both will penalize models with garbage predictors.
+
+## BIC and AIC
+
+Lower values of both AIC and BIC indicate better model fits:
 
 ```{r, echo=TRUE}
 BIC(model_1)
 BIC(model_2)
 
+AIC(model_1)
+AIC(model_2)
 ```
 
 ::: notes
@@ -742,7 +885,41 @@ p2
 :::
 :::::
 
-## Negligible Effects (Rainey)
+## TOST and equivalence testing
+
+There's also an equivalent method that relies on 90% confidence intervals instead of T.tests:
+
+::::: columns
+::: {.column width="50%"}
+-   Calculate a 90% confidence interval for the effect
+-   Check if $\Delta_{lb} \geq Δ_l \text{ and } \Delta_{ub} \leq Δ_u$ (i.e.: is the entire 90% ci inside of the equivalence range?)
+-   If so, then we can conclude that the observed effect is not statistically different from our range of equivalence.
+:::
+
+::: {.column width="50%"}
+```{r}
+
+data.frame(ub = difference + (sdpooled * sqrt(1/n_0 + 1/n_1)) * qnorm(.95),
+           lb= difference - (sdpooled * sqrt(1/n_0 + 1/n_1)) * qnorm(.95),
+           est = difference,
+           ueq = .48,
+           leq = -.48
+             
+           )|>
+  ggplot(aes(x=est, y="")) + 
+  geom_pointrange(aes(xmin = ub, xmax=lb)) + geom_point() +
+  geom_vline(aes(xintercept=ueq), col='red', lty=2) +
+  geom_vline(aes(xintercept=leq), col='red', lty=2) +
+  geom_vline(aes(xintercept=0), col='grey', lty=2) +
+  theme_bw() +
+  labs(x='estimated difference', y='')
+
+
+
+
+```
+:::
+:::::
 
 ## Null effects and Duverger's law
 
@@ -750,10 +927,81 @@ p2
 
 -   "Hypothesis 1: Increasing the effective number of ethnic groups from the 10th percentile (1.06) to the 90th percentile (2.48) will not lead to a **substantively meaningful** change in the effective number of political parties when the district magnitude is one. "
 
-<!-- -->
-
 -   "Hypothesis 2: Increasing the district magnitude from one to seven will not lead to a **substantively meaningful** change in the effective number of political parties when the effective number of ethnic groups is one."
 
--   **Substantively meaningful effect:** changing the effective number of parties by 0.62 (where does he get that?)
+-   **Substantively meaningful effect:** changing the effective number of parties by 0.62 (this is the difference in the effective number of political parties between the U.S. and the U.K.)
+
+## Null effects and Duverger's law
+
+![](images/rainey_plot.jpg){fig-align="center"}
+
+
+
+## Marginal effects and quantities of interest
+
+- For simple regression models, we can get most of the interesting stuff from just looking at the output, but what if we're working with something more complex?
+
+
+For instance, this model includes a polynomial term for percent Bachelor's degrees in a given state. What is the effect of a one unit increase in Bachelor's degrees, and is this statistically significant?
+
+```{r}
+
+voteshares$pct_bachelors <- (voteshares$bachelors_degree / voteshares$pop) * 100
+
+model <-lm(demshare ~  poly(pct_bachelors, 2, raw=T), data=voteshares)
+model|>summary()
+
+
+df<-data.frame(preds = (predict(model, newdata=data.frame(pct_bachelors = seq(0, 100, by=1)
+                                                          ))),
+               pct_bachelors = seq(0, 100, by=1))
+
+
+ggplot(df, aes(x=pct_bachelors, y=preds)) + geom_line() +
+  theme_bw()
+
+```
+
+
+
+## Marginal effects and quantities of interest
+
+There's not a straightforward way to calculate an effect or a confidence interval here analytically, so we need to use other methods.
+
+One option is bootstrapping, another is simulation.
+
+
+```{r}
+set.seed(999)
+nreps<-1000
+coefs <- mvtnorm::rmvnorm(nreps, coef(model), vcov(model))  #simulate random coefficients
+
+model_data<-model.matrix(formula(model), data=model$model)
+est<-coefs%*%t(model_data)
+
+model_data_obs<-model.matrix(formula(model), data=voteshares)
+model_data_high<-model.matrix(formula(model), data=voteshares|>
+                                mutate(pct_bachelors = pct_bachelors + 1))
+
+est0<-coefs%*%t(model_data_obs)
+
+est1<-coefs%*%t(model_data_high)
+Xdiff<-rowMeans(est1) - rowMeans(est0)
+
+quantile(Xdiff, c(.025, .5, .975))
+
+```
+The marginal effects package will do this automatically:
+
+```{r}
+library(marginaleffects)
+
+avg_comparisons(model, variables='pct_bachelors', method='simulation')
+
+
+```
+## Marginal effects and quantities of interest
+
+
 
 
