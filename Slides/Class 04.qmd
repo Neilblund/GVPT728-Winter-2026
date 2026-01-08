@@ -1,16 +1,15 @@
 ---
 title: "Missing Data"
-date: last-modified
-author: Neil Lund
 format:
   revealjs:
-    theme: [default, custom_styles]
+    theme: [clean, moon]
     df-print: paged
     smaller: true
     slide-number: true
     header: 
     header-logo: images/informal_seal_transparent.webp
     self-contained: true
+incremental: true
 code-annotations: select
 slide-level: 3
 ---
@@ -83,6 +82,8 @@ data<-readRDS('~/GVPT728_Winter24/Additional Code and Data/indicators.rds')
 
 ```
 
+
+
 # Missing data
 
 Missing data is extremely common in applied research, how should we deal with it?
@@ -128,14 +129,8 @@ Our approach to missing data will depend on our theory of why it exists.
 
 -   Missing completely at random (MCAR)
     -   no systematic differences between missing and non-missing data
-
-. . .
-
 -   Missing at random (MAR)
     -   missing is conditional on some characteristics
-
-. . .
-
 -   Missing not at random (MNAR)
     -   missingness is conditional on something unobserved
 
@@ -165,6 +160,65 @@ Missing completely at random means that there are no systematic differences betw
 Data that are missing completely at random are actually fairly easy to deal with because they essentially only add variance, but not bias, so listwise deletion is probably fine provided it doesn't undermine power too much.
 :::
 
+### Missing completely at random
+
+
+```{r,  cache=TRUE}
+#| fig-height: 6
+#| fig-width: 4
+#| output-location: column
+
+set.seed(999)
+iterations<-1000
+N <-  500 
+beta_0 <- 1  # the y intercept
+beta_1<- 2.5 # the effect of X on Y
+result_list<-list()
+
+conditions<-list('0% missing data' = 1,
+                 '25% missing data' = .75,
+                 '50% missing data' = .5,
+                 '75% missing data' = .25
+                 )
+
+for(i in 1:iterations){
+  X <- rnorm(N, mean=0, sd=1) 
+  e <- rnorm(N, mean=0, sd=1) 
+  Y <- beta_0 + X * beta_1 + e 
+  data<-data.frame(Y, X)
+  condition_frame<-list()
+  for(j in 1:length(conditions)){
+    kept_data<-round(nrow(data)  * conditions[[j]])
+    data_missing <- data[sample(nrow(data), size=kept_data),]
+    mod<- lm(Y ~ X, data=data_missing)
+    condition_name <- names(conditions)[j]
+    condition_frame[[condition_name]] <- tidy(mod, conf.int = TRUE)
+
+  }
+  condition_frame<-bind_rows(condition_frame, .id='condition')
+  result_list[[i]] <- condition_frame
+
+}
+
+result_frame <- bind_rows(result_list, .id='iteration')
+result_frame|>
+  filter(term == "X")|>
+  ggplot(aes(x =estimate, y = condition)) +
+  stat_halfeye(
+    alpha = .5,
+    width = .6,
+    .width = 0,
+    justification = -.2
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  labs(title = "Estimated coefficients under MCAR") +
+  geom_vline(xintercept=2.5)
+
+
+```
+
+
 ### Missing at random
 
 MAR means there is a pattern, but its based on something you can predict
@@ -177,7 +231,69 @@ MAR means there is a pattern, but its based on something you can predict
 
 . . .
 
-All these cases suggest that we can fully account for the characteristic that causes missing data. We have data on wealth for the global development data, we have data on member's age from our congress study, and we can identify who belongs to vulnerable groups.
+All these cases suggest that we can fully account for the characteristic that causes missing data using observable data. We have data on wealth for the global development data, we have data on member's age from our congress study, and we can identify who belongs to vulnerable groups.
+
+
+### Missing at random
+
+
+```{r, cache=TRUE}
+#| fig-height: 6
+#| fig-width: 4
+#| output-location: column
+
+
+set.seed(999)
+iterations<-1000
+N <-  500 
+betas <- c(2.5, -10)
+result_list<-list()
+conditions<-list('Y ~ X1 + X2' = formula(Y~X1 +X2),
+                 'Y ~ X1' = formula(Y~X1)
+)
+for(i in 1:iterations){
+  Sigma <- matrix(c(1, .6, .6, 1), ncol = 2)
+  X <- MASS::mvrnorm(N, mu = c(0, 0), Sigma = Sigma)
+  e <- rnorm(N, 0 , sd = 1) 
+  Y <- 1 + X %*% betas + e
+  data<-data.frame(Y, X)
+  condition_frame<-list()
+  for(j in 1:length(conditions)){
+    keep_index<-which(data$X2 >= quantile(data$X2, .75))
+
+    data_missing <- data[keep_index,]
+    
+    
+    mod<- lm(conditions[[j]], data=data_missing)
+    condition_name <- names(conditions)[j]
+    condition_frame[[condition_name]] <- tidy(mod, conf.int = TRUE)
+    
+  }
+  condition_frame<-bind_rows(condition_frame, .id='condition')
+  result_list[[i]] <- condition_frame
+  
+}
+
+result_frame <- bind_rows(result_list, .id='iteration')
+result_frame|>
+  filter(term == "X1")|>
+  ggplot(aes(x =estimate, y = condition)) +
+  stat_halfeye(
+    alpha = .5,
+    justification = -.2,
+    width = .6,
+    .width = 0,
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  labs(title = "Estimated coefficients under MAR") +
+  geom_vline(xintercept = 2.5)
+
+
+
+
+```
+
 
 ### Missing not at random
 
@@ -191,7 +307,57 @@ MNAR means that there is something systematic and *unobserved* that causes the m
 
 . . .
 
-We don't really even have partial data on the cause of missingness here: we might suspect that "low potential income" cause someone to decide not to enter the labor force, but we never observe wages for that person in the first place so this is potentially untestable.
+We don't really even have partial data on the cause of missingness here: we might suspect that "low potential income" cause someone to decide not to enter the labor force, but we never observe wages for that person in the first place so this is potentially un-testable.
+
+### Missing not at random
+
+
+
+```{r, cache=TRUE}
+#| fig-height: 6
+#| fig-width: 4
+#| output-location: column
+
+set.seed(999)
+iterations<-1000
+N<-500
+result_list<-list()
+for(i in 1:iterations){
+  X<-rnorm(N)
+  y_true <- 1 + X * 4 + rnorm(N)
+  prob_missing <- plogis(y_true - mean(y_true)) 
+  r <- rbinom(length(y_true), size = 1, prob = prob_missing)
+    y_observed <- y_true
+  y_observed[r == 1] <- NA
+    data_mnar<- data.frame(
+    y_true = y_true,
+    X, 
+    r = r,
+    y_observed = y_observed
+  )
+  mod<-lm(y_observed~ X, data=data_mnar)
+  result_list[[i]]<-tidy(mod)
+  
+}
+result_frame <- bind_rows(result_list, .id='iteration')
+result_frame|>
+  filter(term == "X")|>
+  ggplot(aes(x =estimate, y ="MNAR")) +
+  stat_halfeye(
+    alpha = .5,
+    justification = -.2,
+    width = .6,
+    .width = 0,
+  ) +
+  geom_boxplot(width = .15, outlier.shape = NA) +
+  theme_bw() +
+  labs(title = "Estimated coefficients under MNAR") +
+  geom_vline(xintercept=4, lty=2)
+
+
+```
+
+
 
 ## Effects
 
@@ -312,6 +478,8 @@ Set the missing variable to 0 and include an indicator for missingness
 ::: {.column width="50%"}
 ```{r}
 
+data<-readRDS('~/GVPT728_Winter24/Additional Code and Data/indicators.rds')
+
 data$gini_missing <- is.na(data$gini)
 data$gini_zeroes <- ifelse(is.na(data$gini), 0, data$gini)
 
@@ -350,7 +518,7 @@ lm(libdem_score ~ gini_imputed, data=data)|>
 
 # Better Alternatives
 
-## Extreme bounds
+## Worst case scenarios
 
 One approach is to assume nothing and just ask "how bad could it get?"
 
@@ -358,7 +526,7 @@ One approach is to assume nothing and just ask "how bad could it get?"
 -   **For continuous variables**, there is no real "maximum" but you could use the maximum observed value, or the mean + two or three standard deviations.
     -   You could also look set something more narrow as a "plausible" alternative
 
-## Extreme bounds
+## Worst case scenarios
 
 ::::: columns
 ::: {.column width="50%"}
@@ -398,11 +566,13 @@ modelsummary(
 :::
 :::::
 
-## Extreme bounds
+## Worst case scenarios
 
 -   Advantage: minimal assumptions (especially for limited extreme bounds on limited DVs)
 
 -   Disadvantage: might overstate uncertainty, and would be plain wrong for MCAR
+
+. . .
 
 This really works best when you have a very small number of missing observations. If you can show that your results are similar even under the worst case scenario assumptions, then you're in a pretty good spot.
 
@@ -430,7 +600,17 @@ Multiple Imputation Through Chained Equations
 :::
 :::::
 
+
 ## MICE
+
+![](images/mice_vis.png)
+
+
+
+## MICE
+
+
+
 
 ::::: columns
 ::: {.column width="50%"}
@@ -498,6 +678,9 @@ What if people with a certain value of the outcome are never observed? For examp
 # Selection problem: truncation of Y
 
 ```{r}
+#| fig-height: 7
+#| fig-width: 4
+#| output-location: column
 
 set.seed(500)
 N = 1000
@@ -618,4 +801,7 @@ coef(summary(model), part='outcome')|>
 
     -   Missing outcomes: use a two stage model
 
--   For all missing data: less is better. If you can show the problem is minimal even under extreme assumptions, then there's a lot less reason for concern.
+-   For all missing data: less is better. If there are only a handful of missing cases, then its unlikely that missingness has a huge effect on the results.
+
+
+

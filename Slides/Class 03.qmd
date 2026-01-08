@@ -952,10 +952,6 @@ model <-lm(demshare ~  poly(pct_bachelors, 2, raw=T), data=voteshares)
 model|>summary()
 
 
-df<-data.frame(preds = (predict(model, newdata=data.frame(pct_bachelors = seq(0, 100, by=1)
-                                                          ))),
-               pct_bachelors = seq(0, 100, by=1))
-
 
 
 ```

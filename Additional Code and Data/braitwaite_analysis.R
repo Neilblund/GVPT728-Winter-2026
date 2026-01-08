@@ -6,10 +6,9 @@ spread<-haven::read_dta("https://github.com/Neilblund/GVPT728-Winter-2026/raw/re
   mutate(logsize = log(jointsize))
 
 
+plot(density(spread$radius))
 
 
-
-plot(density(spread$log_radius_area))
 
 model1<-lm(log_radius_area ~ 
              territory + 
