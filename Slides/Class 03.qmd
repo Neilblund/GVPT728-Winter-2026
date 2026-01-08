@@ -944,7 +944,7 @@ data.frame(ub = difference + (sdpooled * sqrt(1/n_0 + 1/n_1)) * qnorm(.95),
 
 For instance, this model includes a polynomial term for percent Bachelor's degrees in a given state. What is the effect of a one unit increase in Bachelor's degrees, and is this statistically significant?
 
-```{r}
+```{r, echo=TRUE}
 
 voteshares$pct_bachelors <- (voteshares$bachelors_degree / voteshares$pop) * 100
 
@@ -957,8 +957,6 @@ df<-data.frame(preds = (predict(model, newdata=data.frame(pct_bachelors = seq(0,
                pct_bachelors = seq(0, 100, by=1))
 
 
-ggplot(df, aes(x=pct_bachelors, y=preds)) + geom_line() +
-  theme_bw()
 
 ```
 
@@ -971,7 +969,7 @@ There's not a straightforward way to calculate an effect or a confidence interva
 One option is bootstrapping, another is simulation.
 
 
-```{r}
+```{r, echo=TRUE}
 set.seed(222)
 nboot<-2000
 model <-lm(demshare ~  poly(pct_bachelors, 2, raw=T), data=voteshares)
@@ -1002,7 +1000,7 @@ quantile(fx, c(.025, .5, .975))
 
 Another option is to use simulations:
 
-```{r}
+```{r, echo=TRUE}
 set.seed(999)
 nreps<-1000
 coefs <- mvtnorm::rmvnorm(nreps, coef(model), vcov(model))  #simulate random coefficients
@@ -1030,7 +1028,7 @@ The [marginal effects](https://marginaleffects.com/) package will do this automa
 
 Simulation:
 
-```{r}
+```{r, echo=TRUE}
 library(marginaleffects)
 
 avg_comparisons(model, variables='pct_bachelors', method='simulation')
@@ -1039,7 +1037,7 @@ avg_comparisons(model, variables='pct_bachelors', method='simulation')
 
 Bootstrap:
 
-```{r}
+```{r, echo=TRUE}
 
 avg_comparisons(model, variables='pct_bachelors', method='boot')
 
