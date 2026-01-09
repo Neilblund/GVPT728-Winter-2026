@@ -2,6 +2,8 @@ library(tidyverse)
 library(modelsummary)
 library(mice)
 
+# Example of using multiple imputation to attempt to recover some missing data
+
 
 vdem <- vdemdata::vdem |>
   filter(year == 2000) |>
@@ -24,20 +26,22 @@ vdem <- vdemdata::vdem |>
   ungroup()
 
 
+
+# MCAR r
 set.seed(6000)
-
-
 vdem_mcar<-vdem
 r<-rbinom(nrow(vdem),1,.5)
 vdem_mcar$civil_liberties<-ifelse(r == 1, NA,vdem$civil_liberties)
 
 
+# MAR
 vdem_mar<-vdem
 
 scaled<-scale(1+ vdem$educational_inequality * vdem$public_corruption + vdem$gdpp^2  *vdem$democracy)
 r <- rbinom(nrow(vdem), size = 1, prob = pnorm(scaled))
 vdem_mar$civil_liberties<-ifelse(r == 1, NA,vdem$civil_liberties)
 
+# MNAR
 vdem_mnar<-vdem
 r <- rbinom(nrow(vdem), size = 1, prob = pnorm(scale(vdem$public_corruption)))
 vdem_mnar$civil_liberties<-ifelse(r == 1, NA,vdem$civil_liberties)

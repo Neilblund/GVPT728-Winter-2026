@@ -1,5 +1,5 @@
 ---
-title: "Independence"
+title: "Clustering and fixed effects"
 format:
   revealjs:
     theme: [clean, custom_styles]
@@ -323,11 +323,6 @@ As usual, the specific matter, and we need to know how things are correlated bef
 
 -   Cluster robust standard errors
 
--   Fixed Effects
-
--   Random effects/Mixed models
-
--   Differencing or lagging (for time series)
 
 ## How big is the problem?
 
@@ -352,7 +347,7 @@ fx<-ca|>
             ess = 1 + (n() - 1) * icc,  # effective sample size
             )
 n_u<-mean(table(counties$state_name))
-fx$deff <- (1 + (n_u-1) * fx$icc)
+fx$design_factor <- sqrt((1 + (n_u-1) * fx$icc))
 fx
 
 
