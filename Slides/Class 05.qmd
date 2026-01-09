@@ -1,16 +1,15 @@
 ---
-title: "Autocorrelation and Clustering"
-date: last-modified
-author: Neil Lund
+title: "Independence"
 format:
   revealjs:
-    theme: [default, custom_styles]
+    theme: [clean, custom_styles]
     df-print: paged
     smaller: true
     slide-number: true
     header: 
     header-logo: images/informal_seal_transparent.webp
     self-contained: true
+incremental: true
 code-annotations: select
 slide-level: 3
 ---
@@ -142,7 +141,7 @@ plot
 
 # Regression Assumptions
 
-Important regression assumptions:
+Some important regression assumptions:
 
 ::: incremental
 -   Linearity in parameters
@@ -150,27 +149,114 @@ Important regression assumptions:
 -   No perfect multicolinearity
 
 -   Constant Variance
-
--   **Independence of observations**
 :::
 
 . . .
 
-Regression standard errors assume that errors are uncorrelated. Violations of this are referred to as autocorrelation
+Heteroskedasticity is one way to violate the constant variance assumption, but another way to violate it is through clustering.
 
-### Sources of dependence: Hierarchical data
+### Sources of dependence: Sampling strategies
 
-**Hierarchical data** (the present example) data come from different levels of analysis, so the same observation is just being duplicated for each row. This comes up a lot if you want to study stuff like:
+::::: {.columns}
+::: {.column width="50%"}
 
--   The effects of immigration levels on public opinion
+-   Surveys typically target strata rather than using true random sampling
 
--   The effect of electoral systems on the characteristics of legislators
+-   Researchers may target neighborhoods or census tracts rather than individuals when conducting a field experiment, and they'll often survey an entire household rather than a single individual.
 
--   The effect of classroom size on student outcomes
+- Weighting accounts for the non-random selection, but survey analysts also need to account for the lack of independence within strata to calculate standard errors.
 
--   The average effect of a treatment across multiple studies
+:::
+::: {.column width="50%"}
+```{dot}
+//| fig-width: 5
+//| fig-height: 8
 
-### Spatial Autocorrelation
+
+digraph StratifiedSampling {
+    rankdir=LR;
+    
+    node [shape=box, style=filled, fontname="Arial"];
+overlap=compress    
+// Define node styles
+    subgraph cluster_level1 {
+        label = "Strata"
+        labeljust=l;
+        style=filled;
+        color=lightgrey;
+        pop [label="Strata A", fillcolor="#e74c3c", fontcolor=white];
+    }
+    
+    subgraph cluster_level2 {
+        label = "Sampled metro areas and counties"
+       
+        labeljust="l";
+        style=filled;
+        color=lightgrey;
+        metro1 [label="Urban Metro\n(40M)", fillcolor="#f39c12", fontcolor=white];
+        metro2 [label="County\n(35M)", fillcolor="#f39c12", fontcolor=white];
+        metro3 [label="Group of counties\n(25M)", fillcolor="#f39c12", fontcolor=white];
+    }
+    
+    subgraph cluster_level3 {
+        label="Sampled census blocks";
+        labeljust="l";
+        style=filled;
+        color=lightgrey;
+        census1 [label="Block 1A\n(2,000)", fillcolor="#27ae60", fontcolor=white];
+        census2 [label="Block 1B\n(1,800)", fillcolor="#27ae60", fontcolor=white];
+        census3 [label="Block 2A\n(2,200)", fillcolor="#27ae60", fontcolor=white];
+        census4 [label="Block 2B\n(1,900)", fillcolor="#27ae60", fontcolor=white];
+        census5 [label="Block 3A\n(1,500)", fillcolor="#27ae60", fontcolor=white];
+        census6 [label="Block 3B\n(1,600)", fillcolor="#27ae60", fontcolor=white];
+    }
+    
+    subgraph cluster_level4 {
+        label="Households";
+        labeljust="l";
+        style=filled;
+        color=lightgrey;
+        house1 [label="HH-001\n(4 people)", fillcolor="#3498db", fontcolor=white];
+        house2 [label="HH-052\n(3 people)", fillcolor="#3498db", fontcolor=white];
+        house3 [label="HH-103\n(2 people)", fillcolor="#3498db", fontcolor=white];
+        house4 [label="HH-154\n(5 people)", fillcolor="#3498db", fontcolor=white];
+        house5 [label="HH-205\n(3 people)", fillcolor="#3498db", fontcolor=white];
+        house6 [label="HH-256\n(4 people)", fillcolor="#3498db", fontcolor=white];
+        house7 [label="HH-307\n(2 people)", fillcolor="#3498db", fontcolor=white];
+        house8 [label="HH-358\n(6 people)", fillcolor="#3498db", fontcolor=white];
+    }
+    
+    // Define connections between levels
+    pop -> metro1;
+    pop -> metro2;
+    pop -> metro3;
+    
+    metro1 -> census1;
+    metro1 -> census2;
+    metro2 -> census3;
+    metro2 -> census4;
+    metro3 -> census5;
+    metro3 -> census6;
+    
+    census1 -> house1;
+    census1 -> house2;
+    census2 -> house3;
+    census3 -> house4;
+    census3 -> house5;
+    census4 -> house6;
+    census5 -> house7;
+    census6 -> house8;
+}
+
+```
+:::
+:::::
+
+
+
+
+
+### Sources of dependence: spatial autocorrelation
 
 Things close to each other will tend to correlate, so even if we use only county-level covariates, we might still have some dependence just due to proximity:
 
@@ -202,13 +288,18 @@ ggplot(vdem, aes(x=year, y=v2x_libdem, color=country_name)) +
 
 ```
 
-### Sources of dependence: Sampling strategies
 
--   Surveys typically target strata rather than using true random sampling
+### Sources of dependence: Hierarchical data
 
--   Researchers may target neighborhoods or census tracts rather than individuals when conducting a field experiment
+**Hierarchical data** data come from multiple different levels of analysis, so the same observation is just being duplicated for each row. This comes up a lot if you want to study stuff like:
 
-[![](https://upload.wikimedia.org/wikipedia/commons/f/fa/Stratified_sampling.PNG){fig-align="center"}](https://commons.wikimedia.org/wiki/File:Stratified_sampling.PNG)
+-   The effects of immigration levels on individual public opinion
+
+-   The effect of electoral systems on the characteristics of legislators
+
+-   The effect of classroom size on student outcomes
+
+-   The average effect of a treatment across multiple studies
 
 ## Why it matters
 
@@ -217,9 +308,11 @@ ggplot(vdem, aes(x=year, y=v2x_libdem, color=country_name)) +
 
 -   We have far fewer **independent** observations than the number rows in our data might imply.
 
-    -   There's over 3,000 counties, but we've got data from 50 states that we've simply duplicated multiple times.
+    -   There's over 3,000 counties, but we've got data from 50 states that we've duplicated multiple times.
 
--   We can also have spurious results from certain patterns of autocorrelation: if two variables are increasing over time, they'll look correlated in a time series regression
+-   We can also have spurious results from certain patterns of autocorrelation: if two variables are increasing over time, they'll look correlated in a time series regression.
+
+-   Groups themselves can be confounders.
 :::
 
 # Some Strategies
@@ -230,11 +323,40 @@ As usual, the specific matter, and we need to know how things are correlated bef
 
 -   Cluster robust standard errors
 
--   Fixed Effects (maybe)
+-   Fixed Effects
 
 -   Random effects/Mixed models
 
 -   Differencing or lagging (for time series)
+
+## How big is the problem?
+
+One way to get a sense of the scope of the problem is to calculate an effective sample size and design effect for the clusters. 
+
+The ESS a rough estimate of the number of independent samples that would provide the same level of certainty as our clustered data.
+
+```{r}
+#| output-location: column
+
+ca<-counties|>
+  mutate(grand_mean = mean(percent_gop))|>
+  group_by(state_name)|>
+  mutate(group_mean = mean(percent_gop)
+         )|>
+  ungroup()
+fx<-ca|>
+  summarize(ssb = sum((group_mean - grand_mean)^2), # between clusters
+            ssw = sum((percent_gop - group_mean)^2), # within clusters
+            sse = ssb+ssw,
+            icc = ssb/sse,             # intra-cluster correlation
+            ess = 1 + (n() - 1) * icc,  # effective sample size
+            )
+n_u<-mean(table(counties$state_name))
+fx$deff <- (1 + (n_u-1) * fx$icc)
+fx
+
+
+```
 
 ## Aggregation
 
@@ -279,12 +401,11 @@ modelsummary(list('Original' = model, "Aggregated" = model_2),
 -   Good: Once we've done this, we just estimate a linear model
 
 -   Bad: we lose a lot of nuance!
-
     -   We can't include any county-level covariates in the model
-
     -   Counts all observations equally (here this might make sense, but maybe not in all cases)
+    -   Potentially throws out useful information about precision (some estimates should be seen as more precise because we have more data about them)
+    
 
-    -   Potentially throws out useful information about precision (some estimates should be seen as more precise)
 
 ## Standard Error Adjustments
 
@@ -292,157 +413,397 @@ If we have an idea about the nature of the clustering, we can potentially model 
 
 ### Clustered Bootstrap
 
--   Bootstrapped Standard Errors: repeatedly resample with replacement from the original data, calculating the same statistic after each step, then measure the variance in those resampled statistics
+-   Bootstrapped Standard Errors: repeatedly re-sample with replacement from the original data, calculating the same statistic after each step, then measure the variance in those resampled statistics
 
 -   Clustered Bootstrap: repeatedly resample **each cluster** with replacement.
+
+### Clustered Bootsrap
+
+```{r, cache=TRUE}
+set.seed(999)
+r<- 3000
+states<-unique(counties$state_name)
+coefs<-matrix(0, nrow=r, ncol=2)
+
+for(i in 1:r){
+  clusters<-sample(states, size=length(states), replace=T)
+  index<-unlist(sapply(clusters, function(x) which(counties$state_name==x)))
+  county_boot<-counties[index,]
+  bootmodel<-lm(percent_gop ~ join_year, data=county_boot)
+  coefs[i,] <-coef(bootmodel)
+
+  
+}
+
+
+cbind(colMeans(coefs),apply(coefs, 2, sd))
+
+
+
+```
+
 
 ### Clustered Bootstrap
 
 ```{r, echo=FALSE}
 
-modelsummary(list('Clustered Bootstrap' = model),
+modelsummary(list('No clustering' = model, 
+                  'Clustered Bootstrap' = model),
  estimate  = "{estimate}",  
   statistic = c("conf.int", 'std.error'),
  conf_level = .95,        
  coef_map = list('join_year' = 'State year joined union'
                  ),
- note = "note: Standard errors in parentheses",
+ note = "note: Standard errors in parentheses, 95% ci in brackets",
  gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
  title= 'DV: County GOP vote % in 2024',
- vcov = "bootstrap",
- cluster=~state_name
- 
- )
+ vcov = c("classical", "bootstrap"),
+ R = 3000,
+ cluster=~state_name)
 
 
 ```
 
 ### Cluster Robust Errors
 
-Another (faster) solution involves adjusting the standard error calculation so that it increases as clustering increases
 
-A normal standard error
+::::: {.columns}
+::: {.column width="50%"}
 
-$$
-var(\hat{\beta_1}) = \frac{var(u) \sum_{i=1}^{n}(x_i - \bar{x})^2}{TSS^2_x}
-$$
 
-A cluster robust standard error
 
-$$
-var(\hat{\beta_1}) = \frac{\sum_{i=1}^{n} \sum_{j=1}^{n}(x_i - \bar{x})\hat{u_i}\hat{u_j} (x_j-\bar{x})}{TSS^2_x}
-$$
+$$\mathbb{V}[\beta] = \frac{\hat{\epsilon}' \hat{\epsilon}}{n - k} (X'X)^{-1}$$
 
-::: notes
-This really isn't an important thing to know. What is important is that:
-
-1.  covariance is being measured at the cluster level and will get larger when there's greater correlation within clusters
-2.  If there's no within-cluster correlation, this will converge toward the regular standard error in a sufficiently large sample
 :::
+::: {.column width="50%"}
+
+```{r}
+
+
+# make a matrix with an intercept and join_year
+X<-model.matrix(percent_gop ~ join_year, data = counties)
+y <- counties$percent_gop
+n <- nrow(X) # number of observations
+k <- ncol(X) # number of parameters (including intercept)
+
+# calculate regression coefficients
+coefs<- solve(crossprod(X)) %*% crossprod(X,y) 
+
+# Standard SE:
+# predictions
+y_pred <- X %*% coefs
+# residuals
+u <- y - y_pred
+
+# calculate the variance-covariance matrix for the betas
+sigma<-sum(u^2) / (n-k)
+vcov<- sigma *  solve(crossprod(X))
+# the square root of the diagonals give the standard errors
+regular_se<-sqrt(diag(vcov))
+# model output:
+cbind(coefs, regular_se)
+
+```
+
+:::
+:::::
 
 ### Cluster Robust Errors
 
-```{r, echo=FALSE}
 
-modelsummary(list('Cluster Robust SE' = model),
+::::: {.columns}
+::: {.column width="40%"}
+$$
+\hat{\Omega} = \frac{n-1}{n-k}\frac{c}{c-1} \sum_{c=1}^C (X_c' \hat{\epsilon}_c \hat{\epsilon}_c' X_c)
+$$
+
+$$
+\mathbb{V}[\beta] = (X' X)^{-1} \quad 
+            X' \Omega  X \quad 
+            (X' X)^{-1}
+$$
+
+:::
+::: {.column width="60%"}
+```{r}
+
+# Clustered SE:
+# The clustering ----
+states<-unique(counties$state_name)
+n_states <- length(states)
+# create the empty list
+list_of_vcovs <- vector(mode = "list", length = n_states)
+# naming the list elements
+names(list_of_vcovs) <- states
+for(state in states) {
+  # get index of each state observation
+  cluster_index <- which(counties$state_name == state)
+  # now we can subset our data by those indices..
+  X_cluster = X[cluster_index,]
+  # get residuals for this cluster
+  u_c <- u[cluster_index]
+  # then do the calculation u_c u_c'
+  vcov_c <- t(X_cluster) %*% tcrossprod(u_c) %*% X_cluster
+  # add this matrix to the list
+  list_of_vcovs[[state]] <- vcov_c
+}
+# add the separate variance covariance matrices together
+omega <- n_states/(n_states-1) * (n-1)/(n-k) * Reduce("+",list_of_vcovs)
+# variance-covariance matrix
+vcov <- (solve(crossprod(X)) %*% omega %*% solve(crossprod(X))) 
+# standard errors
+se_clustered <- sqrt(diag(vcov))
+# print the coefficients and standard errors
+cbind(coef(model), regular_se, se_clustered)
+
+```
+:::
+:::::
+
+
+
+### Cluster Robust Errors
+
+```{r, echo=TRUE}
+#| output-location: column
+
+mlist<-list('No clustering' = model, 
+                  'Clustered Bootstrap' = model,
+                  'Clustered SE' = model
+                  )
+modelsummary(mlist,
  estimate  = "{estimate}",  
   statistic = c("conf.int", 'std.error'),
  conf_level = .95,        
  coef_map = list('join_year' = 'State year joined union'
                  ),
- note = "note: Standard errors in parentheses",
+ note = "note: Standard errors in parentheses. 95% ci in brackets",
  gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
  title= 'DV: County GOP vote % in 2024',
- vcov=~state_name
- 
- )
+ vcov = c("classical", "bootstrap", ~state_name),
+ R = 3000,
+ cluster=~state_name)
+
+
+```
+
+### Cluster Robust Errors
+
+Note that the coefficient estimates are the same across all three versions of this model. All that changes are the confidence intervals:
+
+```{r, echo=TRUE}
+#| output-location: column
+
+modelplot(mlist, 
+          vcov = c("classical", "bootstrap", ~state_name),
+          cluster = ~state_name,
+          coef_omit='Intercept'
+          )
 
 
 ```
 
 ## Standard Error Adjustments
 
--   Good: easy to use as long as you know the nature of the clustering
+-   Good: easy to use as long as you know the nature of the clustering.
 
--   In theory, there's no cost here: if there's no clustering, then the standard errors should look normal ones
+-   In theory, there's no cost here: if groups have no clustering, then the standard errors should be more or less like regular classical standard errors
 
--   But maybe inappropriate for this kind of hierarchical data
+-   Clustering doesn't account for group-level characteristics that might impact $\hat{\beta}$. **It only adjusts the standard errors.**
+
+
 
 ## Fixed Effects Models
 
--   Create an indicator variable for every "cluster". i.e.: one per country or one per state
+- What if we want to account for some unobserved group-level confounding? Clustering only adjusts errors, but if there's group-level confounding, we might also want to adjust our coefficient estimates.
 
--   Include N-1 indicators in a regression model along side your variables of interest
 
--   Note: this amounts to controlling for **all fixed characteristics of the grouping variable** including characteristics you didn't measure. So everything should be interpreted as an average effect relative to the group mean
 
-    -   This can be great or bad depending on what your goals are
-
-### Fixed Effects Models: example
+### Fixed Effects Models
 
 ::::: columns
 ::: {.column width="50%"}
-Theory: popular parties want to be seen as competent, so they'll be less likely to emphasize valence issues like corruption
+Theory: parties in power want to be seen as competent, so they'll be less likely to emphasize valence issues like corruption.
 
 -   Data: 2019 round of the Chapel Hill Expert Survey for Europe
 
 -   Unit of Analysis: political party
 
--   IV: number of seats
+-   IV: whether the party is in government
 
 -   DV: corruption salience
 
-. . .
+::: fragment
 
-What's the problem here?
+We have clustering within countries, but we might also suspect that country-level characteristics like the level of actual corruption could act as confounders here.
+
+
+:::
+
 :::
 
 ::: {.column width="50%"}
-```{r}
+
+::: fragment
+
+```{r, echo=FALSE}
+#| code-fold: true
 
 url<-'https://www.chesdata.eu/s/1999-2019_CHES_dataset_meansv3-x7lr.csv'
 ches<-read_csv(url)|>
   filter(year==2019)
+
+country_levels<-c(1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 16, 20, 21, 22, 
+          23, 24, 25, 26, 27, 28, 29, 31, 34, 35, 36, 37, 38, 40, 45)
+country_labels<-c("Belgium", "Denmark", "Germany", "Greece", "Spain", "France", 
+          "Ireland", "Italy", "Netherlands",  "United Kingdom", "Portugal", 
+          "Austria", "Finland", "Sweden", "Bulgaria", "Czech Republic",  
+          "Estonia", "Hungary", "Latvia", "Lithuania","Poland", "Romania", 
+          "Slovakia", "Slovenia", "Croatia", "Turkey", "Norway", "Switzerland", 
+          "Malta", "Luxembourg", "Cyprus", "Iceland")
+
+ches$country<-factor(ches$country, levels=country_levels, labels=country_labels)
 
 ches<-ches|>
   mutate(in_gov = factor(govt>0, labels= c("Not in government", "In government"))
          )|>
   drop_na(corrupt_salience, seat, in_gov)
 
-
 result<-lm(corrupt_salience ~ 
-            seat, data = ches) 
+            in_gov, data = ches) 
 
 summary(result)
 
 ```
+
+:::
+
 :::
 :::::
 
-### Fixed Effects Models: example
 
-::::: columns
-::: {.column width="50%"}
--   Likely some clustering by country (as well as party family, but we'll set that aside)
+### Fixed Effects Models
 
--   We may also want to account for other country-level characteristics like the actual level of corruption in a state! Fixed effects can do this.
-:::
+Countries have systematic differences with respect to the dependent variable, and these differences are probably related to characteristics that we haven't measured here:
 
-::: {.column width="50%"}
 ```{r}
+#| output-location: column
+
+ches|>
+  group_by(country)|>
+  mutate(corruption_mean = mean(corrupt_salience),
+         )|>
+  ungroup()|>
+  mutate(country = reorder(country, corruption_mean))|>
+  ggplot(aes(x=country, y=corrupt_salience)) + 
+  geom_point() +
+  geom_point(aes(x=country, y=corruption_mean), color='red') +
+  coord_flip() +
+  theme_bw() +
+  labs(x='Country', y='Corruption salience', 
+       caption='red = country mean')
+
+
+
+
+```
+
+### Fixed Effects Models
+
+$$
+Y_{ij} = \beta_1 X_{ij} + \alpha_j + \epsilon_{ij}
+$$
+
+- $Y_{ij}$ Outcome for party i in country j
+
+- $X_{ij}$ IV for party i in country j
+ 
+- $\alpha_j$ A vector of country-specific intercept terms
+
+- $\epsilon_{ij}$ error
+
+
+### Fixed Effects Models
+
+One way to think about this approach is that it amounts to mean-centering all of our covariates at the group-level. This effectively controls for country-level differences.
+
+```{r}
+#| output-location: column
+
+ches|>
+  group_by(country)|>
+  mutate(corruption_mean =  mean(corrupt_salience),
+         corrupt_salience = corrupt_salience -  corruption_mean 
+         )|>
+  ungroup()|>
+  mutate(country = reorder(country, corruption_mean))|>
+  ggplot(aes(x=country, y=corrupt_salience)) + 
+  geom_point() +
+  coord_flip() +
+  theme_bw() +
+  labs(x='Country', y='Corruption salience',  caption='red = country mean') +
+  geom_hline(yintercept =0, lty=2, col='red')
+
+```
+
+
+
+### Fixed Effects Models
+
+
+Basic procedure:
+
+-   Create an indicator variable for every "cluster". i.e.: one per country or one per state
+
+-   Include N-1 indicators in a regression model along side your variables of interest
+
+-   Note: This effectively controls for fixed characteristics of the grouping variable, including characteristics you didn't measure. So everything should be interpreted as an average effect relative to the group mean
+
+- Alternatively: subtract the group level mean value of all IVs and DVs from each covariate, then run the model on these centered variables.
+
+
+
+### Fixed Effects Models
+
+The actual output here is a little unwieldy, and so the fixed effects terms are usually excluded from output:
+
+```{r}
+
+fe_model<-lm(corrupt_salience ~ in_gov + country,  data = ches) 
+broom::tidy(fe_model)
+
+
+```
+
+
+### Fixed Effects Models
+
+
+```{r}
+#| output-location: column
+
 library(fixest)
 
+original_model<-lm(corrupt_salience ~ in_gov, data = ches) 
+clustered_model<-feols(corrupt_salience ~ in_gov, data=ches, cluster=~country)
+fe_model<-feols(corrupt_salience ~ 1+ in_gov |country, data=ches)
 
-# LM would just be : lm(corrupt_salience ~ seat + factor(country), data=ches)
-ches_model<-feols(corrupt_salience ~ seat |country,
-      data=ches)
-modelsummary(ches_model,
+coefs<-c('in_govIn government' = 'Party in government',
+         'in_gov' = 'Party in government'
+         )
+mlist<-list('original'= original_model, 
+            'clustered'= clustered_model,
+            'fixed effects'= fe_model
+            )
+
+modelsummary(mlist,
  estimate  = "{estimate}",  
   statistic = c("conf.int", 'std.error'),
  conf_level = .95,        
  note = "note: Standard errors in parentheses",
  gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
- title= 'DV: County GOP vote % in 2024'
+ title= 'DV: Corruption salience',
+ coef_rename = coefs
  
  )
 
@@ -451,34 +812,51 @@ modelsummary(ches_model,
 :::
 :::::
 
-### Fixed Effects Models: example
-
-We estimate a single regression line, but give each country its own y-intercept:
-
-```{r, echo=FALSE}
 
 
-ches$prediction<-predict(ches_model)
+### Fixed Effects Models: as mean-centering
 
-ggplot(ches, aes(x=seat, y=corrupt_salience)) +
-  geom_point() +
-  facet_wrap(~country) +
-  geom_line(aes(x=seat, y=prediction), color='red') +
-  theme_bw()
+Note that this really is equivalent to mean-centering both variables (although this is a little tricky for  categorical variables)
+
+```{r}
+#| output-location: slide
 
 
+demeaned_model<-ches|>
+  group_by(country)|>
+  mutate(corrupt_salience = corrupt_salience - mean(corrupt_salience),
+         in_gov = as.numeric(in_gov == 'In government') - mean(as.numeric(in_gov == 'In government'))
+         )|>
+  ungroup()|>
+  feols(corrupt_salience ~ 1 + in_gov, data=_, cluster=~country)
+
+mlist<-list('original'= original_model, 
+            'clustered'= clustered_model,
+            'fixed effects'= fe_model,
+            'de-meaned model' = demeaned_model
+            )
+
+modelsummary(mlist,
+ estimate  = "{estimate}",  
+  statistic = c("conf.int", 'std.error'),
+ conf_level = .95,        
+ note = "note: Standard errors in parentheses",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ title= 'DV: Corruption salience',
+ coef_rename = coefs)
 
 ```
 
-## Fixed Effects Models
+
+
+
+
+
+### Fixed Effects Models
 
 -   Good: accounts for group-level characteristics, including things we never measured or anticipated would matter
 
 -   Good: similar to aggregation or centering variables, but somewhat more flexible
-
--   Good: Can account for clustering,
-
-    -   But maybe not in some cases, so we just combine it with fixed effects
 
 -   Bad: we can only include things that vary at the level of the fixed effect, so if we wanted to measure the effect of perceived corruption in a state, this won't work.
 

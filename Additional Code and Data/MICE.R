@@ -2,14 +2,6 @@ library(tidyverse)
 library(modelsummary)
 library(mice)
 
-rescale_neg1_to_1 <- function(x) {
-  min_val <- min(x, na.rm = TRUE)
-  max_val <- max(x, na.rm = TRUE)
-  
-  scaled_x <- 2 * ((x - min_val) / (max_val - min_val)) - 1
-  
-  return(scaled_x)
-}
 
 vdem <- vdemdata::vdem |>
   filter(year == 2000) |>
