@@ -1,5 +1,5 @@
 ---
-title: "Class"
+title: "Using clustered SEs and fixed effects"
 format:
   html:
     theme: [default, custom_styles]
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 
 ```{r}
 library(tidyverse)
-library(huxtable)
+library(modelsummary)
 library(tidycensus)
 library(fixest)
 
@@ -59,7 +59,9 @@ model_duplicated <- lm(Y ~ X, data=df_duplicated)
 Obviously, the second model is just vastly overestimating our real sample size. We may have 60 rows in our dataset, but there's only 500 independent observations here.
 
 ```{r}
-huxreg(model, model_duplicated)
+
+modelsummary(list(model, 
+                  model_duplicated))
 
 ```
 
@@ -68,6 +70,7 @@ huxreg(model, model_duplicated)
 If we know the source of the clustering, we can adjust our standard errors to account for it. Notice that we're able to approximately get the correct standard error size here using the duplicated data:
 
 ```{r, echo=T}
+
 library(sandwich)
 library(lmtest)
 model1_robust <- coeftest(model_duplicated, 
@@ -84,26 +87,97 @@ model1_robust
 
 
 ```
+Or, we can estimate bootstrapped standard errors:
+
+```{r}
+
+
+model1_robust_boot <- coeftest(model_duplicated, 
+                          vcov = vcovBS(model_duplicated, 
+                                        cluster = ~ID, 
+                                        type='xy')
+                          )
+
+model1_robust_boot
+
+
+```
+
+We can put these all together in a shared table to compare results:
+
+```{r}
+
+mlist<-list('original' = model, 
+            'duplicates' = model_duplicated,
+            'duplicates + cluster robust se' = model1_robust,
+            'duplicates + cluster bootstrap' = model1_robust_boot)
+
+
+
+modelsummary(mlist,
+ estimate  = "{estimate}",  
+  statistic = c("conf.int", 'std.error'),
+ conf_level = .95,        
+ note = "note: Standard errors in parentheses, 95% ci in brackets",
+ gof_map = c('nobs'))
+
+
+```
+
+Alternatively, the `modelsummary` package can calculate standard errors "on the fly" if we specify values for `vcov` arguments:
+
+```{r}
+
+modelsummary(model_duplicated, 
+             vcov = function(x) vcovCL(x, cluster=~ID))
+
+
+
+```
+
+
+```{r}
+
+mlist<-list('original' = model, 
+            'duplicates' = model_duplicated,
+            'duplicates + cluster robust se' = model_duplicated,
+            'duplicates + cluster bootstrap' = model_duplicated)
+
+modelsummary(mlist,
+ estimate  = "{estimate}",  
+  statistic = c("conf.int", 'std.error'),
+ conf_level = .95,        
+ note = "note: Standard errors in parentheses. 95% ci in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ vcov = c("classical","classical", function(x) vcovCL(x, cluster=~ID), function(x) vcovBS(x, cluster=~ID)))
+
+```
+
 
 Also note that, in the absence of real clustering, there's not much that changes here:
 
 ```{r, echo=T}
+
+
 set.seed(100)
 
 fakeids<-sample(letters, size=nrow(model$model) ,replace=TRUE)
 
 model0_robust <- coeftest(model, 
                           vcov = vcovCL,
-                          type='HC2',
                           cluster = ~fakeids
                           )
 model0_robust
 
 ```
 
+
+
+
+
 ### Fixed effects
 
-We'll bring in the county-level election results data along with some demographic and income measures:
+We'll bring in the county-level election results data along with some demographic and income measures to estimate a fixed effects model.
 
 ```{r, echo=TRUE}
 library(tidycensus)
@@ -126,12 +200,10 @@ county_data_wide<-county_data|>
 counties<-left_join(counties_24, county_data_wide,by=join_by(county_fips == GEOID))|>
   mutate(perc_gop = per_gop * 100, 
          Income = Income / 1000,
-         White = White/Pop,
-         AfAm = AfAm/Pop,
-         Hisp =Hisp/Pop
+         White = (White/Pop) * 100,
+         Hisp =(Hisp/Pop) * 100,
+         AfAm = (AfAm/Pop) * 100
          )
-
-
 
 
 
@@ -139,24 +211,74 @@ counties<-left_join(counties_24, county_data_wide,by=join_by(county_fips == GEOI
 
 ### Fixed Effects
 
-I *can* use a regular linear regression here, but it gives messy results and its slow. So instead I'll use the fixest package:
+I *can* use a regular linear regression here to estimate the fixed effects model, but it gives messy results and its slow. So instead I'll use the fixest package:
 
 ```{r}
 
-fmodel<-feols(perc_gop ~ Income + White + AfAm + Hisp  + Asian | state_name, data=counties)
 
-
-
-fmodel
-
-
+fmodel<-feols(perc_gop ~ Income + White + AfAm + Hisp  | state_name, data=counties)
 
 
 ```
 
+(by default, the `feols` function also clusters the standard errors on the level of the fixed effect variable)
+
+I can access the fixed effects portion of the model with the `fixef` function:
+
 ```{r}
 
-huxreg(fmodel)
+fixef(fmodel)
 
 
 ```
+
+For comparison, I'll also run a model that doesn't include state-level fixed effects (I'll still use `feols` because the modelsummary package will give some extra information when it has the same types of models)
+
+```{r}
+
+
+regmodel<-feols(perc_gop ~ Income + White + AfAm + Hisp , data =counties, cluster ~ state_name)
+
+mlist<-list("No fixed effects" = regmodel, 
+            'Fixed effects' = fmodel)
+
+
+# adding coefficient names
+coefnames<-c("Income" = "Median income ($1000)",
+             "White" = "% White",
+             "Hisp" = "% Hispanic",
+             "AfAm" = "% African American"
+             )
+
+
+modelsummary(mlist, 
+            estimate  = "{estimate}",  
+            statistic = c("conf.int", 'std.error'),
+            conf_level = .95,
+            coef_rename = coefnames,
+            coef_omit ='Intercept',
+            gof_map = c('nobs','aic','bic', 'vcov.type',
+                        'FE: state_name'
+                        )
+             )
+
+```
+
+
+
+
+We can also plot the coefficients. In this example, I'll standardize the variables so we can compare coefficient values that have different scales:
+
+```{r}
+modelplot(mlist,
+          coef_omit ="Intercept",
+          standardize='refit'
+          ) +
+  geom_vline(xintercept=0, lty=2) +
+  labs(title= "Standardized coefficients")
+
+
+```
+
+
+
