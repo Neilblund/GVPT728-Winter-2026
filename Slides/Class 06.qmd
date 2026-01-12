@@ -1,10 +1,8 @@
 ---
 title: "Random Effects Models and Panel Data"
-date: last-modified
-author: Neil Lund
 format:
   revealjs:
-    theme: [default, custom_styles]
+    theme: [clean, custom_styles]
     df-print: paged
     smaller: true
     slide-number: true
@@ -50,7 +48,7 @@ Possible fixes (that don't require throwing out data )
 
 ::::: columns
 ::: {.column width="50%"}
--   You want to estimate the effect of time spent studying on student achievment
+-   You want to estimate the effect of time spent studying on student achievement
 
 -   But you also want to account for differences between teachers: you suspect some are slightly better than others.
 :::
@@ -115,104 +113,291 @@ $$
 
 In the second case, we estimate a model that *slightly* biases teacher effects towards the grand mean
 
-## Random Effect
+
+
+## Random Effects: pooling
+
+One way to think about a random effect is that it represents a compromise between "no pooling" and "complete pooling" of regression results.
+
+. . .
+
+- "No pooling" would mean estimating a totally separate model for each teacher
+
+- "Complete pooling" would mean estimating a model that totally ignores teacher effects.
+
+- "Partial pooling" would mean estimating a model that uses a weighted average of these cases
+
+
+## Random Effects: pooling
+
+
+
+A partial pooling estimate favors "no pooling" estimate if group $j$ is large and low-variance, and favors the "complete pooling" case if group $j$ is small or high variance.
+
+
+$$
+\text{Estimate of random intercept } \alpha_j \approx \frac{\frac{n_j}{\sigma^2_j}}{\frac{n_j}{\sigma^2_j} + \frac{1}{\sigma^2_j}} (\bar{y_j} - \beta\bar{x}_j) + 
+\frac{\frac{1}{\sigma^2_a}}{\frac{n_j}{\sigma^2_y} + \frac{1}{\sigma^2_a}} \mu_a
+$$
+
+## Random Effects: pooling
+
 
 ```{r, echo=FALSE}
+library(Rdatasets)
+library(broom)
 library(lme4)
-library(ggeffects)
-sleepstudy <- sleepstudy |>
-  as_tibble() |>
-  mutate(Subject = as.character(Subject))
-xlab <- "X"
-ylab <- "Y"
+radon<-Rdatasets::rddata('radon')
 
-# Add two fake participants
-df_sleep <- bind_rows(
-  sleepstudy,
-  tibble(Reaction = c(286, 288), Days = 0:1, Subject = "374"),
-  tibble(Reaction = 245, Days = 0, Subject = "373"))
+ccount<-radon|>
+  count(county.name)
 
-m_pooled <- lm(Reaction ~ Days, df_sleep) 
+no_pool<-split(radon, ~county.name)|>
+  purrr::map(.x = _, .f=~tidy(lm(log.radon ~ 1, data=.x)))|>
+  bind_rows(.id='county')|>
+  left_join(ccount, by=join_by(county == county.name))
 
-# Repeat the intercept and slope terms for each participant
-df_pooled <- tibble(
-  Model = "Complete pooling",
-  Subject = unique(df_sleep$Subject),
-  Intercept = coef(m_pooled)[1], 
-  Slope_Days = coef(m_pooled)[2]
-)
+mod<-lmer(log.radon ~ 0 + (1|county.name), data=radon)
+rfx<-ranef(mod)|>
+  data.frame()
 
-df_no_pooling <- lmList(Reaction ~ Days | Subject, df_sleep) %>% 
-  coef() %>% 
-  # Subject IDs are stored as row-names. Make them an explicit column
-  rownames_to_column("Subject") %>% 
-  rename(Intercept = `(Intercept)`, Slope_Days = Days) %>% 
-  add_column(Model = "No pooling") %>% 
-  # Remove the participant who only had one data-point
-  filter(Subject != "373")
+m1<-no_pool|>
+  mutate(county = reorder(county, n),
+         cfac = as.numeric(county)
+         ) |>
+  arrange(county)|>
+  ggplot(aes(x=n, y=estimate)) + 
+  geom_point()+
+  labs(x='sample size', y='estimate')
 
+mu<-mean(radon$log.radon)
 
-df_models <- bind_rows(df_pooled, df_no_pooling) %>% 
-  left_join(df_sleep, by = "Subject")
-
-m <- lmer(Reaction ~ 1 + Days + (1 + Days | Subject), df_sleep)
-
-# Make a dataframe with the fitted effects
-df_partial_pooling <- coef(m)[["Subject"]] %>% 
-  rownames_to_column("Subject") %>% 
-  as_tibble() %>% 
-  rename(Intercept = `(Intercept)`, Slope_Days = Days) %>% 
-  add_column(Model = "Partial pooling")
-
-p_model_comparison <- ggplot(df_models) + 
-  aes(x = Days, y = Reaction) + 
-  # Set the color mapping in this layer so the points don't get a color
-  geom_abline(
-    aes(intercept = Intercept, slope = Slope_Days, color = Model),
-    size = .75
-  ) + 
-  geom_point() +
-  facet_wrap("Subject") +
-  labs(x = xlab, y = ylab) + 
-  scale_x_continuous(breaks = 0:4 * 2) + 
-  # Fix the color palette 
-  scale_color_brewer(palette = "Dark2") + 
-  theme(legend.position = "top", legend.justification = "left")
-
-df_models <- bind_rows(df_pooled, df_no_pooling, df_partial_pooling) %>% 
-  left_join(df_sleep, by = "Subject")
-
-# Replace the data-set of the last plot
-p_model_comparison %+% df_models +
-  theme_bw()
+rfx|>
+  left_join(ccount, by=join_by(grp == county.name))|>
+  select(county = grp, estimate = condval, n )|>
+  mutate(type ='random effects')|>
+  bind_rows(no_pool|>mutate(type='no pooling'))|>
+  ggplot(aes(x=n, y=estimate)) + 
+  geom_point(alpha=.4)+
+  labs(x='sample size', y='estimate') +
+  facet_wrap(~type) +
+  theme_bw() +
+  geom_hline(yintercept = mu, lty=2)
 
 
 ```
 
+
+
+
+## Random Effects: pooling
+
+- Random effects models will often give more plausible estimates for cases with small sample sizes - because they "pool" extreme values with small samples.
+
+  - Think of it like estimating a batting average for a player with 2 at-bats. Is plausible they're batting 100? Or should we assume they're around the league average until we get more information?
+
+
+
+## Random Effects
+
+```{r, echo=FALSE}
+
+library(tidycensus)
+library(modelsummary)
+counties_24<-read_csv('https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/refs/heads/master/2024_US_County_Level_Presidential_Results.csv')
+county_data<- get_acs(geography = "county", 
+                      variables = c(Pop= "B02001_001",
+                                    Income = "B19013_001",
+                                    White = "B03002_003", 
+                                    AfAm = "B03002_004",
+                                    Hisp = "B03002_012",
+                                    Asian = "B03002_006"))
+
+county_data_wide<-county_data|>
+  select(-moe)|>
+  pivot_wider(names_from = variable, values_from=estimate)
+counties<-left_join(counties_24, county_data_wide,by=join_by(county_fips == GEOID))|>
+  mutate(perc_gop = per_gop * 100, 
+         Income = Income / 1000,
+         White = (White/Pop) * 100,
+         Hisp =(Hisp/Pop) * 100,
+         AfAm = (AfAm/Pop) * 100
+  )|>
+  drop_na()
+# adding coefficient names
+coefnames<-c("Income" = "Median income ($1000)",
+             "White" = "% White",
+             "Hisp" = "% Hispanic",
+             "AfAm" = "% African American"
+             )
+
+
+```
+
+```{r, echo=TRUE}
+#| output-location: column
+
+library(fixest)
+# county level election results
+
+fmodel<-feols(perc_gop ~ Income + White + AfAm + Hisp  | state_name, data=counties)
+regmodel<-feols(perc_gop ~ Income + White + AfAm + Hisp , 
+                data =counties, cluster ~ state_name)
+
+mlist<-list("No fixed effects" = regmodel, 
+            'Fixed effects' = fmodel)
+modelsummary(mlist, 
+             estimate  = "{estimate}",  
+             statistic = c("conf.int", 'std.error'),
+             conf_level = .95,
+             coef_rename = coefnames,
+             coef_omit ='Intercept',
+             gof_map = c('nobs','aic','bic', 'vcov.type',
+                         'FE: state_name'
+             )
+)
+
+```
+
+
+
+
+## Random Effects
+
+
+To specify a random effect, we can use the `lme4` package. The `(1|state_name)` says that I want to estimate random intercepts for each state:
+
+```{r}
+library(lme4)
+# fixed effects version for comparison:
+fixefmodel<-fixest::feols(perc_gop ~ Income + White + AfAm + Hisp  | state_name, 
+                          data=counties)
+
+ranefmodel<-lmer(perc_gop ~ Income + White + AfAm + Hisp + (1|state_name),
+               data=counties
+               )
+
+```
+
+## Random Effects
+
+
+```{r, echo=FALSE}
+#| output-location: slide
+
+
+
+mlist<-list("No fixed effects" = regmodel, 
+            'Fixed effects' = fmodel,
+            'Random effects'  =ranefmodel
+            )
+
+
+modelsummary(mlist, 
+             estimate  = "{estimate}",  
+             statistic = c("conf.int", 'std.error'),
+             conf_level = .95,
+             coef_rename = coefnames,
+             coef_omit ='Intercept',
+             gof_map = c('nobs','aic','bic', 'vcov.type',
+                         'FE: state_name'
+             )
+)
+
+```
+
+
+
+
+## Random Effects: additional covariates
+
+With fixed effects models, we can't include any controls for group-level covariates because they're already in the "fixed" effect:
+
+
+```{r}
+
+library(rvest)
+page<-read_html('https://en.wikipedia.org/wiki/List_of_U.S._states_by_date_of_admission_to_the_Union')
+
+join_date<-page|>
+  html_element(css='table')|>
+  html_table()|>
+  select(2:4)|>
+  mutate(datestring = str_extract(
+    `Date(admitted or ratified)`, "([A-Z][a-z]+ [0-9]{1,2}, [0-9]{4})"),
+         date = mdy(datestring)
+  )
+counties<-counties|>
+  left_join(join_date, by=join_by(state_name==State))|>
+  mutate(join_year = year(date) - 1787
+         
+         )|>
+  drop_na(join_year)
+
+fixefmodel<-fixest::feols(perc_gop ~ Income + White + AfAm + Hisp + join_year  | state_name, 
+                          data=counties)
+
+fixefmodel
+
+```
+
+## Random Effects: additional covariates
+
+But random effects models can still estimate effects for group-level characteristics:
+
+```{r}
+
+ranefmodel<-lmer(perc_gop ~ Income + White + AfAm + Hisp + join_year + (1|state_name),
+               data=counties
+               )
+
+summary(ranefmodel)
+
+```
+
+## Random Effects: random slopes
+
+We can also estimate random slopes using this same basic approach.
+
+```{r}
+#| output-location: slide
+
+ranefmodel<-lmer(perc_gop ~  White + AfAm + Hisp + join_year + (Income |state_name),
+               data=counties
+               )
+
+library(marginaleffects)
+nd<-datagrid(model=ranefmodel, 
+             state_name = c("Alabama", "Wyoming", "Maryland", "Virginia", "Nevada", "North Carolina"), 
+             "Income" = seq(17, 170, by=20))
+
+plot_predictions(ranefmodel, newdata=nd, by=c('Income', 'state_name')) +
+  theme_bw() +
+  labs(color ='State', fill='State',  y='% GOP vote')
+
+
+```
+
+
 ## What to use
 
--   Fixed Effects model are best when you
-
-    -   Want to control for un-modeled differences across groups
-
+-   Fixed Effects model are best when:
+    -   You want to control for un-modeled differences across groups
     -   You think groups are fundamentally "different"
-
     -   You don't want to control for any group-level characteristics
 
--   Random Effects models are preferable when you
-
+-   Random Effects models are preferable when:
     -   There are lots of small groups with very few members
-
     -   You're less worried about unmeasured heterogeneity between clusters
+    -   You want to include characteristics across different "levels" or even allow the slopes to vary or certain
+    observations
+    
 
-    -   You want to include characteristics across different "levels" or even allow the slopes to vary or certain observations
 
 # Temporal autocorrelation
 
 -   OLS assumes that data are independent, but your height today is not independent of your height yesterday.
-
 -   autocorrelation: a value correlates with itself.
-
     -   Temporal autocorrelation is when a current value depends on a prior value.
 
 ### Problem: autocorrelation
@@ -264,7 +449,7 @@ plot(model)
 
 ### Spurious correlation
 
-Time trends can also be a source of spuriousness. Lots of things increase over time, so it will all look significant in a naive model.
+Time trends can also be a source of spuriousness. If any two variables have a time trend, they'll appear to be related in a naive regression!
 
 ::: notes
 There's a general post WWII trend towards higher levels of democratization, so anything correlated with decade is likely to appear significant in a time series.
@@ -283,6 +468,8 @@ ggplot(aes(x=log(e_pop), y=v2x_polyarchy)) +
 
 
 ```
+
+
 
 ### Seasonality
 
@@ -325,7 +512,7 @@ ggplot(flights, aes(x=date, y=total_flights)) +
 
 ## Potential fixes: more fixed or random effects
 
--   We could treat time as a factor and include it as a random effect (but we can't do time AND case fixed effects because then nothing varies!)
+-   We could treat time as a factor and include it as a random effect.
 
 -   Would could treat time as a random effect term
 
@@ -515,5 +702,84 @@ with(flights, acf(total_flights, lag.max=12, plot=T))
 
 acf(differenced_model$residuals, lag.max=12, plot=T)
 acf(ar_model$residuals, lag.max=12, plot=T)
+
+```
+
+
+
+```{r}
+library(lme4)
+
+
+set.seed(100)
+N<-1000
+ngroups<-10
+group_intercepts<-c(rnorm(ngroups-1, mean=20, sd=1), 5)
+names(group_intercepts) <-letters[1:ngroups]
+
+groups<-sample(letters[1:ngroups], 
+               replace=T, 
+               prob = c(rep(.1, 9), .01),
+               size=N)
+
+
+
+x<-rnorm(N)
+y<-group_intercepts[groups] + rnorm(N)
+df<-data.frame(groups, x, y)
+
+groupcounts<-df|>count(groups)
+  
+
+
+complete<-lm(y ~ 1, data=df)|>tidy(conf.int=TRUE)|>
+  mutate(groups = 'pooled')
+
+est<-complete$estimate[which(complete$term=="(Intercept)")]
+nopool<- df|>
+  group_by(groups)|>
+  nest()|>
+  mutate(fit = map(data, ~tidy(lm(y ~ 1, data=.x), conf.int=TRUE))
+       
+         )|>
+  unnest(fit)|>
+  select(-data)
+
+
+pp<-lmer(y ~ 0 + (1|groups), data = df)
+
+rfx<-data.frame(ranef(pp))|>
+  mutate(grp = paste(grp))
+#rfx_ci<-confint(pp, method = "boot", nsim = 500, boot.type = "perc")
+
+
+data<-bind_rows(complete, nopool)|>
+  mutate(type = factor(groups == "pooled", levels=c(TRUE, FALSE), 
+                       labels = c("pooled", "not pooled")))
+
+
+
+data|>
+  filter(term == "(Intercept)")|>
+  arrange(groups)|>
+  left_join(groupcounts)|>
+  ggplot(aes(x=groups, y=estimate, color=type, 
+             ymin = conf.low, ymax=conf.high, label=n)) + 
+  geom_point()  + 
+  geom_hline(yintercept = est, lty=2) +
+  geom_pointrange() +
+  scale_color_manual(values=c('red', 'black')) +
+  theme_bw() +
+  geom_point(data=rfx, aes(x=grp, y=condval), 
+             #position = position_nudge(x=0.5),
+             color = 'blue',
+             inherit.aes = FALSE) +
+  coord_flip() 
+
+
+
+
+
+
 
 ```

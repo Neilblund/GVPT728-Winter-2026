@@ -39,6 +39,7 @@ library(fixest)
 
 # model summaries and predictions 
 library(ggeffects)
+library(modelbased)
 library(modelsummary)
 
 
@@ -290,9 +291,11 @@ Notably, the inclusion of fixed effects here doesn't drastically alter our estim
 While the fixed effects terms are automatically left out of the model output here, we can view them by running: 
 
 ```{r}
+
 fixef(model_1)
 
 ```
+
 We can think of these as the separate Y-intercept terms for each region in our data set. 
 
 ```{r, fig.width=10}
@@ -341,6 +344,43 @@ model_2<-lmer(v2lgfemleg ~
 
 ```
 
+
+We'll take a look at the summary output:
+
+```{r}
+summary(model_2)
+
+```
+
+
+
+
+
+The random effects terms can be accessed separately. These values should correspond to the average difference between the group-specific intercept vs. the overall intercept term:
+
+```{r}
+ranef(model_2)
+```
+
+Note that we don't automatically get standard errors for these estimates. There are a number of methods for getting confidence intervals around a random effect. The `estimate_grouplevels` from the [modelbased](https://easystats.github.io/modelbased/index.html) package is an easy one:
+
+```{r}
+
+estimate_grouplevel(model_2)
+
+```
+
+How important are the random effects for our model? One way to quantify this is using the intra-class correlation coefficient, which can be interpreted as the proportion of the total variance attributable to the grouping variable:
+
+```{r}
+performance::icc(model_2)
+
+```
+
+
+
+
+
 Now we can summarize our results in a single table:
 
 ```{r}
@@ -382,7 +422,8 @@ In contrast to the fixed effects model, which allows each region to have a total
 
 
 
-raneff_slopes<-predict_response(model_2, terms=c('majoritarian_dummy','region'), margin='empirical')|>
+raneff_slopes<-predict_response(model_2, terms=c('majoritarian_dummy','region'), 
+                                margin='empirical')|>
   plot( ci=FALSE, show_data=TRUE, connect_lines=TRUE, jitter=TRUE) +
   ggtitle("Region Random Effects") +
   scale_color_brewer(palette='Dark2')
