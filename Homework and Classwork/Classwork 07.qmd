@@ -28,6 +28,13 @@ library(ggdist)          # for distribution plots
 library(modelsummary)    # for model summaries
 library(labelled)        # for variable labels 
 
+
+
+
+ 
+library(rstanarm) # for bayesian models
+
+
 ```
 
 # The NAVCO data
@@ -394,6 +401,7 @@ Since this has been recoded as a factor, including it in a regression model will
 flank_model<-glm(outcome ~ tactic_type,family='binomial' , data=navco)
 summary(flank_model)
 
+
 ```
 
 ## Question 1
@@ -406,6 +414,99 @@ Get the average marginal effects and predicted probabilities of success for viol
 
 
 ```
+
+
+
+## Bayesian model
+
+We'll try estimating a Bayesian version of the same model:
+
+
+
+```{r}
+library(rstanarm)
+bayesian_model<-stan_glm(outcome ~ tactic_type, data=navco,   
+                       family = binomial(link = "logit"),
+                       seed = 999, 
+                       refresh = 0 
+                       )
+
+
+
+
+```
+
+
+
+We can use the `avg_comparisons` functions again here to get a marginal effect estimate:
+
+```{r}
+mfx<-avg_comparisons(bayesian_model)
+mfx
+
+```
+
+
+The `get_draws` function will get simulated effects by randomly sampling from the posterior distribution from the model. 
+
+```{r}
+get_draws(mfx)|>
+  ggplot(aes(x=draw, fill=contrast)) +
+    stat_halfeye(slab_alpha = .5) +
+    labs(x = "Marginal Effect of tactics",
+         y = "Posterior density",
+         fill = "tactics") +
+  theme_bw()
+
+
+
+```
+
+Or we can visualize predictions for each category:
+
+```{r}
+preds<-avg_predictions(bayesian_model, variables='tactic_type')
+
+
+get_draws(preds)|>
+  ggplot(aes(x=draw, fill=tactic_type)) +
+    stat_halfeye(slab_alpha = .5) +
+    labs(x = "Predicted probability of success",
+         y = "Posterior density",
+         fill = "tactics") +
+  theme_bw()
+
+
+
+
+
+```
+
+
+We can also try specifying different values for our priors. (The defaults in `rstanarm` frequently work very well, but sometimes you might want to modify them, especially if you have some prior research that gives you a reason to use a prior centered on some value other than zero)
+
+
+
+```{r}
+
+bayesian_model2<-stan_glm(outcome ~ tactic_type, data=navco,   
+                       family = binomial(link = "logit"),
+                       seed = 999, 
+                       refresh = 0 ,
+                       prior = normal(0, 5), # normal prior with mean = 0 and sd = 5
+                       )
+
+
+mfx<-avg_comparisons(bayesian_model2)
+mfx
+
+
+
+
+
+```
+
+The results here don't change too dramatically even when we use a different prior, likely because the model is relatively simple and, at this sample size, the data is far more informative than the prior. 
 
 # Model Comparisons
 
