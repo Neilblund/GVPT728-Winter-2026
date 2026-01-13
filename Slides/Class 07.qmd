@@ -1,16 +1,15 @@
 ---
-title: "Logit and Probit and LPMs"
-date: last-modified
-author: Neil Lund
+title: "Maximum likelihood, logit and probit and LPMs"
 format:
   revealjs:
-    theme: [default, custom_styles]
+    theme: [clean, custom_styles]
     df-print: paged
     smaller: true
     slide-number: true
     header: 
     header-logo: images/informal_seal_transparent.webp
     self-contained: true
+    incremental: true
 code-annotations: select
 slide-level: 3
 ---
@@ -58,6 +57,9 @@ navco<-navco|>
     
     quantile(`PERCENTAGEPOPULARPARTICIPATION`, seq(0,.9, by=.1)))
   )
+
+navco$goal_type<- fct_relevel(factor(navco$goal_type), 'Self determination')
+
 
 
 
@@ -196,17 +198,24 @@ navco_lpm<-lm(SUCCESS ~  goal_type, data=navco)
 
 ```{r, echo=FALSE}
 
+coefs<-c('goal_typeRegime Change' = 'Goal: Regime change',
+         'goal_typeSecession' = 'Goal: Secession',
+         'goal_typeSelf determination' = 'Goal: Self-determination',
+         'goal_typeOther' = 'Goal: Other',
+         "(Intercept)"= "(Reference category) Goal: Self-determination"
+         )
+
 navco_lpm<-lm(SUCCESS ~  goal_type, data=navco)
 
+
 modelsummary(list("LPM" =navco_lpm), 
-              coef_rename=TRUE,
-             coef_omit = "Intercept",
+              coef_rename=coefs,
               estimate  = "{estimate}",  
              statistic = c("conf.int"),
              conf_level = .95,        
  note = "95% CI in brackets",
  gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
- output ='kableExtra'
+ output ='kableExtra',
              )
 ```
 :::
@@ -260,7 +269,7 @@ rpart.plot(tree)
 
 (The following sections will deal with models for binary outcomes, but the general intuition applies to other kinds of discrete choices)
 
-## The Latent Variable Intuition
+## The Latent variable intuition
 
 ::::: columns
 ::: {.column width="50%"}
@@ -300,6 +309,45 @@ tibble(
 :::
 :::::
 
+## Logit and Probit with latent variables
+
+::::: columns
+::: {.column width="50%"}
+```{r, echo=T}
+
+set.seed(100)
+N<-1000
+X<-rnorm(N, 0, 1)
+ystar<-X * 2 
+# the probit link
+y_probit<-(ystar + rnorm(N))>0
+# the logit link 
+y_logit <-(ystar + rlogis(N))>0
+probit<-glm(y_probit ~ X, family=binomial(link = probit))
+logit<-glm(y_logit ~ X, family=binomial(link = logit))
+
+```
+:::
+
+::: {.column width="50%"}
+```{r, echo=FALSE}
+
+modelsummary(list("logit" =logit, 
+                  'probit' = probit
+                  ), 
+              coef_rename=coefs,
+             coef_omit = "Intercept",
+              estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+ note = "95% CI in brackets",
+ gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ output ='kableExtra'
+             )
+```
+:::
+:::::
+
 ## The Logistic Function
 
 Changing the "intercept" term here will shift the curve to the left or the right
@@ -335,13 +383,85 @@ The real difference in logit and probit models lies in their assumptions about t
 
 ## Maximum likelihood
 
--   OLS tries to minimize the sum of squared errors, but we can't actually infer that here
+-   OLS tries to minimize the sum of squared errors, but we can't actually infer that here because we can't see the latent values of y.
 
 -   Instead, maximum likelihood methods attempt to identify the function that maximizes the likelihood of the observed data.
 
--   There's no "closed form solution", so MLE methods use optimization algorithms to fit models
+## Likelihood vs. Probability
+
+Likelihood has a specific meaning in this context that's distinct from probability:
+
+-   The likelihood is the probability density of the *data* at a given set of parameter values.
+
+-   The likelihoods of different models won't necessarily sum to 1, so likelihoods are unbounded and only really meaningful as a measure of the relative fit of a model to some data.
+
+## Likelihood vs. Probability
+
+If I flip a coin 10 times and get 5 heads and 5 tails, what is the likelihood that this data came from a coin where the probability of heads is .25?
+
+We can use the Bernoulli distribution to get the probability of a coin landing on heads for a single "trial":
+
+$$
+f(x) =  {n\choose x}  p^{x}(1-p)^{n-x}
+$$
+
+$p$ is the probability of heads, and $x$ is the number of heads, and n is the total number of flips.
+
+$$
+f(5|.25) = {10\choose 5} .25^5(1-.25)^{10-5} = .0.0583992
+$$
+
+## Maximizing the likelihood
+
+Even without calculating the probabilities for all possible values of $p$, we can tell that .4 is more likely to have generated the data:
+
+$$
+f(5|.4) = {10\choose 5} .4^5(1-.4)^{10-5} = 0.2006581
+$$ ... so our goal here is to find an estimate of p that is most likely to have generated our data by maximizing the function above.
+
+## Maximizing the likelihood
+
+We can derive an estimator that will identify the model that maximizes the probability of the observed data with some calculus.
+
+Find the derivative of $L(p)$ with respect to $p$
+
+$$
+\begin{align*} L(p) &= { n \choose k } p^k (1-p)^{n-k} \\ \frac{d}{dp}L(p) &= { n \choose k } \big( kp^{k-1} (1-p)^{n-k} + p^k (n-k)(1-p)^{n-k-1}(-1) \big) \end{align*}
+$$
+
+. . .
+
+Setting to zero
+
+$$
+\begin{align*}{n \choose k }\cdot \left( kp^{k-1} (1-p)^{n-k} + p^k (n-k)(1-p)^{n-k-1}(-1) \right) &= 0\end{align*}
+$$
+
+## Maximizing the likelihood
+
+Solving...
+
+$$
+\begin{align*} { n \choose k }\cdot \left( kp^{k-1} (1-p)^{n-k} + p^k (n-k)(1-p)^{n-k-1}(-1) \right) &= 0 \\ kp^{k-1} (1-p)^{n-k} - p^k (n-k)(1-p)^{n-k-1} &= 0 \\ kp^{k-1} (1-p)^{n-k} &= p^k (n-k)(1-p)^{n-k-1} \\ k (1-p) &= p (n-k) \\ k - p k &= p n - p k \\ k &= p n \\ p^* &= \boxed{\frac{k}{n}} \end{align*}
+$$
+
+. . .
+
+The maximum likelihood estimate is $\frac{k}{n}$, which is a very complex way of saying the sample proportion is a good estimate of the population proportion.
 
 ## Maximum likelihood
+
+-   This method of maximizing the likelihood is useful because it gives us a lot more flexibility for finding a "best fitting" model, even when we're not dealing with straight lines (although we can also derive [a maximum likelihood estimator for the linear model](https://statproofbook.github.io/P/slr-mle.html)!
+
+Two notes:
+
+-   For computational reasons, we'll usually work with the log likelihood rather than the likelihood, but the basic logic is the same.
+
+-   In most regression models, there's typically no "closed form" solution to finding the maximum likelihood estimate like we had for coin flips. So we'll typically approximate it using numerical methods.
+
+## Maximum likelihood for a logistic regression
+
+The likelihood function for a logistic regression is also derived from the Bernoulli distribution, and it looks like this:
 
 $$
 \ln L(\beta_0,\beta_1) = \sum_{i=1}^N \{ y_i \ln p(x_i; \beta_0,\beta_1) + (1-y_i) \ln [1-p(x_i;\beta_0,\beta_1)]
@@ -395,48 +515,109 @@ ggplot(likelihoods, aes(x=beta, y=neg_ll)) +
 
 ```
 
-The only thing you really need to know here, though, is that this is the thing we're optimizing instead of minimizing the RSS. Maximizing this likelihood is non-deterministic, so it has to be approximated using an iterative process. This means it can fail to converge in some situations (usually small samples or lots of covariates)
+## Bayesian Inference
 
-## Logit vs. Probit
+-   Maximum likelihood methods have a close relationship with Bayesian inference. One way to think about Bayesian inference is that it represents a kind of synthesis of likelihood derived from the data and a subjective *prior* that represents your pre-existing expectations about the model parameters.
 
-The only real distinction here is that logistic models assume a logistic error, and probit models assume a Gaussian error. The interpretation of the coefficients will be different, but once they're converted to predicted probabilities and marginal effects they should return very similar results.
+-   In theory, Bayesian methods give us a way to take the probability of the data given a model ($p(D|\theta$) and convert it to something closer to "the probability of a model given the data and a prior" ($p(\theta | D)$)
+
+. . .
+
+$$p(\theta | D) = \frac{p(D|\theta) p(\theta)} {p(D)}$$
+
+. . .
+
+-   The compromise between the prior and the likelihood is called the **posterior** distribution.
+
+## Bayesian Inference
+
+When data are limited and variance is high, the prior will be really important for our estimates, when there's lots of data and low variance, the prior becomes less influential and the data becomes more important.
+
+Similarly, the prior itself can be diffuse or narrow, or uniform, or centered around zero.
 
 ::::: columns
 ::: {.column width="50%"}
-```{r, echo=T}
-
-set.seed(100)
-N<-1000
-X<-rnorm(N, 0, 1)
-ystar<-X * 2 
-# the probit link
-y_probit<-(ystar + rnorm(N))>0
-# the logit link 
-y_logit <-(ystar + rlogis(N))>0
-probit<-glm(y_probit ~ X, family=binomial(link = probit))
-logit<-glm(y_logit ~ X, family=binomial(link = logit))
-
-```
+![](images/prior2post_2-1.svg)
 :::
 
 ::: {.column width="50%"}
-```{r, echo=FALSE}
-
-modelsummary(list("logit" =logit, 
-                  'probit' = probit
-                  ), 
-              coef_rename=TRUE,
-             coef_omit = "Intercept",
-              estimate  = "{estimate}",  
-             statistic = c("conf.int"),
-             conf_level = .95,        
- note = "95% CI in brackets",
- gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
- output ='kableExtra'
-             )
-```
+![](images/prior2post_3-1.svg)
 :::
 :::::
+
+## Bayesian Inference vs. MLE
+
+-   Priors are useful because they give us a way to incorporate existing information into our models: if prior research suggests $\beta_0$ should be .5, I can use that as a starting point and then update with new data.
+
+-   They're also kind of problematic, because they introduce an element of subjectivity into inference: who can say if my priors are the correct ones?
+
+-   Priors also can give more "stable" estimates of coefficients when we have small samples or lots of parameters, because the prior penalizes extreme estimates.
+
+-   In many cases, Bayesian and MLE estimates are going to be very similar, but there are some scenarios where Bayesian methods have some theoretical or practical advantages over frequentist models.
+
+-   Bayesian inference is almost always slower than MLE methods, because it requires a more complex set of calculations.
+
+## Bayesian vs. MLE logit in R
+
+
+```{r, eval=FALSE}
+
+# MLE 
+navco_logit<-glm(SUCCESS ~  goal_type, data=navco,  family = binomial(link = "logit"))
+
+# Bayesian
+navco_blogit<-stan_glm(SUCCESS ~  goal_type, data=navco,   
+                       family = binomial(link = "logit"),
+                       seed = 100,  # random number seed - because the inference is non-deterministic
+                       prior = normal(0, 5), # normal prior with mean = 0 and sd = 5
+                       refresh = 0 # turns off progress output, remove this to see how the model is progressing
+                       )
+
+modelsummary(list("MLE"= navco_logit, "Bayesian" = navco_blogit),
+             statistic = c("conf.int"),
+             gof_map = c('nobs','logLik'),
+             coef_rename =coefs,
+             )
+
+```
+
+```{r, eval=FALSE, echo=FALSE}
+
+modelsummary(list("MLE"= navco_logit, "Bayesian" = navco_blogit),
+             statistic = c("conf.int"),
+             gof_map = c('nobs','logLik'),
+             coef_rename =coefs,
+             output = 'images/logit_table.png'
+             )
+
+```
+
+## Bayesian vs. MLE logit in R
+
+![](images/logit_table.png)
+
+
+## Bayesian vs. MLE logit in R
+
+Since Bayesian models calculate full posterior distributions for coefficients, rather than just a single point that maximizes the likelihood, we can represent uncertainty by sampling from the posterior and looking at how estimates are distributed. 
+
+For instance, here's the distribution of estimates of sampled betas from the model posterior:
+
+```{r, echo=TRUE,eval=FALSE}
+pplot<-plot(navco_blogit, "areas", prob = 0.95, prob_outer = 1)
+
+pplot
+
+
+
+```
+
+![](images/bayesian_coefs.png)
+
+The shaded areas represent "95% credible intervals", the Bayesian analog to a confidence interval. Their interpretation is simpler: there's a 95% chance that the coefficient falls into this range.
+
+
+# Interpretation of results
 
 ## Interpretation
 
@@ -454,6 +635,17 @@ The way we solve this is ultimately less important than how it changes interpret
 
 ::: {.column width="50%"}
 ```{r, echo=FALSE}
+
+set.seed(100)
+N<-1000
+X<-rnorm(N, 0, 1)
+ystar<-X * 2 
+# the probit link
+y_probit<-(ystar + rnorm(N))>0
+# the logit link 
+y_logit <-(ystar + rlogis(N))>0
+probit<-glm(y_probit ~ X, family=binomial(link = probit))
+logit<-glm(y_logit ~ X, family=binomial(link = logit))
 
 df<-bind_rows(tibble('Pr(Y=1)' = sort(unique(predict(logit, type='response'))), 
                      'X' =sort(X),
@@ -505,15 +697,17 @@ modelsummary(list("model 1" =model1,
 
 ## Applying the model
 
-```{r}
-
-navco_logit<-glm(SUCCESS ~  goal_type, data=navco, family=binomial(link='logit'))
-
-navco_probit<-glm(SUCCESS ~  goal_type, data=navco, family=binomial(link='probit'))
-
-```
 
 ```{r}
+#| output-location: slide
+
+navco_logit<-glm(SUCCESS ~  goal_type, 
+                 data=navco, 
+                 family=binomial(link='logit'))
+
+navco_probit<-glm(SUCCESS ~  goal_type, 
+                  data=navco,
+                  family=binomial(link='probit'))
 
 modelsummary(list(
   "navco LPM" =  navco_lpm,
@@ -521,13 +715,13 @@ modelsummary(list(
   "navco probit"= navco_probit
                   
                   ), 
-              coef_rename=TRUE,
+              coef_rename=coefs,
              coef_omit = "Intercept",
               estimate  = "{estimate}",  
              statistic = c("conf.int"),
              conf_level = .95,        
  note = "95% CI in brackets",
- gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
+ gof_map = c('nobs', "logLik",'aic', 'bic'),
  output ='kableExtra'
              )
 
@@ -572,17 +766,17 @@ orat_viol/orat
 
 ```
 
-(Probit coefficients don't work this way, which is probably why they're less popular)
+(Probit coefficients don't work this way, which is partly why they're less popular)
 
 ## Interpretation: predicted probabilities and marginal effects
 
-Rather than try to interpret logit/probit coefficients in their untransformed states, its almost always better to convert them to predicted probabilities and marginal effects at some meaningful levels of the coefficients.
+**Rather than try to interpret logit/probit coefficients in their untransformed states, its almost always better to convert them to predicted probabilities and marginal effects at some meaningful levels of the coefficients.**
 
 . . .
 
 -   Predicted probability is just the model prediction for Y=1 at some level of the independent variables
 
--   Marginal effect is just the predicted effect of a one unit change in X on the predicted probability of Y
+-   Marginal effect is just the predicted effect of a a change in X on the predicted probability of Y
 
     -   In a linear model the marginal effect is the same thing as the coefficient, but in logit/probit, the marginal effect is different in different places. So we will have to talk about marginal effects *at* some specific point along the curve.
 
@@ -690,11 +884,62 @@ ggplot(df, aes(x=predict, y=mfx)) +
 
 ```
 
+### Average marginal effects
+
+A good way to give a general summary of an effect is the "observed values" or "counterfactual" approach. This entails leaving everything at observed values, manipulating a single "focal" term, and then averaging over the predictions:
+
+```{r}
+
+navco_mod2<-glm(SUCCESS ~  VIOL +  SECESSION + percent_pop, data=navco, family='binomial')
+
+model_data<-navco_mod2$data
+
+# pr success at observed participation
+case_0 <- predict(navco_mod2, type='response', newdata=model_data)
+# pr success at observed participation +
+case_1 <- predict(navco_mod2, type='response', newdata=model_data|>mutate(percent_pop = percent_pop + .01))
+
+
+mean(case_1 - case_0)
+
+
+```
+. . .
+
+This eliminates the issue of having to choose specific values for the non-focal variables, and amounts to answering: "what would happen if participation increased by 1% for every movement?"
+
 ### Marginal effects and standard errors
 
-Getting a standard error by hand is a bit of a pain here. We could bootstrap! However, most statistical software will default to using the faster [delta method](https://bookdown.org/ts_robinson1994/10EconometricTheorems/dm.html).
+
+
+Getting a standard error for these transformed probabilities can be kind of a pain.
+
+. . .
+
+::::: {.columns}
+::: {.column width="50%"}
+
+- We could bootstrap! 
+
+- Or we could use simulation!
+
+- Or, in a Bayesian model, we could just sample from the posterior and transform.
+
+:::
+::: {.column width="50%"}
+
+::: fragment
+
+Most statistical software will default to using the faster [delta method](https://bookdown.org/ts_robinson1994/10EconometricTheorems/dm.html) to approximate standard errors.
 
 ![Designing Women star Delta Burke, who (I assume) invented the Delta method](https://grantland.com/wp-content/uploads/2015/05/delta-burke-tv-guide.jpg?w=1200)
+
+:::
+
+:::
+:::::
+
+
 
 ### Packages for GLM interpretation
 

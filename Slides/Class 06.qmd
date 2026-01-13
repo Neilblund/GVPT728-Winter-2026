@@ -394,15 +394,14 @@ plot_predictions(ranefmodel, newdata=nd, by=c('Income', 'state_name')) +
     
 
 
-# Temporal autocorrelation
+# Time
 
--   OLS assumes that data are independent, but your height today is not independent of your height yesterday.
--   autocorrelation: a value correlates with itself.
-    -   Temporal autocorrelation is when a current value depends on a prior value.
+-   OLS assumes that data are independent, but your height today is not independent of your height yesterday. This violates the assumption of independence of errors.
+-   Moreover, time be a confounding variable: if two things are impacted by time, they'll appear correlated in a regression that fails to account for a trend. 
 
-### Problem: autocorrelation
+### Problems with time
 
-Current values often depend on prior values. The democracy score of Paraguay in 2000 is a good predictor of current democracy scores in Paraguay.
+ The democracy score of Paraguay in 2000 is a good predictor of current democracy scores in Paraguay.
 
 ```{r}
 
@@ -421,7 +420,7 @@ ggplot(aes(x=year, y=v2x_polyarchy)) +
 
 ```
 
-### Problem: autocorrelation
+### Problems with time
 
 Lack of independence poses similar problems to what we observed with clustered samples: we will generally overstate our level of confidence in estimates. We actually have very few truly independent observations here.
 
@@ -437,22 +436,15 @@ huxreg(model)
 
 
 
-
 ```
 
-### Problem: autocorrelation
 
-```{r}
-plot(model)
+### Problems with time
 
-```
-
-### Spurious correlation
-
-Time trends can also be a source of spuriousness. If any two variables have a time trend, they'll appear to be related in a naive regression!
+Time trends can also be a source of spuriousness. If any two variables have a time trend, they'll appear to be related in a naive regression.
 
 ::: notes
-There's a general post WWII trend towards higher levels of democratization, so anything correlated with decade is likely to appear significant in a time series.
+There's a general post WWII trend towards higher levels of democratization, so anything correlated with decade is likely to appear significant in a regression.
 :::
 
 ```{r}
@@ -471,56 +463,69 @@ ggplot(aes(x=log(e_pop), y=v2x_polyarchy)) +
 
 
 
-### Seasonality
+## Potential fixes
 
-Failure to account for cycles can also just lead to poor prediction in the face of complex trends. The overall trend in total airline flights looks like this:
+-   Correcting the standard errors uses the similar methods to the ones we've discussed elsewhere.
 
-```{r, echo=TRUE}
+-   We could control for time linearly or with a polynomial or spline function.
+
+-   We could treat time as a factor and include it as a fixed effect.
+
+-   Would could treat time as a random effect term.
 
 
-flights <- readRDS("C:/Users/neilb/Documents/GVPT728_Winter24/flights.RData")|>
-  mutate(date =as.Date(date),
-         year = year(date),
-         quarter = quarter(date)
-         )
-ggplot(flights, aes(x=date, y=total_flights)) + 
-  geom_line() +
-  theme_minimal() + 
-  geom_smooth(method ='lm', se=FALSE) +
-  ylab("total flights") +
-  xlab('date') 
-```
+## Potential fixes: time coefficients
 
-### Seasonality
 
-... but we do a poor job of capturing that if we're only looking at a few years of data:
 
 ```{r}
 
+model1<-lm(v2x_polyarchy ~ log(e_pop), data=vdem)
 
-ggplot(flights, aes(x=date, y=total_flights)) + 
-  geom_line() +
-  theme_minimal() + 
-  geom_smooth(method ='lm', se=FALSE) +
-  ylab("total flights") +
-  xlab('date') +
-  facet_wrap(~year, scales='free')
-  
+model2<-lm(v2x_polyarchy ~ log(e_pop) + year, data=vdem)
+
+model3<-lm(v2x_polyarchy ~ log(e_pop) + splines::ns(year), data=vdem)
+
+
+mlist<-list(model1, model2, model3)
+
+modelsummary(mlist)
+
+```
+
+
+## Potential fixes: fixed effects
+
+If we have panel data (multiple groups over time) we can include year as a fixed effect. This has the effect of controlling for anything that varies for all groups over time.
+
+```{r}
+
+fmodel1<-feols(v2x_polyarchy ~ log(e_pop) | year, data=vdem)
+modelsummary(fmodel1)
+
 
 
 ```
 
-## Potential fixes: more fixed or random effects
+## Potential fixes: fixed effects
 
--   We could treat time as a factor and include it as a random effect.
+Since we have both time periods AND groups, we can also add country fixed effects:
 
--   Would could treat time as a random effect term
+```{r}
 
--   We could control for time linearly or with a polynomial or spline function
+fmodel1<-feols(v2x_polyarchy ~ log(e_pop) | year, data=vdem)
+fmodel2<-feols(v2x_polyarchy ~ log(e_pop) | country_name + year, data=vdem)
+
+mlist<-list(fmodel1, fmodel2)
+
+modelsummary(mlist)
+
+
+```
 
 ## Potential fixes: differencing
 
--   If data depends on prior values, taking the first difference should address it
+-   If data depends only on t-1, taking the first difference should address it
 
 -   difference = current_value - prior_value
 
@@ -567,12 +572,6 @@ huxreg("original_model"= model, "differenced_model" =differenced_model)
 
 ```
 
-### Differences
-
-```{r, figures-side, fig.show="hold", out.width="50%"}
-
-plot(differenced_model)
-```
 
 ### Differences: change vs. level
 
@@ -593,7 +592,7 @@ huxreg("differenced_model" =differenced_model)
 
 ## Potential fixes: lagged variable model
 
-Another option is to include a lagged variable itself as a covariate. This is typically referred to as an autoregressive model.
+Another option is to include a lagged DV variable itself as a covariate. This is typically referred to as an autoregressive model.
 
 ```{r}
 ar_model<-vdem|>
@@ -681,105 +680,4 @@ vdem_p<-vdem|>
   mutate(log_gdp = log(e_gdppc))|>
   filter(!is.na(e_gdppc))|>
   with(acf(log_gdp, lag.max = 5, plot = T))
-```
-
-### ACF plots: seasonality
-
-This can make it much easier to spot seasonal trends as well:
-
-```{r}
-
-with(flights, acf(total_flights, lag.max=12, plot=T))
-
-
-  
-
-```
-
-### ACF plots of residuals
-
-```{r}
-
-acf(differenced_model$residuals, lag.max=12, plot=T)
-acf(ar_model$residuals, lag.max=12, plot=T)
-
-```
-
-
-
-```{r}
-library(lme4)
-
-
-set.seed(100)
-N<-1000
-ngroups<-10
-group_intercepts<-c(rnorm(ngroups-1, mean=20, sd=1), 5)
-names(group_intercepts) <-letters[1:ngroups]
-
-groups<-sample(letters[1:ngroups], 
-               replace=T, 
-               prob = c(rep(.1, 9), .01),
-               size=N)
-
-
-
-x<-rnorm(N)
-y<-group_intercepts[groups] + rnorm(N)
-df<-data.frame(groups, x, y)
-
-groupcounts<-df|>count(groups)
-  
-
-
-complete<-lm(y ~ 1, data=df)|>tidy(conf.int=TRUE)|>
-  mutate(groups = 'pooled')
-
-est<-complete$estimate[which(complete$term=="(Intercept)")]
-nopool<- df|>
-  group_by(groups)|>
-  nest()|>
-  mutate(fit = map(data, ~tidy(lm(y ~ 1, data=.x), conf.int=TRUE))
-       
-         )|>
-  unnest(fit)|>
-  select(-data)
-
-
-pp<-lmer(y ~ 0 + (1|groups), data = df)
-
-rfx<-data.frame(ranef(pp))|>
-  mutate(grp = paste(grp))
-#rfx_ci<-confint(pp, method = "boot", nsim = 500, boot.type = "perc")
-
-
-data<-bind_rows(complete, nopool)|>
-  mutate(type = factor(groups == "pooled", levels=c(TRUE, FALSE), 
-                       labels = c("pooled", "not pooled")))
-
-
-
-data|>
-  filter(term == "(Intercept)")|>
-  arrange(groups)|>
-  left_join(groupcounts)|>
-  ggplot(aes(x=groups, y=estimate, color=type, 
-             ymin = conf.low, ymax=conf.high, label=n)) + 
-  geom_point()  + 
-  geom_hline(yintercept = est, lty=2) +
-  geom_pointrange() +
-  scale_color_manual(values=c('red', 'black')) +
-  theme_bw() +
-  geom_point(data=rfx, aes(x=grp, y=condval), 
-             #position = position_nudge(x=0.5),
-             color = 'blue',
-             inherit.aes = FALSE) +
-  coord_flip() 
-
-
-
-
-
-
-
 ```
