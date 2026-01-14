@@ -198,8 +198,8 @@ case_3 - case_2
 
 If you just want to summarize the effect for a single coefficient on the "average case", the preferred method is to use the observed values approach. So to get the average effect of change from a from violent to a non-violent campaign, I would
 
-1.  Set `tactic = "Non-violence"` for every campaign and then get the predicted probability of success
-2.  Set `tactic = "Violence"` for every campaign and then get the predicted probability of success
+1.  Set `tactic = "Non-violence"` for every campaign, and leave all other values at their observed level. Get the predicted probability of success.
+2.  Set `tactic = "Violence"` for every campaign and leave all other values at their observed level. Get the predicted probability of success. 
 3.  Get the average difference between these two scenarios
 
 ```{r}
@@ -216,7 +216,13 @@ mean(diffs)
 
 ```
 
-For covariates that take on continuous values, you may instead want to calculate the effect of a one unit increase from the current values. For instance, to calculate the average effect of increasing `percent_pop` by +1 for every observation would be:
+For continuous covariates, we'll slightly modify the approach to just find the effect of increasing the continuous variable by 1 from its current level. In other words:
+
+1.  Leave all values at their observed level. Get the predicted probability of success.
+2.  Set `percent_pop` at `percent_pop + 1` for every observation. Get the predicted probability of success. 
+3.  Get the average difference between these two scenarios.
+
+
 
 ```{r}
 
@@ -318,6 +324,8 @@ map<-list('percent_pop' ='marginal effect of one unit increase in % support',
 avg_comparisons(model2)|>
   modelsummary(title='Average Marginal Efect',
                coef_map = map,
+               statistic = c("conf.int"),
+                conf_level = .95,   
                 note = "95% CI in brackets",
                 gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.',
                 output ='kableExtra'
@@ -417,96 +425,6 @@ Get the average marginal effects and predicted probabilities of success for viol
 
 
 
-## Bayesian model
-
-We'll try estimating a Bayesian version of the same model:
-
-
-
-```{r}
-library(rstanarm)
-bayesian_model<-stan_glm(outcome ~ tactic_type, data=navco,   
-                       family = binomial(link = "logit"),
-                       seed = 999, 
-                       refresh = 0 
-                       )
-
-
-
-
-```
-
-
-
-We can use the `avg_comparisons` functions again here to get a marginal effect estimate:
-
-```{r}
-mfx<-avg_comparisons(bayesian_model)
-mfx
-
-```
-
-
-The `get_draws` function will get simulated effects by randomly sampling from the posterior distribution from the model. 
-
-```{r}
-get_draws(mfx)|>
-  ggplot(aes(x=draw, fill=contrast)) +
-    stat_halfeye(slab_alpha = .5) +
-    labs(x = "Marginal Effect of tactics",
-         y = "Posterior density",
-         fill = "tactics") +
-  theme_bw()
-
-
-
-```
-
-Or we can visualize predictions for each category:
-
-```{r}
-preds<-avg_predictions(bayesian_model, variables='tactic_type')
-
-
-get_draws(preds)|>
-  ggplot(aes(x=draw, fill=tactic_type)) +
-    stat_halfeye(slab_alpha = .5) +
-    labs(x = "Predicted probability of success",
-         y = "Posterior density",
-         fill = "tactics") +
-  theme_bw()
-
-
-
-
-
-```
-
-
-We can also try specifying different values for our priors. (The defaults in `rstanarm` frequently work very well, but sometimes you might want to modify them, especially if you have some prior research that gives you a reason to use a prior centered on some value other than zero)
-
-
-
-```{r}
-
-bayesian_model2<-stan_glm(outcome ~ tactic_type, data=navco,   
-                       family = binomial(link = "logit"),
-                       seed = 999, 
-                       refresh = 0 ,
-                       prior = normal(0, 5), # normal prior with mean = 0 and sd = 5
-                       )
-
-
-mfx<-avg_comparisons(bayesian_model2)
-mfx
-
-
-
-
-
-```
-
-The results here don't change too dramatically even when we use a different prior, likely because the model is relatively simple and, at this sample size, the data is far more informative than the prior. 
 
 # Model Comparisons
 
@@ -518,7 +436,7 @@ We don't really have a "residual" term here, so model comparisons based on thing
 
 We can use a likelihood ratio test for **nested**[^1] GLM models. If $\mathcal{L_{0}}$ is the log likelihood for a model without some covariate, and $\mathcal{L_{1}}$ is the log likelihood for our model with that covariate included, then we can calculate a likelihood ratio like this:
 
-[^1]: Models are nested if they contain all of the same covariates minus 1.
+[^1]: Models are nested if the covariates in the simpler model are a subset of the more complex one. If you could reproduce model A by removing coefficients from model B, then model A is nested in model B.
 
 $$
 \text{LRT}  = -2 \bigg(\ln(\mathcal{L_{0}}) - \ln (\mathcal{L_{1}})\bigg)
@@ -660,4 +578,180 @@ model_3 <- glm(outcome ~ tactic + percent_pop_log_pos, data = navco, family = "b
 
 
 ```
+
+
+
+
+# Bayesian logistic regression model
+
+We'll try estimating a Bayesian logistic regression model model using `rstanarm` that uses `percent_pop` and `state_support` as predictors:
+
+
+
+```{r}
+
+bayesian_model<-stan_glm(outcome ~ percent_pop + state_support, data=navco,   
+                       family = binomial(link = "logit"),
+                       seed = 999, 
+                       refresh = 0 
+                       )
+
+
+
+
+```
+
+
+### Calculating marginal effects
+
+
+We can get the marginal effects by taking simulated draws from the posterior distribution from our model. The `posterior_epred` function with a logistic regression will give us simulated predicted probabilities (similar to what you generate when using `predict(model, type='response')`).
+
+`posterior_epred(bayesian_model, draws=10)` would return 10 simulated draws from the posterior distribution for each observations in our data:
+
+```{r}
+
+pred<-posterior_epred(bayesian_model, draws=10)
+dim(pred)
+
+```
+
+
+We'll use the `newdata` argument to get predictions under the observed values, and predictions where `percent_pop` increases by 1:
+
+```{r}
+preds0<-posterior_epred(bayesian_model)
+preds1<-posterior_epred(bayesian_model, 
+                        newdata = bayesian_model$model |> 
+                          mutate(percent_pop = percent_pop  + 1))
+
+
+```
+
+Then, we can average across the rows of our simulations to get an average marginal effect for `percent_pop` and a 95% credible interval:
+
+```{r}
+
+# calculate the difference across simulations for each observation
+differences<-rowMeans(preds1 - preds0)
+
+# the average effect: 
+mean(differences)
+# get the 2.5% and 97.5% credible interval
+quantile(differences, c(.025, .975))
+
+```
+
+Or we can plot the differences to see a full range of the estimated effects:
+
+```{r}
+
+data.frame(differences)|>
+  ggplot(aes(x=differences)) + 
+  stat_halfeye(aes(fill = after_stat(level)), .width = c(0.5, 0.975, 1), alpha = 0.7) +
+  theme_bw() +
+  labs(x='Average marginal effect of popular support',
+       y = 'Posterior density'
+       )  +
+  scale_fill_brewer('blues', name='Interval') 
+
+
+```
+
+
+
+
+Alternatively, we can use the `avg_comparisons` functions again here to get a marginal effect estimates in one step:
+
+```{r}
+mfx<-avg_comparisons(bayesian_model)
+mfx
+
+```
+
+
+The `get_draws` function will get simulated draws fromt the posterior distribution. We can use these to get plots showing the average marginal effects for both covariates in the model, along with some additional annotations:
+
+```{r}
+get_draws(mfx) |>
+  mutate(term = case_when(term == "percent_pop"  ~ "% participation at peak",
+                          term == "state_support"  ~ "Recieved Military or economic aid"
+                          )) |>
+  ggplot(aes(x = draw, y = term, label = contrast)) +
+    geom_vline(xintercept =0, lty=2)+
+  stat_slab(aes(fill = after_stat(level)),
+            .width = c(0.5, 0.975, 1),
+            alpha = 0.7) +
+  stat_pointinterval() +
+  geom_text(
+    stat = "summary",
+    fun = "mean", 
+    vjust = 1.5, 
+    color = 'black'
+  ) +
+  labs(x = "Marginal Effects", y = "Posterior density", fill = "variable") +
+  theme_bw() +
+  scale_fill_brewer('blues', name = 'Credible interval') 
+
+
+
+```
+
+
+
+### Changing the prior
+
+
+Notice in this case we didn't explicitly set any prior distribution. `rstanarm` uses ["weakly informative" priors](https://mc-stan.org/rstanarm/articles/priors.html) that are sensible defaults when you don't have any pre-existing expectations about the model parameters. The defaults for the parameters are:
+
+- Beta coefficients: $\mathcal{N}(0, 2.5 \times \frac{sd(y)}{sd(x)}$
+
+- Intercept term: $\mathcal{N}(\text{mean}(y), 2.5 \times sd(y))$
+
+- Sigma : $ \text{Exponential}(\frac{1}{sd(y)})$
+
+```{r}
+
+prior_summary(bayesian_model)
+
+```
+This prior is called "weakly informative" because, when there are lots of parameters or very little data, it will moderately shrink the coefficient estimates toward zero. 
+
+We can also plot the prior and posterior distributions for comparison:
+
+```{r}
+posterior_vs_prior(bayesian_model)
+```
+
+The default priors in `rstanarm` often work very well, but we can experiment with adjusting them to see how it impacts our results. Take a look at what changes if we modify the prior on `percent_pop` to $\mathcal{N}(0, \frac{sd(y)}{sd(x)}$ instead of $\mathcal{N}(0, 2.5 \times \frac{sd(y)}{sd(x)}$. This implies that we have a somewhat stronger belief that the actual coefficient for this variable is zero. 
+
+```{r}
+
+prior<-normal(0, 1, autoscale=TRUE, coef ='percent_pop')
+
+bayesian_model2<-stan_glm(outcome ~ percent_pop + state_support, data=navco,   
+                       family = binomial(link = "logit"),
+                       seed = 999, 
+                       refresh = 0 ,
+                       prior = normal(location=c(0, 0), 
+                                      scale=c(1, 2.5), 
+                                      autoscale=TRUE), 
+                       )
+
+prior_summary(bayesian_model2)
+
+posterior_vs_prior(bayesian_model2)
+```
+
+Checking the marginal effects, we see a slightly weaker effect for `percent_pop` under this more informative prior, which makes sense, given that we started with a stronger belief that the effect of this variable was 0:
+
+```{r}
+mfx<-avg_comparisons(bayesian_model2)
+mfx
+
+```
+
+Note that the effect of specifying a narrower prior isn't exactly dramatic here. With a simple model and a relatively large sample, the data is generally going to be more informative than our prior distribution, so we wouldn't expect to see huge differences at different prior values. 
+
+
 
