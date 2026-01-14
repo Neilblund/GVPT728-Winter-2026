@@ -60,8 +60,6 @@ avg_comparisons(negbin_model)
 
 
 
-
-
 # This will be slow ! ----
 library(rstanarm)
 
