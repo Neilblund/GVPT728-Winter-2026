@@ -697,15 +697,23 @@ modelsummary(list("model 1" =model1,
 
 ## Applying the model
 
+```{r, echo=FALSE}
+vioname <- c("VIOL" = "Primarily violent")
+
+
+```
 
 ```{r}
 #| output-location: slide
 
-navco_logit<-glm(SUCCESS ~  goal_type, 
+navco_lpm<-lm(SUCCESS ~  VIOL, 
+                 data=navco)
+
+navco_logit<-glm(SUCCESS ~  VIOL, 
                  data=navco, 
                  family=binomial(link='logit'))
 
-navco_probit<-glm(SUCCESS ~  goal_type, 
+navco_probit<-glm(SUCCESS ~ VIOL, 
                   data=navco,
                   family=binomial(link='probit'))
 
@@ -715,8 +723,7 @@ modelsummary(list(
   "navco probit"= navco_probit
                   
                   ), 
-              coef_rename=coefs,
-             coef_omit = "Intercept",
+  coef_rename = vioname,
               estimate  = "{estimate}",  
              statistic = c("conf.int"),
              conf_level = .95,        
@@ -730,6 +737,8 @@ modelsummary(list(
 
 ## Interpretation: logit intercept
 
+
+
 For logit, the coefficients are $ln \frac{p}{1-p}$ of Y=1. So exponentiation can give you some sense for the probabilities if you're used to thinking in those terms. After exponentiation, the intercept is the log odds when everything = 0.
 
 ```{r, echo=T}
@@ -737,7 +746,7 @@ For logit, the coefficients are $ln \frac{p}{1-p}$ of Y=1. So exponentiation can
 exp(coef(navco_logit))
 
 #  Pr(Y=1) at viol = 0 
-pr<-mean(navco$SUCCESS[which(navco$VIOL==0)])
+pr<-mean(navco$SUCCESS[which(navco$tactic =='Violence')])
 pr
 # expressed as an odds ratio = the exponentiated intercept
 orat<-pr/(1-pr)
@@ -754,7 +763,7 @@ And the slope coefficient is the impact of a one unit change in X on the relativ
 exp(coef(navco_logit))
 
 #  Pr(Y=1) at viol = 1
-pr_viol<-mean(navco$SUCCESS[which(navco$VIOL==1)])
+pr_viol<-mean(navco$SUCCESS[which(navco$VIOL ==1)])
 
 pr_viol
 # the odds ratio
@@ -807,7 +816,7 @@ coef(navco_logit)
 
 # success probabilty for non-violent movements
 inverse_logit(0.2947995)
-mean(navco$SUCCESS[which(navco$VIOL==0)])
+mean(navco$SUCCESS[which(navco$tactic=="Non-violence")])
 
 ```
 

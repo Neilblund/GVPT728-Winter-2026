@@ -4310,29 +4310,31 @@ f(5|.4) = {10\choose 5} .4^5(1-.4)^{10-5} = 0.2006581
 <section id="applying-the-model" class="title-slide slide level2 center">
 <h2>Applying the model</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href></a>navco_logit<span class="ot">&lt;-</span><span class="fu">glm</span>(SUCCESS <span class="sc">~</span>  goal_type, </span>
-<span id="cb10-2"><a href></a>                 <span class="at">data=</span>navco, </span>
-<span id="cb10-3"><a href></a>                 <span class="at">family=</span><span class="fu">binomial</span>(<span class="at">link=</span><span class="st">&#39;logit&#39;</span>))</span>
-<span id="cb10-4"><a href></a></span>
-<span id="cb10-5"><a href></a>navco_probit<span class="ot">&lt;-</span><span class="fu">glm</span>(SUCCESS <span class="sc">~</span>  goal_type, </span>
-<span id="cb10-6"><a href></a>                  <span class="at">data=</span>navco,</span>
-<span id="cb10-7"><a href></a>                  <span class="at">family=</span><span class="fu">binomial</span>(<span class="at">link=</span><span class="st">&#39;probit&#39;</span>))</span>
-<span id="cb10-8"><a href></a></span>
-<span id="cb10-9"><a href></a><span class="fu">modelsummary</span>(<span class="fu">list</span>(</span>
-<span id="cb10-10"><a href></a>  <span class="st">&quot;navco LPM&quot;</span> <span class="ot">=</span>  navco_lpm,</span>
-<span id="cb10-11"><a href></a>  <span class="st">&quot;navco logit&quot;</span> <span class="ot">=</span>navco_logit,</span>
-<span id="cb10-12"><a href></a>  <span class="st">&quot;navco probit&quot;</span><span class="ot">=</span> navco_probit</span>
-<span id="cb10-13"><a href></a>                  </span>
-<span id="cb10-14"><a href></a>                  ), </span>
-<span id="cb10-15"><a href></a>              <span class="at">coef_rename=</span>coefs,</span>
-<span id="cb10-16"><a href></a>             <span class="at">coef_omit =</span> <span class="st">&quot;Intercept&quot;</span>,</span>
-<span id="cb10-17"><a href></a>              <span class="at">estimate  =</span> <span class="st">&quot;{estimate}&quot;</span>,  </span>
-<span id="cb10-18"><a href></a>             <span class="at">statistic =</span> <span class="fu">c</span>(<span class="st">&quot;conf.int&quot;</span>),</span>
-<span id="cb10-19"><a href></a>             <span class="at">conf_level =</span> .<span class="dv">95</span>,        </span>
-<span id="cb10-20"><a href></a> <span class="at">note =</span> <span class="st">&quot;95% CI in brackets&quot;</span>,</span>
-<span id="cb10-21"><a href></a> <span class="at">gof_map =</span> <span class="fu">c</span>(<span class="st">&#39;nobs&#39;</span>, <span class="st">&quot;logLik&quot;</span>,<span class="st">&#39;aic&#39;</span>, <span class="st">&#39;bic&#39;</span>),</span>
-<span id="cb10-22"><a href></a> <span class="at">output =</span><span class="st">&#39;kableExtra&#39;</span></span>
-<span id="cb10-23"><a href></a>             )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href></a>navco_lpm<span class="ot">&lt;-</span><span class="fu">lm</span>(SUCCESS <span class="sc">~</span>  VIOL, </span>
+<span id="cb10-2"><a href></a>                 <span class="at">data=</span>navco)</span>
+<span id="cb10-3"><a href></a></span>
+<span id="cb10-4"><a href></a>navco_logit<span class="ot">&lt;-</span><span class="fu">glm</span>(SUCCESS <span class="sc">~</span>  VIOL, </span>
+<span id="cb10-5"><a href></a>                 <span class="at">data=</span>navco, </span>
+<span id="cb10-6"><a href></a>                 <span class="at">family=</span><span class="fu">binomial</span>(<span class="at">link=</span><span class="st">&#39;logit&#39;</span>))</span>
+<span id="cb10-7"><a href></a></span>
+<span id="cb10-8"><a href></a>navco_probit<span class="ot">&lt;-</span><span class="fu">glm</span>(SUCCESS <span class="sc">~</span> VIOL, </span>
+<span id="cb10-9"><a href></a>                  <span class="at">data=</span>navco,</span>
+<span id="cb10-10"><a href></a>                  <span class="at">family=</span><span class="fu">binomial</span>(<span class="at">link=</span><span class="st">&#39;probit&#39;</span>))</span>
+<span id="cb10-11"><a href></a></span>
+<span id="cb10-12"><a href></a><span class="fu">modelsummary</span>(<span class="fu">list</span>(</span>
+<span id="cb10-13"><a href></a>  <span class="st">&quot;navco LPM&quot;</span> <span class="ot">=</span>  navco_lpm,</span>
+<span id="cb10-14"><a href></a>  <span class="st">&quot;navco logit&quot;</span> <span class="ot">=</span>navco_logit,</span>
+<span id="cb10-15"><a href></a>  <span class="st">&quot;navco probit&quot;</span><span class="ot">=</span> navco_probit</span>
+<span id="cb10-16"><a href></a>                  </span>
+<span id="cb10-17"><a href></a>                  ), </span>
+<span id="cb10-18"><a href></a>  <span class="at">coef_rename =</span> vioname,</span>
+<span id="cb10-19"><a href></a>              <span class="at">estimate  =</span> <span class="st">&quot;{estimate}&quot;</span>,  </span>
+<span id="cb10-20"><a href></a>             <span class="at">statistic =</span> <span class="fu">c</span>(<span class="st">&quot;conf.int&quot;</span>),</span>
+<span id="cb10-21"><a href></a>             <span class="at">conf_level =</span> .<span class="dv">95</span>,        </span>
+<span id="cb10-22"><a href></a> <span class="at">note =</span> <span class="st">&quot;95% CI in brackets&quot;</span>,</span>
+<span id="cb10-23"><a href></a> <span class="at">gof_map =</span> <span class="fu">c</span>(<span class="st">&#39;nobs&#39;</span>, <span class="st">&quot;logLik&quot;</span>,<span class="st">&#39;aic&#39;</span>, <span class="st">&#39;bic&#39;</span>),</span>
+<span id="cb10-24"><a href></a> <span class="at">output =</span><span class="st">&#39;kableExtra&#39;</span></span>
+<span id="cb10-25"><a href></a>             )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 
 </section>
@@ -4351,40 +4353,28 @@ f(5|.4) = {10\choose 5} .4^5(1-.4)^{10-5} = 0.2006581
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">Goal: Other</td>
-<td style="text-align: center;">−0.146</td>
-<td style="text-align: center;">−0.594</td>
-<td style="text-align: center;">−0.371</td>
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: center;">0.573</td>
+<td style="text-align: center;">0.295</td>
+<td style="text-align: center;">0.184</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"></td>
-<td style="text-align: center;">[−0.506, 0.215]</td>
-<td style="text-align: center;">[−2.266, 0.919]</td>
-<td style="text-align: center;">[−1.346, 0.570]</td>
+<td style="text-align: center;">[0.500, 0.646]</td>
+<td style="text-align: center;">[−0.013, 0.607]</td>
+<td style="text-align: center;">[−0.008, 0.378]</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Goal: Regime change</td>
-<td style="text-align: center;">−0.049</td>
-<td style="text-align: center;">−0.196</td>
-<td style="text-align: center;">−0.123</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"></td>
-<td style="text-align: center;">[−0.198, 0.100]</td>
-<td style="text-align: center;">[−0.820, 0.423]</td>
-<td style="text-align: center;">[−0.511, 0.264]</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Goal: Secession</td>
-<td style="text-align: center;">−0.417</td>
-<td style="text-align: center;">−2.235</td>
-<td style="text-align: center;">−1.310</td>
+<td style="text-align: left;">Primarily violent</td>
+<td style="text-align: center;">−0.275</td>
+<td style="text-align: center;">−1.152</td>
+<td style="text-align: center;">−0.715</td>
 </tr>
 <tr class="even">
 <td style="text-align: left; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">[−0.609, −0.224]</td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">[−3.424, −1.218]</td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">[−1.926, −0.731]</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">[−0.375, −0.175]</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">[−1.597, −0.716]</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">[−0.986, −0.446]</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Num.Obs.</td>
@@ -4394,21 +4384,21 @@ f(5|.4) = {10\choose 5} .4^5(1-.4)^{10-5} = 0.2006581
 </tr>
 <tr class="even">
 <td style="text-align: left;">Log.Lik.</td>
-<td style="text-align: center;">−239.002</td>
-<td style="text-align: center;">−226.066</td>
-<td style="text-align: center;">−226.066</td>
+<td style="text-align: center;">−237.470</td>
+<td style="text-align: center;">−226.415</td>
+<td style="text-align: center;">−226.415</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">AIC</td>
-<td style="text-align: center;">488.0</td>
-<td style="text-align: center;">460.1</td>
-<td style="text-align: center;">460.1</td>
+<td style="text-align: center;">480.9</td>
+<td style="text-align: center;">456.8</td>
+<td style="text-align: center;">456.8</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">BIC</td>
-<td style="text-align: center;">507.3</td>
-<td style="text-align: center;">475.6</td>
-<td style="text-align: center;">475.6</td>
+<td style="text-align: center;">492.5</td>
+<td style="text-align: center;">464.6</td>
+<td style="text-align: center;">464.6</td>
 </tr>
 </tbody><tfoot>
 <tr class="odd">
@@ -4431,22 +4421,20 @@ f(5|.4) = {10\choose 5} .4^5(1-.4)^{10-5} = 0.2006581
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href></a><span class="co"># exponentiated coefficent</span></span>
 <span id="cb11-2"><a href></a><span class="fu">exp</span>(<span class="fu">coef</span>(navco_logit))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>           (Intercept)         goal_typeOther goal_typeRegime Change 
-             1.0869565              0.5520000              0.8216794 
-    goal_typeSecession 
-             0.1069767 </code></pre>
+<pre><code>(Intercept)        VIOL 
+  1.3428571   0.3159252 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href></a><span class="co">#  Pr(Y=1) at viol = 0 </span></span>
-<span id="cb13-2"><a href></a>pr<span class="ot">&lt;-</span><span class="fu">mean</span>(navco<span class="sc">$</span>SUCCESS[<span class="fu">which</span>(navco<span class="sc">$</span>VIOL<span class="sc">==</span><span class="dv">0</span>)])</span>
+<span id="cb13-2"><a href></a>pr<span class="ot">&lt;-</span><span class="fu">mean</span>(navco<span class="sc">$</span>SUCCESS[<span class="fu">which</span>(navco<span class="sc">$</span>tactic <span class="sc">==</span><span class="st">&#39;Violence&#39;</span>)])</span>
 <span id="cb13-3"><a href></a>pr</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.5731707</code></pre>
+<pre><code>[1] NaN</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href></a><span class="co"># expressed as an odds ratio = the exponentiated intercept</span></span>
 <span id="cb15-2"><a href></a>orat<span class="ot">&lt;-</span>pr<span class="sc">/</span>(<span class="dv">1</span><span class="sc">-</span>pr)</span>
 <span id="cb15-3"><a href></a>orat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 1.342857</code></pre>
+<pre><code>[1] NaN</code></pre>
 </div>
 </div>
 </section>
@@ -4458,13 +4446,11 @@ f(5|.4) = {10\choose 5} .4^5(1-.4)^{10-5} = 0.2006581
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href></a><span class="co"># exponentiated coefficent</span></span>
 <span id="cb17-2"><a href></a><span class="fu">exp</span>(<span class="fu">coef</span>(navco_logit))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>           (Intercept)         goal_typeOther goal_typeRegime Change 
-             1.0869565              0.5520000              0.8216794 
-    goal_typeSecession 
-             0.1069767 </code></pre>
+<pre><code>(Intercept)        VIOL 
+  1.3428571   0.3159252 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href></a><span class="co">#  Pr(Y=1) at viol = 1</span></span>
-<span id="cb19-2"><a href></a>pr_viol<span class="ot">&lt;-</span><span class="fu">mean</span>(navco<span class="sc">$</span>SUCCESS[<span class="fu">which</span>(navco<span class="sc">$</span>VIOL<span class="sc">==</span><span class="dv">1</span>)])</span>
+<span id="cb19-2"><a href></a>pr_viol<span class="ot">&lt;-</span><span class="fu">mean</span>(navco<span class="sc">$</span>SUCCESS[<span class="fu">which</span>(navco<span class="sc">$</span>VIOL <span class="sc">==</span><span class="dv">1</span>)])</span>
 <span id="cb19-3"><a href></a></span>
 <span id="cb19-4"><a href></a>pr_viol</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -4476,7 +4462,7 @@ f(5|.4) = {10\choose 5} .4^5(1-.4)^{10-5} = 0.2006581
 <span id="cb21-4"><a href></a><span class="co"># the relative odds ratio compared to the baseline</span></span>
 <span id="cb21-5"><a href></a>orat_viol<span class="sc">/</span>orat</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.3159252</code></pre>
+<pre><code>[1] NaN</code></pre>
 </div>
 </div>
 <p>(Probit coefficients don’t work this way, which is partly why they’re less popular)</p>
@@ -4524,19 +4510,17 @@ P = \frac{1}{1+e^-(B_0+B_1X_1+B_2X_2 +...)}
 <span id="cb23-5"><a href></a></span>
 <span id="cb23-6"><a href></a><span class="fu">coef</span>(navco_logit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>           (Intercept)         goal_typeOther goal_typeRegime Change 
-            0.08338161            -0.59420723            -0.19640500 
-    goal_typeSecession 
-           -2.23514381 </code></pre>
+<pre><code>(Intercept)        VIOL 
+  0.2947995  -1.1522498 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href></a><span class="co"># success probabilty for non-violent movements</span></span>
 <span id="cb25-2"><a href></a><span class="fu">inverse_logit</span>(<span class="fl">0.2947995</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 0.5731707</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href></a><span class="fu">mean</span>(navco<span class="sc">$</span>SUCCESS[<span class="fu">which</span>(navco<span class="sc">$</span>VIOL<span class="sc">==</span><span class="dv">0</span>)])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href></a><span class="fu">mean</span>(navco<span class="sc">$</span>SUCCESS[<span class="fu">which</span>(navco<span class="sc">$</span>tactic<span class="sc">==</span><span class="st">&quot;Non-violence&quot;</span>)])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.5731707</code></pre>
+<pre><code>[1] NaN</code></pre>
 </div>
 </div>
 </section>
@@ -4546,10 +4530,8 @@ P = \frac{1}{1+e^-(B_0+B_1X_1+B_2X_2 +...)}
 <div class="cell">
 <div class="sourceCode cell-code" id="cb29"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href></a><span class="fu">coef</span>(navco_logit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>           (Intercept)         goal_typeOther goal_typeRegime Change 
-            0.08338161            -0.59420723            -0.19640500 
-    goal_typeSecession 
-           -2.23514381 </code></pre>
+<pre><code>(Intercept)        VIOL 
+  0.2947995  -1.1522498 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb31"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href></a><span class="co"># success probability for violent movement - success for non-violent</span></span>
 <span id="cb31-2"><a href></a><span class="fu">inverse_logit</span>(<span class="fl">0.2947995</span> <span class="sc">+</span> <span class="sc">-</span><span class="fl">1.1522498</span> ) <span class="sc">-</span> <span class="fu">inverse_logit</span>(<span class="fl">0.2947995</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -4565,14 +4547,14 @@ P = \frac{1}{1+e^-(B_0+B_1X_1+B_2X_2 +...)}
 <div class="sourceCode cell-code" id="cb33"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href></a><span class="fu">table</span>(<span class="fu">predict</span>(navco_logit, <span class="at">type=</span><span class="st">&#39;response&#39;</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-0.104166667326643             0.375 0.471774193548387 0.520833333333333 
-               48                 8               248                48 </code></pre>
+0.297872340425798 0.573170731707317 
+              188               164 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href></a><span class="fu">table</span>(<span class="fu">predict</span>(navco_probit, <span class="at">type=</span><span class="st">&#39;response&#39;</span>)) <span class="co"># virtually identical!</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-0.104166666719764 0.375000000000003 0.471774193548387 0.520833333333333 
-               48                 8               248                48 </code></pre>
+0.297872340425541 0.573170731707317 
+              188               164 </code></pre>
 </div>
 </div>
 </section>
@@ -4747,43 +4729,13 @@ Type: response</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">goal_type [Other]</td>
-<td style="text-align: center;">−0.594</td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"></td>
-<td style="text-align: center;">[−2.266, 0.919]</td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">goal_type [Regime Change]</td>
-<td style="text-align: center;">−0.196</td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"></td>
-<td style="text-align: center;">[−0.820, 0.423]</td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">goal_type [Secession]</td>
-<td style="text-align: center;">−2.235</td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="even">
-<td style="text-align: left;"></td>
-<td style="text-align: center;">[−3.424, −1.218]</td>
-<td style="text-align: center;"></td>
-</tr>
-<tr class="odd">
 <td style="text-align: left;">VIOL</td>
-<td style="text-align: center;"></td>
+<td style="text-align: center;">−1.152</td>
 <td style="text-align: center;">−0.696</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"></td>
-<td style="text-align: center;"></td>
+<td style="text-align: center;">[−1.597, −0.716]</td>
 <td style="text-align: center;">[−1.175, −0.221]</td>
 </tr>
 <tr class="odd">
@@ -4813,7 +4765,7 @@ Type: response</code></pre>
 </tr>
 <tr class="even">
 <td style="text-align: left;">BIC</td>
-<td style="text-align: center;">475.6</td>
+<td style="text-align: center;">464.6</td>
 <td style="text-align: center;">434.9</td>
 </tr>
 </tbody><tfoot>

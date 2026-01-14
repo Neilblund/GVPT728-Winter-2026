@@ -1,28 +1,17 @@
 ---
-title: "Count models"
-date: last-modified
-author: Neil Lund
+title: "Other GLMs"
 format:
   revealjs:
-    theme: [default, custom_styles]
-    width: 1280
-    height: 720
-    df-print: tibble
-    scrollable: true
+    theme: [clean, simple]
+    df-print: paged
     smaller: true
     slide-number: true
     header: 
     header-logo: images/informal_seal_transparent.webp
     self-contained: true
-    mermaid:
-      theme: forest
-filters:
-  - reveal-header
-  - pseudocode
+    incremental: true
 code-annotations: select
 slide-level: 3
-execute:
-  echo: true
 ---
 
 ```{css, echo = FALSE}
@@ -41,15 +30,18 @@ library(ggdist)
 library(countrycode)
 library(modelsummary)
 library(labelled)
+library(marginaleffects)
 
 ```
 
 ```{r, echo=FALSE, cache=TRUE}
 
+
 vdem<-vdemdata::vdem|>
   filter(year == 2018)|>
-  select(country_id, year, v2x_libdem, e_gdppc)
-gtd_counts<-read_csv('gtd_counts.csv')|>
+  dplyr::select(country_id, year, v2x_libdem, e_gdppc)|>
+  mutate(e_gdppc = e_gdppc /100)
+gtd_counts<-read_csv('../Additional Code and Data/gtd_counts.csv')|>
   complete(country_txt , nesting(iyear), fill=list(nkill=0, n=0, success=0))|>
   group_by(country_txt)|>
   fill(region_txt, .direction='downup')|>
@@ -73,24 +65,48 @@ gtd_counts<-set_variable_labels(gtd_counts,
                                 'success' = 'number of successful attacks',
                                 'lagged_attacks' = 'prior year attacks',
                                 'lagged_deaths' = 'prior year deaths',
-                                'e_gdppc' = 'gdp per capita ($1,000)',
+                                'e_gdppc' = 'GDP per capita ($100,000)',
                                 'any_attacks' = 'any attacks in prior year',
                                 "MENA" = "Middle East & North Africa"
                                 
                             
                                 )
 
+map<-c('v2x_libdem' ='liberal democracy score',
+'region_txt' = 'region',
+'success' = 'number of successful attacks',
+'lagged_attacks' = 'prior year attacks',
+'lagged_deaths' = 'prior year deaths',
+'e_gdppc' = 'gdp per capita',
+'any_attacksyes' = 'any attacks in prior year',
+"MENAyes" = "Middle East & North Africa"
+
+)
+
 gtd_counts<-gtd_counts|>drop_na()
 
 ```
 
+# Other generalized linear models
+
+- Generalized linear models offer a framework for applying something like linear regression in all sorts of different contexts.
+
+- All GLMs will have the same basic setup: we're predicting y as a function of some predictors and coefficients that are transformed by a link function:
+  - In OLS, the "link" function is the identity, so $y = X^T\beta$
+  - In logit models, the link function is $y = \text{logit}(X^T\beta)$
+  - In probit models, the link function is $y = \Phi(X^T\beta)$
+
+. . .
+
+We'll talk about a couple other common models that use this same framework.
+
+
+
 # Counts
 
-
-::::: columns
-::: {.column width="50%"}
-
-Count models can be used to model outcomes that range from 0 to $\infty$. These tend to be more common in international relations, but it includes things like:
+:::::: columns
+:::: {.column width="50%"}
+Count models can be used to model rates or outcomes that range from 0 to $\infty$. Some examples might include:
 
 ::: incremental
 -   Number of battle deaths in a conflict
@@ -101,30 +117,29 @@ Count models can be used to model outcomes that range from 0 to $\infty$. These 
 
 -   Number of years between coups (although this may be classified as a survival model)
 :::
-:::
+::::
 
 ::: {.column width="50%"}
-![](https://upload.wikimedia.org/wikipedia/en/2/29/Count_von_Count_kneeling.png)
+![](images/Count_von_Count_kneeling.png)
 :::
-:::::
-
-
-
-
+::::::
 
 ## Poisson Distribution
 
-The simplest way to model a count is with a Poisson distribution
+The simplest way to model a count is with a Poisson distribution: $y = \text{Poisson}(e^{X^t\beta})$
 
 ::::: columns
 ::: {.column width="50%"}
 -   A poisson distribution has a single parameter, $\lambda$ , which represents the average rate of occurrence over a fixed time period.
 
--   As with logit models, this is non-linear and solving it requires maximum likelihood methods.
+
+
+
+
 :::
 
 ::: {.column width="50%"}
-[![By Skbkekas - Own work, CC BY 3.0, https://commons.wikimedia.org/w/index.php?curid=9447142](https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Poisson_pmf.svg/1280px-Poisson_pmf.svg.png)](https://en.wikipedia.org/wiki/Poisson_distribution#/media/File:Poisson_pmf.svg)
+![](images/Poisson_pmf.svg.png)
 :::
 :::::
 
@@ -170,22 +185,78 @@ legend(3,150,c(expression(paste(beta[1]," = 0")),
 
 ```
 
-## Poisson Overdispersion
 
-The poisson distribution assumes that the variance is equal to the mean:
+## Poisson model
 
-```{r}
-set.seed(100)
-x<-rpois(4000, 25)
-var(x)
-mean(x)
+As with logit and probit models, the link function means that our coefficient values are somewhat unintuitive. Technically, the represent the effect of a one unit change in X on the log count of the dependent variable.
+
+```{r, echo=TRUE}
+#| output-location: column
+
+model<-glm(nkill ~e_gdppc ,
+           data=gtd_counts, family='poisson')
+modelsummary(list("Number killed" = model), 
+             coef_rename=T, 
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,     
+             note = "Note: 95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$',
+             title ='Number killed in terrorist attacks in 2018'
+             )
+
 ```
 
+
+## Poisson model
+
+
+Exponentiating the coefficients turns this into a multiplicative effect. So the coefficients represent the change in the *rate* of the dependent variable. i.e. a coefficient of 0.5 means that a one-unit increase in X halves the number of attacks, while a coefficient of 2 would mean doubling the number.
+
+```{r, echo=TRUE}
+#| output-location: column
+
+model<-glm(nkill ~ e_gdppc,
+           data=gtd_counts, family='poisson')
+modelsummary(list("Number killed" = model), 
+             coef_rename=T, 
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,     
+             note = "Note: 95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$',
+             title ='Number killed in terrorist attacks in 2018',
+             exponentiate =TRUE
+             )
+
+```
+
+
+
+## Poisson model predictions
+
+For predicted counts, we can simply take the linear prediction from the model and then exponentiate it:
+
+```{r}
+
+
+x<-cbind(1, e_gdppc = seq(0, 2, by=.1))
+predictions<-  exp(x%*% cbind(coef(model)))
+data.frame(x, predictions)|>
+  ggplot(aes(x=e_gdppc*100000, y=predictions)) + 
+  geom_point() +
+  geom_line()+
+  theme_bw() +
+  labs(x ='GDP Per Capita ($USD)', y='Predicted deaths') +
+  scale_x_continuous(labels = scales::label_currency()) 
+
+
+```
+
+
 ## Poisson Overdispersion
 
-The poisson distribution assumes that the variance is equal to the mean:
-
-But this is rarely true with real world data:
+The poisson distribution assumes that the variance is equal to the mean (note that the distribution only has a single parameter: $\lambda$). This is rarely true for real-world count data:
 
 ```{r, echo=TRUE}
 
@@ -197,7 +268,7 @@ data.frame(dist = dist_poisson(lambda =mean(gtd_counts$nkill)))|>
   stat_slab(alpha=.7) +
   stat_slab(data=gtd_counts, aes(x=nkill), 
                fill='lightblue', 
-               inherit.aes = FALSE) +
+               inherit.aes = FALSE, alpha=.5) +
   theme_bw() +
   labs(title = 'Terrorist attacks in 2018 compared to a poisson distribution with the same mean') 
 
@@ -209,9 +280,11 @@ data.frame(dist = dist_poisson(lambda =mean(gtd_counts$nkill)))|>
 
     -   This can also happen with other distributions, but its probably less common because most distributions allow the variance to be different from the mean.
 
--   This is may be the result of different data generating processes, i.e.: one pattern for states with terrorist insurgencies
+-   This is may be the result of different data generating processes, i.e.: one pattern for states with terrorist insurgencies, a separate pattern for those without.
 
     -   In some cases there may be a way to fix this with a different set of parameters, but there's no guarantee.
+    
+
 
 ## Options for handling overdispersion
 
@@ -227,7 +300,7 @@ data.frame(dist = dist_poisson(lambda =mean(gtd_counts$nkill)))|>
 
 ### Negative Binomial Model
 
--   The negative binomial distribution can be thought of as the number of failures until a specified number of successes. Unlike the poisson distribution, the negative binomial distribution has a mean and a variance, so it can account for overdispersion:
+-   The negative binomial distribution can be thought of as a way of modeling the number of failures until a specified number of successes. Unlike the poisson distribution, the negative binomial distribution has a mean and a variance, so it can account for overdispersion:
 
 ```{r, echo=TRUE}
 
@@ -245,13 +318,17 @@ tibble('a' = dist_negative_binomial(size=1, .5),
 
 ### Poisson vs. negative binomial
 
+
+
 ```{r, echo=TRUE}
-model<-glm(nkill ~ v2x_libdem + any_attacks + e_gdppc ,
+model<-glm(nkill ~ e_gdppc ,
            data=gtd_counts, family='poisson')
-nb_model<-glm.nb(nkill ~ v2x_libdem + any_attacks + e_gdppc , 
+nb_model<-glm.nb(nkill ~ e_gdppc , 
                  data=gtd_counts)
 
 ```
+
+
 
 ```{r, echo=FALSE}
 
@@ -270,14 +347,45 @@ map<-c('v2x_libdem' ='liberal democracy score',
 model_list<-list('poisson' = model,
                  "negative binomial" = nb_model)
 modelsummary(model_list,
-             coef_map  = map,
-             coef_omit = "Intercept",
-              estimate  = "{estimate}",  
+             coef_rename = TRUE,
+             estimate  = "{estimate}",  
              statistic = c("conf.int"),
-             conf_level = .95,        
-             note = "95% CI in brackets",
+             conf_level = .95,     
+             note = "Note: 95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$',
+             title ='Number killed in terrorist attacks in 2018',
+             exponentiate =FALSE
              )
+
 ```
+
+### Poisson vs. negative binomial
+
+The inverse link for the negative binomial and poisson models are the same, so the exponentiated coefficients have the same interpretation as they did for the poisson model:
+
+
+```{r}
+#| output-location: column
+
+
+model_list<-list('poisson' = model,
+                 "negative binomial" = nb_model)
+modelsummary(model_list,
+             coef_rename = TRUE,
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,     
+             note = "Note: 95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$',
+             title ='Number killed in terrorist attacks in 2018. Exponentiated coefficients.',
+             exponentiate =TRUE
+             )
+
+```
+
+
+
+
 
 ## Testing Overdispersion
 
@@ -310,83 +418,32 @@ pchisq(2 * (logLik(nb_model) - logLik(model)), df = 1, lower.tail = FALSE)
 
 ```
 
-## Poisson Prediction and interpretation
-
-The negative binomial model and the poisson model both have the same inverse link function, so generating predictions here is the same:
-
--   Calculate the linear prediction (plug in the values and multiple each by the coefficient)
-
--   Exponentiate the result
-
-    ```{r}
-
-    coefs<-coef(nb_model)
-    exp(coefs['(Intercept)'] + 
-          coefs['v2x_libdem'] * 0.74 + 
-          coefs["any_attacksyes"] * 1 +
-          coefs['e_gdppc'] * 59.6
-        
-        )
-      
 
 
-    ```
+## Marginal Effects
 
-Count models are still nonlinear! So, like with logits, the marginal effect of X will depend in part on the other parameters.
 
-### Incidence Rates
-
-Exponentiated coefficients can also be interpreted as the effect of a one unit increase in X on the rate ratio of Y, so a coefficient of 2 means the rate doubles, .5 means its cut in half, and 0 means it stays the same.
-
-```{r}
-modelsummary(model_list,
-             coef_map  = map,
-             coef_omit = "Intercept",
-             conf_level = .95,        
-             note = "95% CI in brackets. Exponentiated coefficients",
-             exponentiate=TRUE
-             )
-
-```
-
-### Predictions and Marginal Effects
-
-```{r, echo=TRUE}
-
-library(ggeffects)
-
-predict_response(nb_model, term=c('e_gdppc',
-                                  'any_attacks'),margin='empirical')|>
-  plot(show_data=TRUE,  jitter=.3) +
-  labs(title = "Predicted deaths in terrorist incidents", 
-       y = "number killed"
-       )
-
-```
-
-### Predictions and Marginal Effects
 
 ```{r}
 
-predict_response(nb_model, 
-                 term=c('any_attacks'),
-                 margin='empirical')|>
-  plot() +
-  labs(title = "Predicted deaths in terrorist incidents", 
-       y = "number killed")
-```
-
-### Predictions and Marginal Effects
-
-```{r}
-
-library(marginaleffects)
 mfx<-avg_comparisons(nb_model)
 
-mfx
+modelsummary(mfx, 
+             coef_rename = TRUE,
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,     
+             note = "Note: 95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$',
+             title ='Number killed per attack. Exponentiated coefficients.',
+             )
+  
+
 ```
 
 ## Using a Random Effect
+
+A random effects model also provides and alternative method to account for overdispersion by adding a single random effect term for every case in the model:
 
 ```{r}
 
@@ -394,11 +451,8 @@ library(lme4)
 
 
 mmodel<-glmer( nkill ~ 
-                v2x_libdem + 
-                any_attacks + 
                 e_gdppc +
                 (1|country_txt), data=gtd_counts, family='poisson')
-
 
 
 
@@ -406,24 +460,276 @@ performance::check_overdispersion(mmodel)
 
 
 
+
 ```
+
+## Count models with an offset
+
+Poisson and negative binomial models can also be used to model ratio. For instance, we might want to model the number of deaths per attack rather than just the number of deaths in general. To do this, we'll need to include the logged number of attacks as an "offset" variable in the model. We'll also have to remove cases with zero attacks, since it doesn't make sense to measure a rate where the denominator is zero:
+
+```{r}
+#| output-location: column
+
+deaths_per_attack<-gtd_counts|>
+  filter(n > 0)|>
+  glm.nb(nkill ~ e_gdppc  + offset(log(n)),
+           data=_)
+
+
+modelsummary(deaths_per_attack, 
+             coef_rename = TRUE,
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,     
+             note = "Note: 95% CI in brackets",
+             gof_omit = 'F|RMSE|R2$',
+             title ='Number killed per attack. Exponentiated coefficients.',
+             exponentiate =TRUE
+             )
+
+
+
+```
+
+
 
 # Considerations
 
 -   For count data, a poisson model is a starting point, but over-dispersion is so common in real-world data that you should never assume it and you should be a bit skeptical if you a poisson with no discussion of the problem
 
--   When in doubt, use a negative binomial model. If there's no overdispersion, you should get roughly the same results as a poisson.
 
-# Other models
 
--   Ordered logit: response variables with just a few values (for instance, likert responses on a survey)
 
-    -   Coefficients are the effect of a one unit increase in the logged odds of moving up one category
+
+# Multiple categories
+
+- Logit/probit models work for a single dichotomous outcome, but how do we model cases with more than two possibilities?
+
+
+## Ordered logits
+
+Ordered logit/probit models can be used to model the effect of a one unit increase in some **ordered** categorical outcome, such as an agree/disagree scale.
+
+One way to think about these models is that they work like the latent data-formulation of the logit model, but there are multiple thresholds that may be unequally spaced:
+
+
+
+```{r, echo=FALSE}
+set.seed(1000)
+N<-500
+x<-rnorm(N)
+ystar <- x * 3
+
+cutpoints<-c(-5,  0, 9)
+ycut<-cut(ystar + rlogis(N), c(-Inf,-9, -5, 0,  6, Inf),
+          labels=c("lowest","lower", "medium", "higher", "highest")
+          ) 
+
+df<-data.frame(x, ystar, ycut)
+
+
+ggplot(df, aes(x=x, y=ystar, color=ycut)) + 
+  geom_jitter(alpha=.5, height=1) +
+  theme_minimal()+
+    geom_hline(yintercept = -8, lty=2, color='black') +
+  geom_hline(yintercept = -5, lty=2, color='black') +
+  geom_hline(yintercept = 0, lty=2, color='black') +
+  geom_hline(yintercept = 6, lty=2, color='black') +
+  labs(color ='category', y='Y*', x='X')
+
+
+
+
+
+```
+. . .
+
+
+Our goal here would be to estimate both the effect of X on the latent outcome Y* and the thresholds for each of the response categories.
+
+## Ordered logits
+
+In a sense, you could think of this as a series of K-1 logistic regressions for each level of the ordered category:
+
+
+$$
+\begin{align*}
+Pr(Y > 1) & = \text{logit}^-1(X\beta) \\
+Pr(Y > 2) & = \text{logit}^-1(X\beta- \text{cut}_2) \\
+Pr(Y > 3) & = \text{logit}^-1(X\beta -\text{cut}_3) \\
+...\\
+Pr(Y > K-1) & = \text{logit}^-1(X\beta - \text{cut}_{K-1}) \\
+\end{align*}
+$$
+
+
+## Ordered logits
+
+
+```{r}
+set.seed(1000)
+N<-1000
+x<-rnorm(N)
+ystar <- x * 3
+
+cutpoints<-c(-5,  0, 9)
+ycut<-cut(ystar + rlogis(N), c(-Inf,-9, -5, 0,  6, Inf),
+          labels=c("lowest","lower", "medium", "higher", "highest")
+          ) 
+
+df<-data.frame(x, ystar, ycut)
+MASS::polr(ycut ~ x, data=df, method='logistic')
+
+```
+. . .
+
+The terms labelled as `intercepts` here correspond to the cutpoints in my simulated latent variable, and the coefficient on X is just the effect of `x` on `ystar`
+
+
+## Ordered logits
+
+To get predictions for individual models, we'll need to use the inverse of the logit function and calculate 
+
+$$
+Pr(y = k) = \text{logit}^{-1}(X\beta-c_{K-1}) - \text{logit}^{-1}(X\beta-c_k)
+$$
+
+## Ordered logits: predictions
+
+We'll get the coefficient values and the cutpoints from the model:
+
+```{r}
+invlogit<-function(x){
+  return(exp(x)/(1+exp(x))) 
+  
+}
+ologit<-MASS::polr(ycut ~ x, data=df, method='logistic')
+# coefficients
+coefs<-ologit$coefficients
+# intercepts
+cutpoints<-ologit$zeta
+```
+
+## Ordered logits: predictions
+
+
+Now we'll calculate individual response probabilities:
+
+```{r}
+
+# Pr(k = 1) if X =2
+invlogit(cutpoints[1] - 2 * coefs)
+# Pr(k = 2) if X =2
+invlogit(cutpoints[2] - 2 * coefs) - invlogit(cutpoints[1] - 2 * coefs)
+# Pr(k = 3) if X =2
+invlogit(cutpoints[3] - 2 * coefs) - invlogit(cutpoints[2] - 2 * coefs)
+# Pr(k = 4) if X =2
+invlogit(cutpoints[4] - 2 * coefs) - invlogit(cutpoints[3] - 2 * coefs)
+# Pr(k = 5) if X =2
+1 - invlogit(cutpoints[4] - 2 * coefs)
+
+```
+
+
+## Ordered logits
+
+Of course, we can also just use `predict` to get these same results:
+
+```{r}
+
+predict(ologit, type='probs', newdata=data.frame(x=3))
+
+```
+
+## Ordered logits
+
+Or we can use the `ggeffects` package to get predictions across all values of `x` and all levels of the outcome:
+
+```{r}
+library(ggeffects)
+
+result<-predict_response(ologit)
+
+plot(result)
+
+```
+
+## Ordered logits
+
+Here's a more practical example using European Social Survey data for Great Britain. The dependent variable is whether richer countries have an obligation to take immigrants, and the predictors are whether the respondent has been unemployed in the last 5 years, and their self placement on a left/right scale:
+
+```{r, echo=FALSE}
+
+gb<-readRDS("C:/Users/neilb/Documents/UMD/GVPT728-Winter-2026/Additional Code and Data//great_britain.rds")
+
+```
+
+
+
+```{r}
+
+
+ologit<-MASS::polr(richer_responsible ~ uemp5yr + lrscale, data=gb, 
+                   method='logistic')
+ologit
+
+```
+
+## Ordered logits
+
+
+```{r}
+#| layout-ncol: 2
+preds<-predict_response(ologit)
+pp<-plot(preds)
+pp$uemp5yr
+pp$lrscale
+
+
+```
+
+
+
+## Ordered logits
+
+And we can get estimated average marginal effects from the model as well. Note that we have 5 different margins for each coefficient, one for each category of the DV:
+
+```{r, eval=FALSE}
+library(marginaleffects)
+mfx<-avg_comparisons(ologit)
+
+mfx
+
+
+
+```
+
+```{r}
+library(marginaleffects)
+avg_comparisons(ologit)|>
+  dplyr::select(term, group, contrast, estimate, conf.low, conf.high)|>
+  mutate(across(where(is.numeric), .fns=~round(.x, digits=4)))
+
+```
+
+## Ordered logits: considerations
+
+- Ordered logits make the most sense when you have a relatively small number of  ordered categories and you think the differences between the responses are "unevenly spaced" with respect to your IVs
+
+- If you have a lot of response categories (7 or more) a linear model if generally a reasonable alternative.
+
+- Even in cases with a smaller number of categories, the juice may not be worth the squeeze, but an ordered logit might be worth exploring if you're unsatisfied with your results.
+
+
+
+## Other models
+
+
 
 -   Multinomial logit: responses for multiple discrete categories
-
     -   K-1 coefficients for each category of the DV.
-
     -   Coefficients are the effect on the logged odds of being in a category relative to the baseline group.
 
-    -   Fun fact: the sigmoid function is also used for neural networks
+
+
+
