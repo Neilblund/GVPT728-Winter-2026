@@ -1,5 +1,6 @@
 library(haven)
 library(survival)
+library(modelsummary)
 # Survival model 
 if(!file.exists('DurationWar-R00A.zip')){
   download.file('http://slantchev.ucsd.edu/published/files/DurationWar-R00A.zip',
@@ -12,18 +13,6 @@ if(!file.exists('DurationWar-R00A.zip')){
 
 data<-read_dta(unz('DurationWar-R00A.zip', '1perwar.dta'))|>
   as_factor()
-
-coefs<-c("parmil" = "Military parity",
-         "parpop" = "Reserve parity",
-         "terrain" = "Terrain",
-         "contig" = "Contiguity",
-         "nstates" = "Number of states",
-         "tpop" = "Total population reserves",
-         "tmilper" ="Total military personnel",
-         "demo" = "Democratic initiator",
-         "(Intercept)" = "Constant",
-         "Log(scale)" = "Log(Gamma)"
-         )
 
 
 # survival models often have "censoring", where the outcome of interest didn't 
@@ -48,7 +37,7 @@ predict(model1, type='response')
 
 
 mlist<-list('baseline' = model1, 'territory' = model2, 'full' = model3)
-modelsummary(mlist, coef_map = coefs,
+modelsummary(mlist, coef_rename=TRUE,
              stars=TRUE,
              statistic = c("conf.int")
              )
