@@ -670,7 +670,7 @@ mfx
 ```
 
 
-The `get_draws` function will get simulated draws fromt the posterior distribution. We can use these to get plots showing the average marginal effects for both covariates in the model, along with some additional annotations:
+The `get_draws` function will get simulated draws from the posterior distribution. We can use these to get plots showing the average marginal effects for both covariates in the model, along with some additional annotations:
 
 ```{r}
 get_draws(mfx) |>
@@ -708,7 +708,7 @@ Notice in this case we didn't explicitly set any prior distribution. `rstanarm` 
 
 - Intercept term: $\mathcal{N}(\text{mean}(y), 2.5 \times sd(y))$
 
-- Sigma : $ \text{Exponential}(\frac{1}{sd(y)})$
+- Sigma : $\text{Exponential}(\frac{1}{sd(y)})$
 
 ```{r}
 
@@ -723,7 +723,7 @@ We can also plot the prior and posterior distributions for comparison:
 posterior_vs_prior(bayesian_model)
 ```
 
-The default priors in `rstanarm` often work very well, but we can experiment with adjusting them to see how it impacts our results. Take a look at what changes if we modify the prior on `percent_pop` to $\mathcal{N}(0, \frac{sd(y)}{sd(x)}$ instead of $\mathcal{N}(0, 2.5 \times \frac{sd(y)}{sd(x)}$. This implies that we have a somewhat stronger belief that the actual coefficient for this variable is zero. 
+The default priors in `rstanarm` often work very well, but we can experiment with adjusting them to see how it impacts our results. Take a look at what changes if we modify the prior on `percent_pop` to $\mathcal{N}(0, \frac{sd(y)}{sd(x)})$ instead of $\mathcal{N}(0, 2.5 \times \frac{sd(y)}{sd(x)})$. This implies that we have a somewhat stronger belief that the actual coefficient for this variable is zero. 
 
 ```{r}
 
