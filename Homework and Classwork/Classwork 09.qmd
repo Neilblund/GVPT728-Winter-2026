@@ -1,0 +1,348 @@
+---
+title: "Classwork 09"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+
+# Packages
+
+
+```{r}
+library(tidyverse)
+library(broom)
+library(DeclareDesign)
+library(dagitty)
+library(ggdist)
+```
+
+# Declare Design
+
+[Declare Design](https://declaredesign.org/r/declaredesign/index.html) is a package for designing and testing research designs under the potential outcomes framework. We'll be exploring some of the basic functions here to generate simulated experimental data.
+
+
+If you're interested in reading more about the package, you can check out the [online book](https://book.declaredesign.org/).
+
+
+## Design and measurement
+
+We'll start by creating a model and a measurement. The `declare_model` function is where we lay out our theoretical model of the population. In this example, we're setting a population size, some covariates, and an error term.
+
+The line `potential_outcomes(Y ~  1 + X *.03 + 0.5 * D + U))` lays out the actual data generating process for our outcome of interest. Note that the effect of the treatment variable `D` is `0.5`. This is what we'll be attempting to estimate from our sample.
+
+Last, we'll add a `declare_measurement` statement to specify how the observed outcome `Y` is generated:
+
+```{r}
+library(DeclareDesign)
+set.seed(1000)
+design <-
+  declare_model(
+    N = 1000,              # Sample size
+    U = rnorm(N),          # Random error
+    X = rnorm(N),          # An additional variable that impacts Y but is uncorrelated with D
+    D = rbinom(N, 1, .5),  # Our treatment variable
+    potential_outcomes(Y ~  1 + X *.03 + 0.5 * D + U, 
+                       conditions=list(D=c(0, 1))) # our potential outcomes
+   ) +
+  declare_measurement(Y = reveal_outcomes(Y ~ D))
+
+
+
+```
+
+
+Now we can create a dataset using the `draw_data` function. Take a second to explore the data frame to get a sense of what each column represents. Note that `Y_D_1` and `Y_D_0` are our potential outcomes, and we only observe one of these in `Y` depending on the treatment assignment `D`:
+
+
+```{r}
+
+data<-draw_data(design)
+data
+
+```
+
+
+The "true" average treatment effect is represented by the difference in each unit's potential outcome:
+
+```{r}
+
+ate<-data$Y_D_1 - data$Y_D_0
+
+mean(ate)
+
+```
+
+With this setup, we can see how close a regression model comes to correctly estimating the treatment effect of D on Y:
+
+```{r}
+
+model<-lm(Y ~ D, data= data)
+tidy(model)
+
+
+```
+
+We can go a step further and see how well a regression performs across repeated samples.
+
+```{r}
+
+
+experiments<-replicate(100, coef(lm(Y ~ D, data= draw_data(design)))[2] )
+tidy(summary(experiments))
+
+```
+
+
+## Estimators and estimands
+
+
+To make full use of our results here, we can use `declare_inquiry` to specify the thing we're actually hoping to measure (the estimand) and use `declare_estimator` to specify the model we'll be using to measure it.
+
+We'll set our `declare_inquiry` to estimate the average treatment effect, and we'll declare our estimator to be a linear model that regresses `Y ~ D`.
+
+
+```{r}
+design <-
+  declare_model(
+    N = 1000,              # Sample size
+    U = rnorm(N),          # Random error
+    X = rnorm(N),          # An additional variable that impacts Y but is uncorrelated with D
+    D = rbinom(N, 1, .5),  # Our treatment variable
+    potential_outcomes(Y ~  1 + X *.03 + 0.5 * D + U, 
+                       conditions=list(D=c(0, 1))) # our potential outcomes
+   ) +
+  declare_measurement(Y = reveal_outcomes(Y ~ D)) + 
+  declare_inquiry(ATE = mean(Y_D_1 - Y_D_0)) +
+  declare_estimator(Y ~ D , inquiry="ATE")
+
+```
+
+The `run_design` function will now give us the result of a single iteration of drawing a sample and then evaluating the results:
+
+```{r}
+result<-run_design(design)
+result
+
+
+```
+
+Running `diagnose_design` will repeat this simulation hundreds of times, and give us a full range of diagnostic results for our design strategy:
+
+```{r}
+
+result<-diagnose_design(design)
+
+tidy(result)
+
+```
+
+
+## Sampling
+
+The `declare_model` function allows us to establish population parameters, but in practice we're generally sampling from some larger population. We can use `declare_sampling` to simulate different sampling strategies. For this example, we'll just use a simple random sampling approach where we take 200 observations from the population. Note that this shouldn't introduce additional bias, but it will have the effect of reducing the statistical power of our research design:
+
+```{r}
+design <-
+  declare_model(
+    N = 1000,              # Sample size
+    U = rnorm(N),          # Random error
+    X = rnorm(N),          # An additional variable that impacts Y but is uncorrelated with D
+    D = rbinom(N, 1, .5),  # Our treatment variable
+    potential_outcomes(Y ~  1 + X *.03 + 0.5 * D + U, 
+                       conditions=list(D=c(0, 1))) # our potential outcomes
+   ) +
+  declare_measurement(Y = reveal_outcomes(Y ~ D)) + 
+  declare_inquiry(ATE = mean(Y_D_1 - Y_D_0)) +
+  declare_estimator(Y ~ D , inquiry="ATE") + 
+  declare_sampling(S = complete_rs(N=N, n = 200))
+
+diagnose_design(design)|>
+  tidy()
+
+
+
+
+```
+
+
+## Collider bias
+
+There's a general tendency to assume that additional controls will make the estimates less biased, but controlling for a collider in a model will generally make our estimates worse rather than better. We'll run a simulation to show how this might work.
+
+We've got a DAG that looks something like this:
+
+```{r}
+library(dagitty)
+dag<-dagitty('dag {
+D -> X2
+D -> Y
+X1 -> X2
+X1 -> Y
+}')
+
+plot(dag)
+```
+Note the paths here from D to Y:
+
+- D -> Y
+- D -> X2 <- X1 -> Y
+
+Path 2 has a collision on `-> X2 <-`. So, if we condition on this variable we should expect to see more rather than less bias in our estimate of the effect of D on Y. We'll try setting this up in Declare Design:
+
+```{r}
+
+collider_design <-
+  declare_model(
+    N = 1000,              # Sample size
+    U = rnorm(N),          # Random error
+    D = rbinom(N, 1, .5),  # Our treatment variable
+    X1 = rnorm(N), 
+    X2 = D + X1 ,
+    potential_outcomes(Y ~  1  + .5 * D + X1 +  U, 
+                       conditions=list(D=c(0, 1))), # our potential outcomes
+
+    ) +
+  declare_measurement(Y = reveal_outcomes(Y ~ D)) + 
+  declare_inquiry(ATE = mean(Y_D_1 - Y_D_0)) +
+  declare_sampling(S = complete_rs(N=N, n = 200)) 
+
+
+
+
+
+```
+
+
+We can see how this impacts our results for a single draw:
+
+```{r}
+set.seed(999)
+data<-draw_data(collider_design)
+lm(Y ~ D ,  data=data)
+lm(Y ~ D + X2, data=data)
+
+```
+
+
+Now we'll try adding two different versions of our estimator to the design object, and then we'll check the bias across 500 simulations:
+
+
+```{r}
+
+collider_design <- collider_design + 
+  declare_estimator(Y ~ D , inquiry="ATE", label='No control for X') +
+  declare_estimator(Y ~ D + X2 , inquiry="ATE", label='Control for X')
+
+result<-diagnose_design(collider_design)
+
+
+# formatting for readability...
+tidy(result)|>
+  select(estimator, diagnosand, estimate)|>
+  pivot_wider(names_from = diagnosand, values_from=estimate)
+
+```
+
+
+
+We get unbiased estimates of the average treatment effect in the uncontrolled model, but including a control for `X2` gives us a statistically significant estimated effect in the opposite direction of the actual treatment effect! 
+
+```{r, cache=TRUE}
+
+estimates<-replicate(500, draw_estimates(collider_design), simplify=FALSE)
+
+estimates|>
+  bind_rows()|>
+  ggplot(aes(x=estimate,  fill=estimator)) + 
+  stat_halfeye() +
+  geom_vline(xintercept=.5, lty=2) +
+  theme_bw()
+
+```
+
+
+
+
+
+## Regression with non-linear confounding
+
+
+We'll set up a case where there's a relatively simple confounding relationship between two variables:
+
+
+```{r}
+
+
+confounder_design <-
+  declare_model(
+    N = 1000,              # Sample size
+    U = rnorm(N),          # Random error
+    X = rnorm(N),          # a confounder
+    D = rbinom(N, 1, (X + rlogis(N)) > 0),  # Our treatment variable
+    potential_outcomes(Y ~  1  + .5 * D + X +  U, 
+                       conditions=list(D=c(0, 1))), # our potential outcomes
+
+    ) +
+  declare_measurement(Y = reveal_outcomes(Y ~ D)) + 
+  declare_inquiry(ATE = mean(Y_D_1 - Y_D_0)) +
+  declare_sampling(S = complete_rs(N=N, n = 200))  +
+  declare_estimator(Y ~ D , inquiry="ATE", label='No control for X') +
+  declare_estimator(Y ~ D + X, inquiry="ATE", label='Control for X')
+
+
+diagnose_design(confounder_design)|>
+  tidy()
+
+  
+  
+```
+
+When the confounder has a straightforward linear relationship to the outcome, adding it as a control variable can address the confounding.
+
+By contrast, we can look at a case where the effect of the confounder is some non-linear function: 
+
+```{r}
+
+confounder_design <-
+  declare_model(
+    N = 1000,              # Sample size
+    U = rnorm(N),          # Random error
+    X = rnorm(N),          # a confounder
+    D = rbinom(N, 1, (X + rlogis(N)) > 0),  # Our treatment variable
+    potential_outcomes(Y ~  1  + .5 * D + 3 * exp(X) + -1 * X +  U, 
+                       conditions=list(D=c(0, 1))), # our potential outcomes
+
+    ) +
+  declare_measurement(Y = reveal_outcomes(Y ~ D)) + 
+  declare_inquiry(ATE = mean(Y_D_1 - Y_D_0)) +
+  declare_sampling(S = complete_rs(N=N, n = 200))  +
+  declare_estimator(Y ~ D , inquiry="ATE", label='No control for X') +
+  declare_estimator(Y ~ D + X, inquiry="ATE", label='Control for X')
+
+
+result<-diagnose_design(confounder_design)
+
+tidy(result)|>
+  select(estimator, diagnosand, estimate)|>
+  pivot_wider(names_from = diagnosand, values_from=estimate)
+
+```
+
+
+Note that, in this case, we still have a substantial bias even when we include a control for X. In linear models, it may not always be sufficient to include a control, we'll also need to specify the correct model for the relationship between the confounder and the outcome.
+
+
