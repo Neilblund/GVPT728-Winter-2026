@@ -727,7 +727,6 @@ The default priors in `rstanarm` often work very well, but we can experiment wit
 
 ```{r}
 
-prior<-normal(0, 1, autoscale=TRUE, coef ='percent_pop')
 
 bayesian_model2<-stan_glm(outcome ~ percent_pop + state_support, data=navco,   
                        family = binomial(link = "logit"),
