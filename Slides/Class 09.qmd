@@ -4,7 +4,7 @@ date: last-modified
 author: Neil Lund
 format:
   revealjs:
-    theme: [moon, custom_styles]
+    theme: [clean, moon]
     width: 1280
     height: 720
     df-print: tibble
@@ -16,9 +16,6 @@ format:
     self-contained: true
     mermaid:
       theme: forest
-filters:
-  - reveal-header
-  - pseudocode
 code-annotations: select
 slide-level: 3
 execute:
