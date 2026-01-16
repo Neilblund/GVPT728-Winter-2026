@@ -2,7 +2,7 @@
 title: "Matching"
 format:
   revealjs:
-    theme: [moon, custom_styles]
+    theme: [clean, moon]
     width: 1280
     height: 720
     df-print: tibble
@@ -10,13 +10,9 @@ format:
     smaller: true
     slide-number: true
     header: 
-    header-logo: images/informal_seal_transparent.webp
     self-contained: true
     mermaid:
       theme: forest
-filters:
-  - reveal-header
-  - pseudocode
 code-annotations: select
 slide-level: 3
 execute:
@@ -52,6 +48,381 @@ overflow-y: scroll;
   });
 </script>
 ```
+
+# Matching and subclassification
+
+The experimental ideal allows us to assume this:
+
+$$Y_i(0), Y_i(1), X_i \mathrel{\unicode{x2AEB}} D_i$$ But we could theoretically get the average treatment effect if we can assume that the assignment is **conditionally** independent of expected outcomes.
+
+$$Y_i(0), Y_i(1) \mathrel{\unicode{x2AEB}} D_i |  X_i$$
+
+Regression controls attempt to meet this more relaxed condition, but methods like matching and subclassification may be able to do so more flexibly.
+
+# Subclassification
+
+| Smoking group | Canada |  UK  |  US  |
+|---------------|:------:|:----:|:----:|
+| Non-smokers   |  20.2  | 11.3 | 13.5 |
+| Cigarettes    |  20.5  | 14.1 | 13.5 |
+| Cigars/pipes  |  35.5  | 20.7 | 17.4 |
+
+: Death rates per 1,000 person-years. From: [Causal Inference Mixtape Ch. 5](https://mixtape.scunning.com/05-matching_and_subclassification)
+
+## Subclassification
+
+| Smoking group | Canada | British |  US  |
+|---------------|:------:|:-------:|:----:|
+| Non-smokers   |  54.9  |  49.1   | 57.0 |
+| Cigarettes    |  50.5  |  49.8   | 53.2 |
+| Cigars/pipes  |  65.9  |  55.7   | 59.7 |
+
+: Mean ages. From: [Causal Inference Mixtape Ch. 5](https://mixtape.scunning.com/05-matching_and_subclassification)
+
+## Subclassification
+
+| Age group | Death rates | \# of Cigarette smokers | \# of Pipe or cigar smokers |
+|:-------------:|---------------|:------------------:|:---------------------:|
+| Age 20–40 | 20          |           65            |             10              |
+| Age 41–70 | 40          |           25            |             25              |
+| Age \>71  | 60          |           10            |             65              |
+|   Total   |             |           100           |             100             |
+
+: Death rates by age and smoking. From From: [Causal Inference Mixtape Ch. 5](https://mixtape.scunning.com/05-matching_and_subclassification)
+
+## Subclassification
+
+:::::: columns
+::: {.column width="50%"}
+| Age group | Death rates | \# of Cigarette smokers | \# of Pipe or cigar smokers |
+|:-------------:|---------------|:------------------:|:---------------------:|
+| Age 20–40 | 20          |           65            |             10              |
+| Age 41–70 | 40          |           25            |             25              |
+| Age \>71  | 60          |           10            |             65              |
+|   Total   |             |           100           |             100             |
+
+: Death rates by age and smoking. From From: [Causal Inference Mixtape Ch. 5](https://mixtape.scunning.com/05-matching_and_subclassification)
+:::
+
+:::: {.column width="50%"}
+The un-adjusted death rate for cigarette smokers is:
+
+$$
+20 \times \frac{65}{100} + 40 \times \frac{25}{100} + 60 \times \frac{10}{100} = 29
+$$
+
+::: fragment
+Their age-adjusted death rate is:
+
+$$
+20 \times \frac{10}{100} + 40 \times \frac{25}{100} + 60 \times \frac{65}{100} = 51
+$$
+:::
+::::
+::::::
+
+## The area of common support
+
+-   Subclassification is one way to adjust for differences using weighting, but there are some limitations here: what happens if I try to adjust for additional confounders? Or I try to group subjects into smaller age ranges?
+
+| Age and Gender | Death rates | \# of Cigarette smokers | \# of Pipe or cigar smokers |
+|:--------------:|----------------|:-----------------:|:--------------------:|
+| Age 20 M | 0 | 10 | \- |
+| Age 20 F | 1 | \- | 1 |
+| Age 21 M | 3 | 1 | \- |
+| Age 21 F | 0 | 7 | 2 |
+| Age 22 M | 0 | \- | 2 |
+| Age 22 F | 1 | 9 | 1 |
+| ... | ... | ... | ... |
+
+. . .
+
+We don't have any way to "re-weight" the death rates at some values because there's no data in one side or another.
+
+Methods like subclassification only work when there's sufficient overlap between treated and control units. This is sometimes referred to as the "area of common support" assumption.
+
+## The area of common support and ATT
+
+-   One way to mitigate the common support problem is to estimate the ATT instead of the ATE. If the missing data only appear in the treatment category, then we can still re-weight all of the non-zero treated units and recieve a valid ATT estimate:
+
+| Age and Gender | Death rates | \# of Cigarette smokers | \# of Pipe or cigar smokers |
+|:--------------:|----------------|:-----------------:|:--------------------:|
+| Age 20 M | 0 | 10 | 1 |
+| Age 20 F | 1 | \- | 1 |
+| Age 21 M | 3 | 1 | 1 |
+| Age 21 F | 0 | 7 | 2 |
+| Age 22 M | 0 | \- | 2 |
+| Age 22 F | 1 | 9 | 1 |
+| ... | ... | ... | ... |
+
+. . .
+
+Note that, in some conditions, the ATT is a more sensible estimand anyways: everyone won't necessarily take the "treatment"!
+
+# Matching
+
+Matching is an related method for addressing confounding. In the simplest matching models, we would try to find identify control units with the similar values of all confounders for every treated unit, then compare results.
+
+. . .
+
+$$
+\text{ATT} = \frac{1}{N_T}\sum_{D_i=1} (Y_i - Y_j(i))
+$$ (Where $Y_j(i)$ is the matching unit for $Y_i$)
+
+If the conditional independence assumption holds, then the average difference between the treated unit and its matched control should be equal to the difference in potential outcomes for the treated units.
+
+## Matching
+
+In cases where we have more than one match for a single treatment unit, we can average over the matches:
+
+$$
+\text{ATT} = \frac{1}{N_T}\sum_{D_i=1} (Y_i -\left[\frac{1}{M} \sum^M_{m=1} Y_{j_m(1)} \right]
+$$ ... Where $M$ represents the number of matching units for $Y_i$
+
+## Matching
+
+Moreover, we *can* still estimate the ATE with this approach by finding counterfactuals for all treated and control units.
+
+$$
+{ATE} = \dfrac{1}{N} \sum_{i=1}^N (2D_i - 1) \bigg [ Y_i - \bigg ( \dfrac{1}{M} \sum_{m=1}^M Y_{j_m(i)} \bigg ) \bigg ]
+$$
+
+## Matching
+
+...So how do we identify matching units? In most studies, "exact" matching is ideal, but unfeasible because of that common support requirement (especially when we want to adjust for continuous confounders like age)
+
+. . .
+
+But we can use various methods to find *similar* units instead of exact matches.
+
+## Approximate Matching
+
+For instance, we might use the Euclidean distance to compare vectors of covariates, then find the nearest match for each "point" (this is called nearest neighbor matching)
+
+```{r}
+library(ggplot2)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Create 10 data points
+df <- data.frame(
+  x = runif(10, 0, 10),
+  y = runif(10, 0, 10),
+  color = rep(c("red", "black"), each = 5)
+)
+
+# Function to find nearest black point for each red point
+find_nearest <- function(df) {
+  red_points <- df[df$color == "red", ]
+  black_points <- df[df$color == "black", ]
+  
+  arrows <- data.frame()
+  
+  for (i in 1:nrow(red_points)) {
+    # Calculate distances to all black points
+    distances <- sqrt((red_points$x[i] - black_points$x)^2 + 
+                     (red_points$y[i] - black_points$y)^2)
+    
+    # Find nearest black point
+    nearest_idx <- which.min(distances)
+    
+    # Create arrow data
+    arrows <- rbind(arrows, data.frame(
+      x = red_points$x[i],
+      y = red_points$y[i],
+      xend = black_points$x[nearest_idx],
+      yend = black_points$y[nearest_idx]
+    ))
+  }
+  
+  return(arrows)
+}
+
+# Get arrow coordinates
+arrows_df <- find_nearest(df)
+
+# Adjust arrow endpoints to stop before the points
+point_radius <- 0.15  # Adjust this to match your point size
+arrows_df_adjusted <- arrows_df
+for (i in 1:nrow(arrows_df_adjusted)) {
+  # Calculate direction vector
+  dx <- arrows_df$xend[i] - arrows_df$x[i]
+  dy <- arrows_df$yend[i] - arrows_df$y[i]
+  distance <- sqrt(dx^2 + dy^2)
+  
+  # Shorten from both ends
+  arrows_df_adjusted$x[i] <- arrows_df$x[i] + (dx/distance) * point_radius
+  arrows_df_adjusted$xend[i] <- arrows_df$xend[i] - (dx/distance) * point_radius
+  arrows_df_adjusted$y[i] <- arrows_df$y[i] + (dy/distance) * point_radius
+  arrows_df_adjusted$yend[i] <- arrows_df$yend[i] - (dy/distance) * point_radius
+}
+
+# Create plot
+ggplot(df, aes(x = x, y = y)) +
+  geom_segment(data = arrows_df_adjusted, 
+               aes(x = x, y = y, xend = xend, yend = yend),
+               arrow = arrow(length = unit(0.3, "cm")),
+               color = "gray50",
+               linewidth = 0.5) +
+  geom_point(aes(color = color), size = 4) +
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "Nearest neighbor matching using Euclidean distance",
+       x = "X1",
+       y = "X2") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+## Approximate Matching
+
+(Many nearest-neighbor matching studies will use the Mahalanobis distance instead, which is a metric that accounts for correlations between covariates)
+
+```{r}
+
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Create 10 data points
+df <- data.frame(
+  x = runif(10, 0, 10),
+  y = runif(10, 0, 10),
+  color = rep(c("red", "black"), each = 5)
+)
+
+# Function to find nearest black point for each red point using Mahalanobis distance
+find_nearest <- function(df) {
+  red_points <- df[df$color == "red", ]
+  black_points <- df[df$color == "black", ]
+  
+  # Calculate covariance matrix from all points
+  all_coords <- df[, c("x", "y")]
+  cov_matrix <- cov(all_coords)
+  
+  arrows <- data.frame()
+  
+  for (i in 1:nrow(red_points)) {
+    # Calculate Mahalanobis distances to all black points
+    red_coord <- as.numeric(red_points[i, c("x", "y")])
+    
+    distances <- apply(black_points[, c("x", "y")], 1, function(black_coord) {
+      diff <- red_coord - black_coord
+      sqrt(t(diff) %*% solve(cov_matrix) %*% diff)
+    })
+    
+    # Find nearest black point
+    nearest_idx <- which.min(distances)
+    
+    # Create arrow data
+    arrows <- rbind(arrows, data.frame(
+      x = red_points$x[i],
+      y = red_points$y[i],
+      xend = black_points$x[nearest_idx],
+      yend = black_points$y[nearest_idx]
+    ))
+  }
+  
+  return(arrows)
+}
+
+# Get arrow coordinates
+arrows_df <- find_nearest(df)
+
+# Adjust arrow endpoints to stop before the points
+point_radius <- 0.15  # Adjust this to match your point size
+arrows_df_adjusted <- arrows_df
+for (i in 1:nrow(arrows_df_adjusted)) {
+  # Calculate direction vector
+  dx <- arrows_df$xend[i] - arrows_df$x[i]
+  dy <- arrows_df$yend[i] - arrows_df$y[i]
+  distance <- sqrt(dx^2 + dy^2)
+  
+  # Shorten from both ends
+  arrows_df_adjusted$x[i] <- arrows_df$x[i] + (dx/distance) * point_radius
+  arrows_df_adjusted$xend[i] <- arrows_df$xend[i] - (dx/distance) * point_radius
+  arrows_df_adjusted$y[i] <- arrows_df$y[i] + (dy/distance) * point_radius
+  arrows_df_adjusted$yend[i] <- arrows_df$yend[i] - (dy/distance) * point_radius
+}
+
+# Create plot
+ggplot(df, aes(x = x, y = y)) +
+  geom_segment(data = arrows_df_adjusted, 
+               aes(x = x, y = y, xend = xend, yend = yend),
+               arrow = arrow(length = unit(0.3, "cm")),
+               color = "gray50",
+               linewidth = 0.5) +
+  geom_point(aes(color = color), size = 4) +
+  scale_color_identity() +
+  theme_minimal() +
+  labs(title = "Nearest neighbor matching using Mahalanobis distance",
+       x = "X1",
+       y = "X2") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+## Approximate Matching
+
+The variations here are practically endless:
+
+- For nearest neighbor matching, we might increase or decrease the number of matches permitted for each unit.
+
+- We might also limit the distance between matched units so that, if nothing is close enough, we discard that match entirely.
+
+- We might pair an approximate matching method with additional weighting methods to account for dissimilarities between pairs.
+
+## Propensity scores
+
+Instead of matching on values themselves, propensity score methods either re-weight or match observations based on a predicted propensity to receive treatment:
+
+-   Estimate a model to predict **being in the treatment group**
+-   Then either: 
+     - Weight cases based on their inverse probability of treatment.
+     - Match based on similar propensities (although this is now considered [bad practice](https://gking.harvard.edu/publications/why-propensity-scores-should-not-be-used-formatching))
+
+
+## Propensity scores: inverse probability weighting
+
+![From: https://www.andrewheiss.com/blog/2024/03/21/demystifying-ate-att-atu/](images/fig-propensity-treated-untreated-1.png)
+
+## Propensity scores: inverse probability of treatment
+
+![From: https://www.andrewheiss.com/blog/2024/03/21/demystifying-ate-att-atu/](images/fig-propensity-weighted-ate-1.png)
+
+
+
+
+## Propensity scores
+
+In practice propensity scores are often completely fine, but theoretically they can actually worsen bias if the treatment selection process isn't modeled correctly. Other methods are more robust to this kind of mis-specification.
+
+
+## Coarsened Exact Matching
+
+Coarsened exact matching works by:
+
+::::: {.columns}
+::: {.column width="50%"}
+::: incremental
+-   "Coarsening" the variables, prune unmatched observations (usually requires some user-input)
+-   Conduct exact matching on the coarsened results
+-   Reweight as needed to match groups
+:::
+
+:::
+::: {.column width="50%"}
+
+
+![](https://miro.medium.com/v2/resize:fit:1400/1*6p01hxNrmMiJ25-o_AeNoQ.png)
+
+:::
+:::::
+
+
+
+
 
 ```{r, include=FALSE}
 
@@ -166,9 +537,9 @@ The treatment group differed from the general population in their expected **pot
 
 $$\underbrace{E[Y_i(1) - Y_i(0)|D_i=1]}_\text{job training effect} +  \underbrace{E[Y_i(0)|D_i=1] - E[Y_i(0)|D_i=0]}_\text{differences between applicants and non-applicants}$$
 
-# Observed Imbalance
+## Observed Imbalance
 
-```{r, fig.width=12}
+```{r, fig.width=10}
 library(gtsummary)
 
 ll2<-lalonde.exp|>
@@ -208,7 +579,7 @@ tab|>
     as_kable_extra(booktabs = TRUE) |>
   # reduce font size to make table fit. 
   # you may also use the `latex_options = "scale_down"` argument here.
-  kableExtra::kable_styling(font_size = 35)
+  kableExtra::kable_styling(font_size = 16)
 
 ```
 
@@ -251,6 +622,7 @@ digraph mrdag {
 ## Imbalance
 
 ```{r, echo=TRUE}
+#| output-location: column
 
 dataFunction<-function(){
   N<-1000
@@ -299,20 +671,8 @@ modelsummary(list('no controls'=ols, 'ols + control' =ols_control),
 
 ```
 
-# Matching
-
-The experimental ideal allows us to assume this:
-
-$$Y_i(0), Y_i(1), X_i \mathrel{\unicode{x2AEB}} D_i$$ But we could theoretically get the average treatment effect if we can assume that the assignment is **conditionally** independent of expected outcomes.
-
-$$Y_i(0), Y_i(1) \mathrel{\unicode{x2AEB}} D_i |  X_i$$Both matching and regression methods attempt to meet this more relaxed condition, but the former can potentially do so more flexibly.
 
 ## Exact matching
-
--   Match groups with the **exact same** values, discarding levels of the predictor without at least one treated and one control unit.
--   re-weight each strata so that the treatment and control groups are similar
-
-### Exact matching
 
 ```{r, echo=FALSE}
 
@@ -334,6 +694,8 @@ md<-tibble('education'= factor(matched$X$education),
   arrange(treatment, education)
 
 
+
+
 ggplot(md, aes(x=education, 
                          y=income, 
                          size = weight,
@@ -349,7 +711,7 @@ ggplot(md, aes(x=education,
 
 ```
 
-### Exact matching
+## Exact matching
 
 ```{r}
 
@@ -368,9 +730,9 @@ ggplot(combined, aes(x = group, y = Y1, fill = treatment)) +
 
 ```
 
-### Exact matching
+## Exact matching
 
-Exact matching on education, however, actually does get us much closer to the true average treatment effect
+Exact matching on education gets us close to the correct answer:
 
 ```{r, echo=T}
 
@@ -394,11 +756,16 @@ modelsummary(list('no controls'=ols,
 
 ```
 
-### Exact matching
+## Exact matching
 
 In repeated simulations, the exact matching estimates are unbiased and have only slightly more variance than the actual average treatment effect:
 
+::::: {.columns}
+::: {.column width="50%"}
 ```{r, echo=TRUE}
+
+
+
 set.seed(999)
 fun<-function(){
   df <- dataFunction() # re-using the data generating function
@@ -426,8 +793,8 @@ results<-replicate(500, fun(), simplify = F)|>
 
 
 ```
-
-### Exact matching
+:::
+::: {.column width="50%"}
 
 ```{r}
 ggplot(results, aes(x=value, fill=name, y=name)) + 
@@ -439,29 +806,22 @@ ggplot(results, aes(x=value, fill=name, y=name)) +
 
 ```
 
-### Exact matching: limitations
+:::
+:::::
 
-In practice, exact matching is not feasible for most data. Most real world data sets will have few, if any, exact matches on multiple characteristics. (think about trying to do this with a continuous covariate!)
 
-## Propensity score matching
 
-Instead of matching on values, PSM matches observations with similar probabilities of receiving treatment.
-
--   Estimate a model to predict being in the treatment group
--   Group values with similar treatment probabilities
--   Reweight the model so that the treated and control groups are similar
--   Normally, discard observations outside of the "area of common support" where significant overlap exists.
-
-### Propensity score matching
+## Propensity scores
 
 ```{r, echo=T}
 
 
 matched<-matchit(treated ~ education ,data=df, 
-                 method='nearest' ,
-                 ratio = 2,
-                 distance = 'glm')
+                 method ='nearest',
+                 replace=TRUE,
+                 distance='glm')
 mdat<-match.data(matched)
+#nrow(mdat)
 psm_fit <- lm(income ~ treated + education , data=mdat, weights = weights)
 
 modelsummary(list('ols + control' =ols_control, 
@@ -475,7 +835,7 @@ modelsummary(list('ols + control' =ols_control,
 
 ```
 
-### Propensity scores
+## Propensity scores
 
 ```{r}
 plot(matched, type = "jitter", interactive = FALSE)
@@ -483,25 +843,11 @@ plot(matched, type = "jitter", interactive = FALSE)
 
 ```
 
-### Propensity score matching
 
-In practice propensity scores are often completely fine, but theoretically they can actually worsen bias if the treatment selection process isn't modeled correctly. Other methods are more robust to this kind of mis-specification.
 
-![](https://humboldt-wi.github.io/blog/img/seminar/mathcing_methods_1819/SN13.png)
+
 
 ## Coarsened Exact Matching
-
-::: incremental
--   "Coarsen" the variables, prune unmatched observations (usually requires some user-input)
--   Conduct exact matching on the coarsened results
--   Reweight as needed to match groups
-:::
-
-### Coarsened Exact Matching
-
-![](https://miro.medium.com/v2/resize:fit:1400/1*6p01hxNrmMiJ25-o_AeNoQ.png)
-
-### Coarsened Exact Matching
 
 ```{r, echo=T}
 matched<-matchit(treated ~ education ,data=df, method='cem' ,
@@ -527,12 +873,15 @@ modelsummary(list('ols + control' =ols_control,
 
 Methods like CEM will generally group variables together before weighting, so we would expect to see clustering within the strata, but we know how to deal with this!
 
-```{r}
+```{r, cache=TRUE}
 
 marginaleffects::avg_comparisons(cem_fit, 
                                  variables='treated', 
-                                 vcov=~subclass, 
-                                 wts='weights')
+                                 vcov='simulation',
+                                 wts='weights',
+                                 cluster= ~subclass
+                                 
+                                 )
 ```
 
 ## Takeaways
