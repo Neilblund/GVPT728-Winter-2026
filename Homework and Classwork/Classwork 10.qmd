@@ -22,6 +22,8 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
 
+
+
 # Data
 
 We'll load up the Lalonde data. Our goal here is to see if we can replicate or at least get close to the correct estimate in Lalonde's 1986 paper using observational data. According to his model, the actual effect for the job training program was a $1,794 increase in the subject's wages in 1978. 
@@ -29,6 +31,7 @@ We'll load up the Lalonde data. Our goal here is to see if we can replicate or a
 ```{r}
 library(tidyverse)
 library(MatchIt)
+library(WeightIt)
 library(gtsummary)
 library(modelsummary)
 library(GGally)
@@ -103,56 +106,73 @@ modelsummary(list("treatment only"  =mod0,
 
 
 
-## Propensity Scores
+## Mahalanobis Scores
 
-You can get propensity score matches by using `method="nearest"` and `distance='glm'`
+You can get Mahalanobis score matches by using `method="nearest"` and `distance='mahalanobis'`
 
 ```{r}
-psm_matched <- matchit(treat ~ age + educ +  married + race +
+ma_matched <- matchit(treat ~ age + educ +  married + race +
                     nodegree + re74 + re75, 
                     data = lalonde,
                     method = "nearest",
-                    distance= 'glm'
+                    distance= 'mahalanobis',
+                    replace=T,
+                    ratio=5
                   )
 
 ```
+
+
 
 Once we have our matchit object, the `Cobalt` package gives us some options for balance checking. After examining the results, you might want to go back and re-specify the model. 
 
 ```{r}
 
-bal.tab(psm_matched, thresholds = c(m = .1), un = TRUE)
+bal.tab(ma_matched, thresholds = c(m = .1), un = TRUE)
 
-bal.plot(psm_matched)
+bal.plot(ma_matched)
 
-love.plot(psm_matched)
+love.plot(ma_matched)
 
 ```
 
-Access the matched data with the `match.data` function: 
+Access the matched data with the `match_data` function: 
 
 ```{r}
 
-psm_data<-match.data(psm_matched)
+ma_data<-match_data(ma_matched)
 
-head(psm_data)
+head(ma_data)
+
+
 ```
-Then we can use the resulting balanced data in a regression model: 
+
+Note that a fairly large number of observations have been discarded here:
 
 ```{r}
 
-psm_fit<-lm(re78 ~ treat + age + educ +  married + race +nodegree + re74 + re75, 
-   data = psm_data,
+nrow(ma_data)
+
+
+```
+
+We can use the results in our regression model. Be sure to include the weights!
+
+```{r}
+
+ma_fit<-lm(re78 ~ treat + age + educ +  married + race +nodegree + re74 + re75, 
+   data = ma_data,
    weight = weights )
 ```
 
 
-Finally, we want to estimate our effects with cluster robust standard errors: 
+Finally, we want to estimate our effects with robust standard errors:
 
 ```{r}
-avg_comparisons(psm_fit,
+avg_comparisons(ma_fit,
                 variables = "treat",
-                vcov = ~subclass)
+                vcov = 'HC3'
+                )
 
 ```
 
@@ -160,13 +180,13 @@ avg_comparisons(psm_fit,
 
 
 modelsummary(list(
-                  "psm" = psm_fit
+                  "Mahalanobis" = ma_fit
                   ),
              estimate  = "{estimate}",  
              fmt = fmt_significant(),
              statistic ='conf.int',
              conf_level = .95,
-             vcov =~subclass,
+             vcov ='HC3',
              gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.', # remove some model stats 
              # add a title
              title = "DV: Wages"
@@ -220,12 +240,13 @@ love.plot(cem_match)
 
 ```
 
-Finally, we'll want to use the `match.data` function to extract the matched data and then estimate our model with the weights included: 
+Finally, we'll want to use the `match_data` function to extract the matched data and then estimate our model with the weights included: 
 
 ```{r}
 
 
-cem_data<-match.data(cem_match)
+cem_data<-match_data(cem_match)
+
 
 cem_fit <- lm(re78 ~ 
             treat + age + educ + married + re74 +re75+
@@ -238,21 +259,21 @@ cem_fit <- lm(re78 ~
 
 ```{r}
 
-avg_comparisons(cem_fit, variables = "treat", vcov = ~subclass)
+avg_comparisons(cem_fit, variables = "treat", vcov ='HC3', cluster=~subclass)
 
 ```         
 
 ```{r}
 
 modelsummary(list(
-                  "psm" = psm_fit,
-                  "cem" = cem_fit
+                   "Mahalanobis" = ma_fit,
+                  "Coarsened" = cem_fit
                   ),
              estimate  = "{estimate}",  
              fmt = fmt_significant(),
              statistic ='conf.int',
              conf_level = .95,
-             vcov =~subclass,
+             vcov ='HC3',
              gof_omit = 'F|RMSE|R2$|AIC|Log.Lik.', # remove some model stats 
              # add a title
              title = "DV: Wages"
@@ -262,13 +283,65 @@ modelsummary(list(
 
 
 
-# Question
 
-See if you can improve on the CEM matching used above. 
+##  Inverse probability weighting
+
+Finally, we can try using inverse probability weighting on the propensity scores instead of matching. Here's how we might do that using mostly base R functions:
+
 
 ```{r}
 
-# your code
+# Step 1: Estimate propensity scores
+fit1 <- glm(treat ~age + educ + nodegree + 
+                married + race + re74 + re75 , 
+            family = binomial, data =  lalonde)
+lalonde$propensity <- predict(fit1, type = "response")
+
+# calculate the inverse
+lalonde<-lalonde|>
+  mutate(ipw = (treat/ propensity) + ((1 - treat) / (1 - propensity)))
+
+
+
+# Step 2: Fit weighted outcome model
+
+m <- lm(re78 ~ treat , data = lalonde, weight = ipw)
+
+summary(m)
+
+avg_comparisons(m, variables = "treat", wts = lalonde$ipw, vcov = 'HC0')
+
+
 
 ```
 
+Or we can do this using the `WeightIt` package:
+
+```{r}
+W <- weightit(treat ~ age + educ + nodegree + 
+                married + race + re74 + re75, 
+              data = lalonde, method = "glm", 
+              estimand = "ATE")
+fit <- lm_weightit(re78 ~ treat, data = lalonde,
+                   weightit = W)
+
+summary(fit, ci = TRUE)
+
+```
+
+Or trying using a different weighting method:
+
+
+```{r}
+
+W <- weightit(treat ~ age + educ + nodegree + 
+                married + race + re74 + re75, 
+              data = lalonde, method = "ebal", 
+              estimand = "ATE")
+fit <- lm_weightit(re78 ~ treat, data = lalonde,
+                   weightit = W)
+
+summary(fit, ci = TRUE)
+
+avg_comparisons(fit, variables = "treat")
+```
