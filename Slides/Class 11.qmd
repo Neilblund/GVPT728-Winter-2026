@@ -1,24 +1,19 @@
 ---
 title: "Instruments"
-date: last-modified
-author: Neil Lund
 format:
   revealjs:
-    theme: [moon, custom_styles]
+    theme: [clean, moon]
     width: 1280
     height: 720
     df-print: tibble
     scrollable: true
-    smaller: true
     slide-number: true
     header: 
     header-logo: images/informal_seal_transparent.webp
     self-contained: true
     mermaid:
       theme: forest
-filters:
-  - reveal-header
-  - pseudocode
+    incremental: true
 code-annotations: select
 slide-level: 3
 execute:
@@ -152,7 +147,7 @@ digraph {
 
 ## Unobserved Confounding: protest and change
 
-Bad weather decreases protest turnout, but it should be uncorrelated with public or elite opinion. T
+Bad weather decreases protest turnout, but it should be uncorrelated with public or elite opinion.
 
 ```{dot}
 //| echo: false
@@ -177,7 +172,7 @@ digraph {
 
 # Imperfect Instruments
 
-The instrument is correlated with our "treatment" of protest turnout, but its not a perfect correlation b because some people protest in bad weather. So how does this impact our results? This can be analogous to a situation that occurs in true randomized experiments.
+The instrument is correlated with our "treatment" of protest turnout, but its not a perfect correlation because some people protest in bad weather. So how does this impact our results? This can be analogous to a situation that occurs in true randomized experiments.
 
 ![](images/protest_rain.jpeg)
 
@@ -364,7 +359,7 @@ ggplot(aes(x=value, fill=name, y=name)) +
 
 ::::: columns
 ::: {.column width="50%"}
--   What if non-compliance is *caused by* the intent to treat? For instance: what if people knocking at your door, rather than actually speaking to a canvasser, causes you to go vote?
+-   What if non-compliance is *caused by* the intent to treat itself? For instance: what if people knocking at your door, rather than actually speaking to a canvasser, causes you to go vote?
 
 -   Under this condition, the treatment works through both the canvassing effect and the effect of assignment. CACE is conditioning on a collider:
 
@@ -394,6 +389,10 @@ digraph {
 ```
 :::
 :::::
+
+. . .
+
+So, this strategy only works if we can be sure that there are no defiers.
 
 ### Back to instrumental variables
 
@@ -438,8 +437,8 @@ digraph {
 ### Assumptions
 
 ::: incremental
-1.  The instrument must have an effect on the causal variable of interest. The stronger the better.
-2.  The instrument should be random or conditionally random with respect to the causal variable and the outcome
+1.  Relevance: The instrument must have an effect on the causal variable of interest. The stronger the better. 
+2.  Exogeneity: The instrument should be random or conditionally random with respect to the causal variable and the outcome
 3.  Exclusion restriction: The instrument has no effect on the outcome, except indirectly through the treatment
 4.  Monotonicity: the instrument needs to operate in the same "direction". If some people love to protest in the rain, then we have a problem.
 :::
@@ -500,13 +499,248 @@ digraph {
 
 ## Fox viewership and Covid
 
+::::: {.columns}
+::: {.column width="50%"}
 -   Ash et al: did Fox News make people less likely to social distance?
 
 -   Cable News viewership obviously self-directed and reflects preferences
 
+:::
+::: {.column width="50%"}
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Conservatism"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    D[label="Fox Viewership"]
+    Y[label="Social distancing"]
+    D -> Y [minlen=4]
+    U -> D, Y 
+    { rank = same; D Y }
+}
+```
+
+:::
+:::::
+
+
+
+
+
 ### Fox viewership and Covid
 
-![](images/foxnews.png)
+::::: {.columns}
+::: {.column width="50%"}
+
+- Channel position in the cable lineup is *correlated* with viewership.
+
+- Channel positions are probably not correlated with the potential confounders in the Fox News viewership DAG.
+
+
+:::
+::: {.column width="50%"}
+![](images/fnc_position.png)
+
+
+:::
+:::::
+
+
+### Fox viewership and Covid
+
+::::: {.columns}
+::: {.column width="50%"}
+
+- If channel position is exogenous, then it only impacts social distancing through its effect on Fox viewership.
+
+
+:::
+::: {.column width="50%"}
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    U[label="Conservatism"]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    I[label="Channel position"]
+    D[label="Fox Viewership"]
+    Y[label="Social distancing"]
+    D -> Y [minlen=4]
+    U -> D, Y 
+    I -> D
+    { rank = same; D Y }
+}
+```
+
+:::
+:::::
+
+
+### Fox viewership and Covid
+
+
+::::: {.columns}
+::: {.column width="50%"}
+
+- A one standard deviation increase in FNC position leads to about 11 extra minutes per week of viewership
+
+- This increase is also associated with an average of:
+  - 3.5 extra minutes outside per day
+  - 0.3 extra km per day, and
+  - \$106 in Covid related spending per week.
+
+
+:::
+::: {.column width="50%"}
+![](images/urn_cambridge.org_id_binary_20240305114907928-0029_S1047198723000219_S1047198723000219_fig1.png)
+
+:::
+:::::
+
+
+
+## Bad instruments
+
+::::: {.columns}
+::: {.column width="50%"}
+
+- Claim: average national-level IQ is a cause of economic growth.
+
+:::
+::: {.column width="50%"}
+![](images/mankind_quarterly.png)
+:::
+:::::
+
+
+
+
+### Bad instruments
+
+::::: {.columns}
+::: {.column width="50%"}
+
+- IQ is confounded because growth also makes people smarter.
+
+- You can't really "control" for this kind of confounding, because the confounder is the dependent variable itself.
+
+
+:::
+::: {.column width="50%"}
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    D[label="IQ"]
+    Y[label="Economic growth"]
+    D -> Y [minlen=4]
+    Y -> D
+    { rank = same; D Y }
+}
+
+```
+
+:::
+:::::
+
+
+
+### Bad instruments
+
+::::: {.columns}
+::: {.column width="50%"}
+
+::: {.nonincremental}
+- The authors used several instrumental variables models to attempt to bolster the argument, including average UV radiation in 1500.
+
+
+:::
+:::
+::: {.column width="50%"}
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+
+digraph {
+    graph [rankdir=TB]
+    node [shape =oval style=dashed]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    I[label="UV Radiation"]
+    D[label="IQ"]
+    Y[label="Economic growth"]
+    D -> Y [minlen=4]
+    Y -> D
+    I -> D
+    { rank = same; D Y }
+}
+
+```
+
+
+:::
+:::::
+
+### Bad instruments
+
+::::: {.columns}
+::: {.column width="50%"}
+
+::: {.nonincremental}
+
+- The problem is that UV radiation is probably not: 
+  - Relevant: because there's not much evidence to link it to IQ.
+  - Exogenous: because UV radiation is directly and indirectly linked to things like labor productivity, agricultural output, colonization etc that cause growth.
+
+:::
+
+:::
+::: {.column width="50%"}
+
+::: fragment 
+
+```{dot}
+//| echo: false
+//| fig-height: 5
+//| fig-width: 5
+
+digraph {
+    graph [rankdir=LR]
+    node [shape =oval style=dashed]
+    node [shape=box, height=0.3, width=0.3, style=solid]
+    I[label="UV Radiation"]
+    D[label="IQ"]
+    Y[label="Economic growth"]
+    D -> Y [minlen=4]
+    Y -> D
+    I -> Y
+    { rank = same; D Y }
+
+}
+
+```
+
+:::
+
+:::
+:::::
 
 
 
