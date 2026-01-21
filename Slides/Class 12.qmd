@@ -460,17 +460,21 @@ The difference-in-difference model is **often generalized\*** to multiple groups
 
 $$
 \hat{Y}_{gt} = \alpha_g + \gamma_t +  \delta X_{gt} 
-$$ $$
+$$
+$$
 \alpha_g = \text{Group Fixed Effect}
 $$
 
 $$
 \gamma_t = \text{Time Fixed Effect}
-$$ $$
+$$
+
+$$
 \delta_{gt} = \text{Post Treatment Indicator}
 $$
 
 . . .
+
 
 \* =prepare for caveats on this!
 
@@ -480,10 +484,11 @@ $$
 
 -   But we have some [alternative methods](https://bcallaway11.github.io/did/index.html)!
 
+
+
 ## Considerations
 
 -   Is the parallel trends assumption plausible? The best research will attempt to justify this assumption using multiple lines of evidence like:
     -   Placebo tests
     -   Examining multiple time periods to see if trends are parallel long before some outcome.
-
 -   2 way fixed effects models might not be equivalent to the difference-in-differences method, so more recent analyses should account for this.
