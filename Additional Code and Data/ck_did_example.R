@@ -1,5 +1,4 @@
 library(tidyverse)
-library(labelled)
 
 # data from Card and Krueger 1994. 
 # Card's original data is here, but its in wide format: 
