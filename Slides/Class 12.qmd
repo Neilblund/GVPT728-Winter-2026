@@ -1,5 +1,5 @@
 ---
-title: "Difference in Difference models"
+title: "Difference in Differences"
 format:
   revealjs:
     theme: [clean, beige]
@@ -49,7 +49,7 @@ library(broom)
 
 -   Probably the oldest non-experimental method of causal inference (likely dates back to 1855)
 
--   Units must be observed before and after the "treatment", so most commonly applied to panel data.
+-   "Units" must be observed before and after the "treatment", so most commonly applied to panel data (although it's also viable for time series)
 
 -   If assumptions are met, can control for both observed and unobserved confounding.
 
@@ -437,6 +437,8 @@ How might the parallel trends assumption be violated here? Some scenarios to con
 -   Card and Krueger address some of these with alternate model specifications. Since the DiD model is essentially OLS, they can include controls for wave 1 characteristics the same way you would in a regular regression model.
 
 -   The assumption then becomes "trends are *conditionally* expected to be parallel"
+
+- (Note that including wave 2 characteristics wouldn't work here, because those could be the result of treatment.)
 :::
 
 ::: {.column width="50%"}
