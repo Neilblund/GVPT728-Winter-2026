@@ -2,7 +2,7 @@
 title: "Difference in Differences"
 format:
   revealjs:
-    theme: [clean, beige]
+    theme: [clean, serif]
     width: 1280
     height: 720
     df-print: tibble
@@ -197,13 +197,9 @@ ggplot(df, aes(x=year, y=deaths, color=company)) +
 ## The difference in difference estimator
 
 -   Answers the question "what would have happened to the treated units if they had not received the treatment" (average treatment effect on the treated or ATT)
-
     -   i.e. "if Lambeth had not moved the reservoir upstream, there would have been a parallel increase in the number of cholera deaths among their customers"
-
     -   or "But for \[the treatment\] the trends between treated and control units should be parallel"
-
     -   Does **not** require an assumption that observations are balanced on expected values of the outcome. Unobserved confounding only matters to the extent it impacts the trend.
-
         -   Similar to fixed effects: all time-invariant characteristics are controlled.
 
 ### Assumptions
