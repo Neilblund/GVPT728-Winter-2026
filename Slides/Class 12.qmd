@@ -2,7 +2,7 @@
 title: "Difference in Difference models"
 format:
   revealjs:
-    theme: [moon, custom_styles]
+    theme: [clean, beige]
     width: 1280
     height: 720
     df-print: tibble
@@ -10,13 +10,9 @@ format:
     smaller: true
     slide-number: true
     header: 
-    header-logo: images/informal_seal_transparent.webp
     self-contained: true
     mermaid:
       theme: forest
-filters:
-  - reveal-header
-  - pseudocode
 code-annotations: select
 slide-level: 3
 execute:
@@ -45,11 +41,8 @@ library(broom)
 ## Difference in differences: basic intuition
 
 -   Slightly tweaking the traditional counterfactual, DiD asks: "what would happen to the *trend* for this unit had it never received the treatment?"
-
     -   How would your rate of growth change if you ate more vegetables?
-
     -   What would happen to inflation if the federal reserve lowered interest rates?
-
     -   How would the Arab Spring have unfolded if participants lacked access to cell phones and social media?
 
 ## Difference in differences model
@@ -160,7 +153,7 @@ ggplot(df, aes(x=year, y=deaths, color=company)) +
 
 ### The natural experiment
 
-If we can assume a parallel trend, then the relationship should look like this. The effect size, then, would be the difference between the counterfactual case and the observed case.
+If we can assume a parallel trend, then the relationship should look like this. The effect size, then, would be the difference between the counter factual case and the observed case.
 
 ```{r}
 
@@ -239,25 +232,25 @@ $$
 
 <li class="fragment">
 
-$B_0$ The average for the control group at $T=0$
+$B_0$ The average for the control group at $\text{Time}=0$
 
 </li>
 
 <li class="fragment">
 
-$B_1$ The average for the control group at $T=1$
+$B_1$ The average for the control group at $\text{Time}=1$
 
 </li>
 
 <li class="fragment">
 
-$B_2$ The difference between the treated and control units at $T=0$
+$B_2$ The difference between the treated and control units at $\text{Time}=0$
 
 </li>
 
 <li class="fragment">
 
-$B_3$ The difference in slopes for the treated group compared to the control group $T=1$
+$B_3$ The difference in slopes for the treated group compared to the control group $\text{Time}=1$
 
 </li>
 
@@ -266,17 +259,24 @@ $B_3$ The difference in slopes for the treated group compared to the control gro
 ### Example
 
 ```{r, echo=T}
+#| output-location: column
 
-library(tidyverse)
 df<-data.frame(
   "period" =factor(rep(c(0, 1), 2), labels=c("before", "after")),
   "group" = factor(rep(c(0, 1), each=2), labels=c("control", "treatment")),
   "deaths" = c(1349, 1466, 847, 193)
   )
 
+df
+
+```
+
+```{r}
+#| output-location: column
+
 model<-lm(deaths ~ period * group , data=df)
 
-tidy(model)|>
+broom::tidy(model)|>
   select(term, estimate)
 
 ```
@@ -326,7 +326,19 @@ Results (reproduced by Angrist and Krueger)
 
 ## Card and Krueger 1994
 
+:::::: columns
+:::: {.column width="50%"}
+::: non-incremental
+-   If we assume parallel trends, then the slope for New Jersey would be the same as the slope for Pennsylvania, so we'd expect their average employment to be $20.44 - 2.16 = 18.28$
+:::
+::::
+
+::: {.column width="50%"}
 ```{r}
+#| fig-width: 7
+#| fig-height: 7
+
+
 library(tidyverse)
 library(latex2exp)
 library(ggpubr)
@@ -354,16 +366,30 @@ ggplot(aes(x=time_period, y=avg_employment, group=state,
   scale_linetype_manual(values=c('solid','dashed')) +
   scale_color_manual(values=c("#f28e2b","#bab0ac")) +
   expand_limits(x=c(1,4)) +
-  annotate("text" , x=1.5, y=23,1, label=TeX("$21.17 - 23.33  = -2.16$"), parse=TRUE) +
-  annotate('text', x=1.5, y=18.28, label=TeX("$20.44 - 2.16 = 18.28$"), parse=TRUE) +
+  annotate("text" , x=1.9, y=23,1, label=as.character(TeX("$21.17 - 23.33  = -2.16$")), parse=TRUE) +
+  annotate('text', x=1.9, y=19.85, label=as.character(TeX("$20.44 - 2.16 = 18.28$")), parse=TRUE) +
   labs(caption="Observed PA employment trend and assumed counterfactual for New Jersey")
 
   
 ```
+:::
+::::::
 
 ## Card and Krueger 1994
 
+:::::: columns
+:::: {.column width="50%"}
+::: non-incremental
+-   If we assume parallel trends, then the slope for New Jersey would be the same as the slope for Pennsylvania, so we'd expect their average employment to be $20.44 - 2.16 = 18.28$
+
+-   New Jersey's actual average employment was $21.03$, so the difference-in-differences is $21.03 - 18.28 = 2.75$
+:::
+::::
+
+::: {.column width="50%"}
 ```{r}
+#| fig-width: 7
+#| fig-height: 7
 
 
 
@@ -379,14 +405,16 @@ ggplot(data, aes(x=time_period, y=avg_employment, group=state,
   scale_linetype_manual(values=c('solid','solid', 'dotted')) +
   scale_color_manual(values=c("#f28e2b" ,"#76b7b2", "#bab0ac"))+
   expand_limits(x=c(1,4)) +
-    annotate("text" , x=1.5, y=23.1, label=TeX("$21.17 - 23.33  = -2.16$"), parse=TRUE) +
-  annotate('text', x=1.5, y=21.03, label=TeX("$21.03 - 20.44 = 0.59 $"), parse=TRUE) +
-  annotate('text', x=1.5, y=18.28, label=TeX("$20.44 - 2.16 = 18.28$"), parse=TRUE) +
-  annotate('text' , x=2.5, y=21.03, label=TeX("DiD $= 21.03 - 18.28 = 2.75"))+
-   labs(caption="Counterfactual vs. Actual outcome for New Jersey")
+    annotate("text" , x=1.9, y=23.1, label=as.character(TeX("$21.17 - 23.33  = -2.16$")), parse=TRUE) +
+    #annotate('text', x=1.9, y=16.85, label=as.character(TeX("$21.03 - 20.44 = 0.59 $")), parse=TRUE) +
+    annotate('text', x=1.9, y=19.85, label=as.character(TeX("$20.44 - 2.16 = 18.28$")), parse=TRUE) +
+    annotate('text' , x=3, y=21.03, label=as.character(TeX("DiD $= 21.03 - 18.28 = 2.75")), parse=TRUE)+
+    labs(caption="Counterfactual vs. Actual outcome for New Jersey")
 
 
 ```
+:::
+::::::
 
 ## Card and Krueger 1994
 
@@ -412,13 +440,13 @@ How might the parallel trends assumption be violated here? Some scenarios to con
 :::
 
 ::: {.column width="50%"}
-![Card, D. (1993). Minimum Wages and Employment: A Case Study of the Fast Food Industry in New Jersey and Pennsylvania.](images/card_and_krueger_table5.png)
+![Card, D. (1993). Minimum Wages and Employment: A Case Study of the Fast Food Industry in New Jersey and Pennsylvania.](images/card_and_krueger_table5.png){width="80%"}
 :::
 :::::
 
 ## Card and Krueger 1994
 
-[Card and Krueger replication script](https://github.com/Neilblund/GVPT728_Winter24/blob/main/Additional%20Code%20and%20Data/ck_did_example.R)
+[Card and Krueger replication script](https://raw.githubusercontent.com/Neilblund/GVPT728-Winter-2026/refs/heads/main/Additional%20Code%20and%20Data/ck_did_example.R)
 
 # Multiple Periods and Cases
 
@@ -455,9 +483,7 @@ $$
 ## Considerations
 
 -   Is the parallel trends assumption plausible? The best research will attempt to justify this assumption using multiple lines of evidence like:
-
     -   Placebo tests
-
     -   Examining multiple time periods to see if trends are parallel long before some outcome.
 
 -   2 way fixed effects models might not be equivalent to the difference-in-differences method, so more recent analyses should account for this.
