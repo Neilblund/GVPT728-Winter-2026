@@ -1,0 +1,162 @@
+---
+title: "Fixed Effects and Clustering"
+format: 
+  html:
+      df_print: paged
+      code_download: true
+      toc: true
+      toc_depth: 3
+      toc_float: true
+      self-contained: true
+editor: visual
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+# Data
+
+Use the code below to download replication data for [Sørensen, Rune J. "The impact of state television on voter turnout." *British Journal of Political Science* 49.1 (2019): 257-278.](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/QGMHHQ) 
+
+Note that, for the purposes of this analysis, you will be using only data from 1963 (the paper itself does something far more interesting, but we'll save it for later!)
+
+```{r}
+library(tidyverse)
+
+turnout_data<- dataverse::get_dataframe_by_name(
+  filename = 'AggregateReplicationTVData.dta',
+  .f = haven::read_dta,
+  dataset = '10.7910/DVN/QGMHHQ', 
+  server = "dataverse.harvard.edu")
+
+# filtering for 1963 ONLY 
+turnout_data<-turnout_data|>
+  filter(nationalelection==0)|>
+  filter(year == 1963)|>
+  mutate(CountyId = factor(CountyId),
+         knr = factor(knr)
+         )
+```
+
+Each row of `turnout_data` contains information on a single municipality. The variables of interest for this analysis are as follows:
+
+| Variable | Description |
+|------------------------------------|------------------------------------|
+| turnout | Proportion turnout |
+| TVdummy | Does this municipality have television access yet? (**This is the main explanatory variable of interest**) |
+| logpop | Log of municipality population |
+| education | Share of adult population with college education |
+| settlement | Proportion of population that lives in sparsely populated area |
+| voterpct | Proportion of the population that is eligible to vote |
+| CountyId | County ID (numeric converted to factor) |
+| knr | Municipality ID (number converted to factor) |
+
+You'll use the following baseline model:
+
+```{r}
+
+model0<-lm(turnout ~ TVdummy + logpop + education + settlement + voterpct, data=turnout_data)
+```
+
+## Question 1
+
+Estimate 3 new versions of `model0` that account for correlations across levels of `CountyId`:
+
+1.  A model with cluster robust standard errors
+2.  A fixed effects model
+3.  A random effects model
+
+Include your output in a formatted regression table and briefly discuss the differences between your results.
+
+```{r}
+### Q1 code
+library(fixest)
+library(lme4)
+library(modelsummary)
+
+
+
+cluster_model <- feols(
+  turnout ~ TVdummy + logpop + education + settlement + voterpct,
+  cluster = ~ CountyId,
+  data = turnout_data
+)
+
+fixed_effects <- feols(
+  turnout ~ TVdummy + logpop + education + settlement + voterpct |
+    CountyId,
+  data = turnout_data,
+  cluster =  ~ CountyId
+)
+
+random_effects <- lmer(turnout ~ TVdummy + logpop + education + settlement + voterpct + (1|CountyId),
+                      data=turnout_data)
+
+
+list <- list(
+  "Clustered Standard Error Model" = cluster_model,
+  "Fixed Effect Model" = fixed_effects,
+  "Random Effects Model" = random_effects
+)
+modelsummary(
+  list,
+  fmt = 2,
+  coef_rename = TRUE,
+  coef_omit = "Intercept",
+  estimate = "{estimate}",
+  statistic = c("conf.int"),
+  conf_level = .95,
+  note = "95% CI in brackets",
+  gof_map = c('nobs','aic', 'bic')
+) 
+
+
+
+```
+
+Note that it's generally good practice to go ahead and cluster the standard errors for a fixed effects model. You can do this in fixest by adding `cluster=~CLUSTER_VARIABLE` as an additional argument.
+
+The `coef_rename = TRUE` will automatically replace the variable names with their variable labels, if they exist. Stata formatted data (data that ends with a `.dta` extension, will often have labels that can be used this way)
+
+Finally, the `gof_map` argument determine which goodness-of-fit statistics are included in my model output. For cases like this one, where we have different model types that provide different measures of model fit, it may be a good idea to only include statistics that are available for all of our models.
+
+If you're not sure what goodness-of-fit statistics are available, the model summary function `get_gof` will print a list of them:
+
+```{r}
+get_gof(random_effects)
+
+
+```
+
+## Question 2
+
+Which of the models above seems like a better approach for this analysis? Briefly discuss some pros and cons for each one.
+
+Some ways to talk about which model is better:
+
+-   The **fixed effects model** would be most appropriate if you were concerned about some fixed characteristics of counties that confounded your estimates. For instance: maybe some counties got TV access earlier because they had lots of organized interest groups, and we might also expect those organized interest groups to be better at mobilizing people. If we can assume that the presence of lots of interest groups was fixed over the relevant time frame, then the fixed effects version of this model would address that confounder. Clustered standard errors don't adjust for confounding at all, and the random effects model doesn't do so as reliably as a fixed effects estimate.
+
+-   The **random effects model** is more appropriate when you're less worried about unobserved group-level confounding. For instance (using the previous example) if you had a measure of "interest group density" for all of your counties and you could include this as an additional control variable, you might decide that a fixed effects model is no longer needed. All else equal, random effects models will make more efficient use of the data than a similar fixed effects model.
+
+    -   Random effects models are also useful if you're interested in actually estimating the effects of some group-level covariates on the outcome of interest.
+
+    -   Random effects might also be preferred if you're interested in generalizing your results to new counties. There's no obvious way to do this with a fixed effects model, They might also be preferred if you want to get plausible estimates of counties with a small amount of data. (In general, random effects models have a lot of attractive features for predictive analyses)
+
+-   **Clustered standard errors** are most appropriate when you're not worried about confounding but you still want to account for possible lack of independence between observations in the same group. Note, however, that you can also estimate a fixed or random effects model with clustered standard errors.
+
+## Hausman test
+
+If you have a model that could plausibly be estimated using either fixed or random effects, one option is to compare them to one another. A Hausman test examines whether the estimated coefficients for the fixed and random effects specifications are significantly different. If they are, then this may be a reason to prefer the fixed effects version. If they're not, then random effects is more appropriate.
+
+The `mlmhelpr` package implements a version of the Hausman test that will automatically take a random effects model fit with `lme4` and compare it to a fixed effects specification.
+
+```{r}
+#install.packages("mlmhelpr")
+
+library(mlmhelpr)
+hausman(random_effects)
+
+```
+
+The null hypothesis here is that the estimates from both models are the same, so a p \<.05 suggests that there's a large enough difference that fixed effects might be more appropriate.

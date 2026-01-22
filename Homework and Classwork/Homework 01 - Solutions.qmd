@@ -1,0 +1,357 @@
+---
+title: "Homework 1"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+## Required libraries
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+
+```
+
+Use the [FiveThirtyEight presidential elections data](https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv) to answer the following questions about the 2020 general election results.
+
+
+```{r}
+
+url<-"https://raw.githubusercontent.com/fivethirtyeight/election-results/main/election_results_presidential.csv"
+presidential_elections<-read_csv(url)
+
+voteshares <-presidential_elections|>
+  filter(office_name=="U.S. President" & cycle==2020 & stage=="general")|>
+  filter(candidate_name %in% c("Joe Biden", "Donald Trump"))|>
+  filter(!str_detect(state, " CD-\\d+"))|>
+  group_by(state, candidate_name)|>
+  summarise(votes=sum(votes,na.rm =T))|>
+  pivot_wider(names_from = candidate_name, values_from = votes)|>
+    mutate(`Biden Share`=`Joe Biden`/(`Joe Biden`+`Donald Trump`))
+
+```
+
+
+## Question 1
+
+Use the following code to download demographics for each state from the American Community Survey and then use a join to add this column to your data.
+
+### Answer
+
+
+```{r}
+
+acs_data <- get_acs(geography = "state", 
+                         variables = c(median_income = "B19013_001",
+                                       bachelors_degree = "B15003_022",
+                                       pop = "B01001_001",
+                                       white_pop = "B02001_002"
+                                       ), 
+                         year = 2020)
+
+voteshares<-acs_data|>
+  select(-moe)|>
+  pivot_wider(names_from = variable, values_from=estimate)|>
+  right_join(voteshares, by = join_by(NAME == state))
+
+
+
+```
+
+(note: you can ignore the "moe" column and just use the estimates. You'll need to use `pivot_wider` to put these into wide format with one row per state)
+
+
+## Question 2
+
+Run a linear regression to calculate the effect of median income on Biden's statewide two party vote share. Produce a formatted table to display your results and briefly discuss your findings.
+
+### Answer
+
+
+The basic code here is straightforward, but there are some things you can do to improve the formatting: 
+
+1. One problem that comes up a lot is that the coefficient values on things like median income will be so tiny that they show up as 0.00 in your model output, even though they actually have a substantial effect on your dependent variable. Where it makes sense to do so, you can measure values like this in larger increments, like \$1,000 or even \$10,000. This won't impact your actual results. You can do the same thing for the dependent variable to convert a proportion to a percentage. 
+2. You should generally rename covariates like `median_income` to something more descriptive. R has lots of limitations on how you can name variables, but those limitations don't limit what you can show in your model output.
+3. If applicable, add a note to indicate that your output shows standard errors in parentheses. 
+4. It might make sense to round some of your statistics to the nth decimal place. 
+5. In some cases you might also consider mean-centering the independent variables. This will give you an interpretable intercept term.
+
+
+```{r}
+# Q2
+library(modelsummary)
+voteshares<-voteshares|>
+  mutate(income10k = median_income/10000,
+         income10k_centered = income10k - mean(income10k),
+         biden_percent = `Biden Share` * 100,
+         
+         )
+model1<-lm(biden_percent ~ income10k, data= voteshares)
+modelsummary(list("DV: % Biden vote in 2020 election" = model1),
+             coef_rename = c(income10k = "Median income ($10,000)"),
+             title = "% statewide Biden vote in 2020 by median income",
+             fmt = fmt_statistic(estimate = 2, std.error=2), # rounding estimates and se values
+             notes = "Std. err in parentheses"
+             )
+
+
+
+
+```
+
+
+
+One way to enhance your analysis is by plotting your regression predictions. This is especially helpful in cases like this one where you have a relatively small number of observations:
+
+```{r}
+library(ggrepel)
+
+
+
+
+
+
+dc<-data.frame(state = "District of Columbia" , abb = "DC")
+states_table<-data.frame("state" = state.name, "abb"= state.abb)|>
+  bind_rows(dc)
+
+
+voteshares|>
+  left_join(states_table, by=join_by(NAME ==state))|>
+ggplot(
+       aes(x = income10k, 
+           y =biden_percent,
+           label = abb,
+          
+           )
+       ) +
+  geom_hline(yintercept = 50, color='lightgrey', lty=2) +
+  geom_point(aes(color  = biden_percent > 50))+
+  geom_smooth(method='lm', color='darkgrey', lty=2, se=FALSE) +
+  geom_text_repel(aes(color  = biden_percent > 50)) +
+  theme_bw() +
+  xlab("Median income (1,000$)") +
+  ylab("Biden % of two-party vote") +
+  scale_color_manual(guide='none', values=c('#DC143C', 'blue'))  +
+  theme( panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank()
+    )
+
+```
+
+Another way to enhance your analysis is to talk about how your model predicted results might change under different scenarios. For instance, it would take a $1,600 (.798 * 1.6 = 1.27) increase in Texas's median income to move it from a predicted loss to a predicted win: 
+
+
+```{r}
+texas_pred<-predict(model1, newdata=voteshares|>filter(NAME == "Texas"))
+needed <- 50-texas_pred
+coef<-7.98
+(10000 * (needed/7.98))
+
+```
+
+
+
+
+
+
+
+
+## Question 3
+
+Run the previous model, but include Bachelor's degrees and population. Put your results in a formatted table and assess your results. 
+
+
+### Answer
+
+Again, the code here is relatively straightforward, and the advice above all applies here. 
+
+When you have multiple models, its often helpful to include them side-by-side so readers can compare results:
+
+
+```{r}
+
+voteshares<-voteshares|>
+  mutate(bachelors_pct = (bachelors_degree/pop) * 100,
+         population100k = pop/100000
+         
+         )
+
+model2<-lm(biden_percent ~ income10k + bachelors_pct + population100k, data= voteshares)
+mlist<-list("Model 1" = model1, "Model 2" = model2)
+
+modelsummary(mlist,
+             
+             coef_rename = c(income10k = "Median income ($10,000)", 
+                             bachelors_pct = "% Bachelor's degree or higher",
+                             population100k = "Population (100,000)"
+                             ),
+             title = "% statewide Biden vote in 2020 by median income",
+             fmt = fmt_statistic(estimate = 2, std.error=2), 
+             notes = "Std. err in parentheses"
+             )
+
+
+
+
+```
+
+
+## Question 4
+
+Check your model for heteroskedasticity, non-linearity, or influential outliers. Discuss your interpretation.
+
+
+### Answer
+
+(You may need to adjust the figure width and height to get readable plots here)
+
+```{r}
+#| fig-width: 10
+#| fig-height: 10
+#Q4
+library(performance)
+
+check_model(model2)
+
+
+```
+
+
+There aren't any major red flags here. There's no significant heteroskedasticity, the residuals are mostly normal, and there are no signs of significant collinearity or outliers. 
+
+
+```{r}
+check_heteroscedasticity(model2)
+check_normality(model2)
+check_outliers(model2)
+check_collinearity(model2)
+
+
+```
+
+While its not strictly necessary here, we can easily get heteroskedasticity robust standard errors by using the `vcov` argument in the modelsummary package. 
+
+```{r}
+modelsummary(mlist,
+             coef_rename = c(income10k = "Median income ($10,000)", 
+                             bachelors_pct = "% Bachelor's degree or higher",
+                             population100k = "Population (100,000)"
+                             ),
+             title = "% statewide Biden vote in 2020 by median income",
+             fmt = fmt_statistic(estimate = 2, std.error=2), 
+             notes = "Robust standard errors in parentheses",
+             vcov = "HC3" # robust to heteroskedasticity, small sample bias, and leverage
+             )
+
+```
+
+
+Or we can get bootstrapped standard errors:
+
+
+```{r}
+
+set.seed(1000)
+modelsummary(mlist,
+             coef_rename = c(income10k = "Median income ($10,000)", 
+                             bachelors_pct = "% Bachelor's degree or higher",
+                             population100k = "Population (100,000)"
+                             ),
+             title = "% statewide Biden vote in 2020 by median income",
+             fmt = fmt_statistic(estimate = 2, std.error=2), 
+             notes = "Bootstrapped standard errors in parentheses",
+             vcov = "bootstrap" 
+             )
+
+```
+
+## Extra code
+
+
+### Logging an IV
+
+
+It's probably not necessary in this case, but sometimes we might want to change variables like population to use a log scale. This reduces the influence of outliers, and can reflect the potential non-linear relationship beween an IV and a DV. Note that the log scaling will change our interpretation of the results. When an independent variable has been log-transformed, you can interpret the coefficient values as "a 1% increase in [the IV] is associated with a [coefficient]/100 unit increase in the DV". So: in model 3, a 1% increase in population is associated with a .01% increase in Biden's vote share in a state.
+
+
+```{r}
+
+
+model3<-lm(biden_percent ~ income10k + bachelors_pct + log(population100k), data= voteshares)
+mlist<-list("Model 1" = model1, "Model 2" = model2, "Model 3"  = model3)
+
+modelsummary(mlist,
+             coef_rename = c(income10k = "Median income ($10,000)", 
+                             bachelors_pct = "% Bachelor's degree or higher",
+                             population100k = "Population (100,000)",
+                             `log(population100k)` = "Log population (100,000)"
+                             ),
+             title = "% statewide Biden vote in 2020 by median income",
+             fmt = fmt_statistic(estimate = 2, std.error=2), 
+             notes = "Std. err in parentheses"
+             )
+
+
+
+```
+
+
+
+Another way to interpret the effect of a logged IV is through examples and predictions. For instance, we might look at predicted outcomes for all states at different values of population:
+
+
+```{r}
+library(marginaleffects)
+
+nd<-datagrid(newdata = voteshares,
+         grid_type = 'counterfactual', 
+         population100k = seq(5, 400, by =1)
+         )
+
+
+plot_predictions(model3,  
+                 points = .5, # show actual data points
+                 newdata = nd,
+                 by = 'population100k'
+                 ) +
+  theme_bw() +
+  labs(x = "Population 100K", y='% Biden vote')
+
+
+
+
+```
+
+
+We can also look at the average effect of increasing population by 1 unit on the predicted outcome:
+
+```{r}
+
+avg_comparisons(model3,variables='population100k')
+
+
+```
+
+Or we can do something like look at the effect of moving population from its minimum to its maximum:
+
+```{r}
+
+avg_comparisons(model3,variables=list('population100k' = 'minmax'))
+
+```
+
