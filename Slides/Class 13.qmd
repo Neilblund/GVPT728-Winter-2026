@@ -14,6 +14,7 @@ format:
     mermaid:
       theme: forest
 code-annotations: select
+incremental: true
 slide-level: 3
 execute:
   echo: true
@@ -53,7 +54,7 @@ library(modelsummary)
 
 ## Birth date and age at time of entering first grade
 
-[![McEwan, P. J., & Shapiro, J. S. (2008). The benefits of delayed primary school enrollment: Discontinuity estimates using exact birth dates. Journal of human Resources, 43(1), 1-29.](images/Day-of-Birth-First-grade-Enrollment-Age-and-First-grade-Retention.png)](https://jhr-uwpress-org.proxy-um.researchport.umd.edu/content/43/1/1.short)
+[![McEwan, P. J., & Shapiro, J. S. (2008). The benefits of delayed primary school enrollment: Discontinuity estimates using exact birth dates. Journal of human Resources, 43(1), 1-29.](images/Day-of-Birth-First-grade-Enrollment-Age-and-First-grade-Retention.png){fig-align="center" width="60%"}](https://jhr-uwpress-org.proxy-um.researchport.umd.edu/content/43/1/1.short)
 
 ![]()
 
@@ -97,7 +98,7 @@ library(modelsummary)
 
 Observational research suggests compliance is quite low.
 
-![](https://dbknews.s3.amazonaws.com/uploads/2019/05/2014-06-1fc6fc8c258e1d8c1097fa2af21d85f2-2.jpg)
+![](https://dbknews.s3.amazonaws.com/uploads/2019/05/2014-06-1fc6fc8c258e1d8c1097fa2af21d85f2-2.jpg){fig-align="center" width="80%"}
 
 But this is a federal law, so we don't have a reasonable comparison group.
 
@@ -266,7 +267,9 @@ ggplot(cod_long, aes(x=agecell, y=rate, group=paste0(mmlda, cause), shape=cause)
 
 One important consideration here is accounting for non-linearity. Properly controlling for the effect of the running variable requires us to get the functional form right.
 
-Assuming a linear effect when the effect is cubic will produce a spurious result. Note that there appears to be a discontinuity here when using a linear model.
+Assuming a linear effect when the effect is cubic will produce a spurious result.
+
+## Non-linearity
 
 ```{r, echo=TRUE}
 #| output-location: column
@@ -307,6 +310,8 @@ ggplot(aes(x, y3, colour = factor(D)), data = dat) +
 Methods such as LOESS operate by estimating weighted polynomial regressions on a sliding "window" (usually called the bandwidth) of data points and then smoothing that result using a kernel function\*.
 
 All else equal, a smaller window gives greater weight to individual points, while a larger window will result in a smoother line.
+
+. . .
 
 ```{r}
 set.seed(100)
@@ -394,6 +399,8 @@ govs
 
 ### Incumbency effects
 
+Looking at the overall scatter plot, there's definitely a positive correlation between winning a seat at time 1 vs. time 2, but that's not especially surprising: popular candidates remain popular.
+
 ```{r}
 library(haven)
 library(tidyverse)
@@ -431,7 +438,7 @@ data|>
 
 ### Incumbency effects
 
-The relationship is a bit easier to spot if we focus on observations near the cutoff point, but still messy, and good reason to suspect the effect is non-linear
+If the incumbency effect is real, we would expect to see a sharp change near the cutoff for winning a seat.
 
 ```{r}
 data|>
@@ -470,7 +477,8 @@ Using `rdrobust` to estimate an optimal bin size:
 library(rdrobust)
 
 out <- rdplot(data$demshare_t2, 
-              data$dem_margin,  p = 3, 
+              data$dem_margin,  
+              p = 3, 
               kernel ='uniform',
                x.label = 'Democratic margin at time 1', 
               y.label = 'Dem voteshare at time 2', title = '', hide=TRUE)
@@ -484,7 +492,8 @@ out$rdplot
 
 out <- rdrobust(data$demshare_t2, 
                 data$dem_margin, 
-                kernel = 'uniform',  
+                kernel = 'uniform', 
+                c= 0,
                 p = 3, bwselect = 'mserd')
 
 data.frame(coef=out$coef, se=out$se, z=out$z, ci=out$ci)|>
@@ -494,13 +503,14 @@ data.frame(coef=out$coef, se=out$se, z=out$z, ci=out$ci)|>
 
 ## Testing assumptions near the cutoff
 
-A simple test for the assumptions for RDD is to set a different cutoff and see if the results are still significant.
+A simple test for the assumptions for RDD is to set a different cutoff and see if the results are still significant. If we're finding an effect at winning 49%, that suggests we aren't really seeing an incumbency effect:
 
-```{r}
-library(rdrobust)
+```{r, echo=TRUE}
+
 out <- rdplot(data$demshare_t2, 
-              data$dem_margin,  p = 3, 
-              c = -5,
+              data$dem_margin,  
+              p = 3, 
+              c = -1,
               binselect = 'esmv', x.label = 'Democratic margin at time 1', 
               y.label = 'Dem voteshare at time 2', title = '', hide=TRUE)
 out$rdplot +
@@ -511,20 +521,23 @@ out$rdplot +
 
 ## Testing assumptions near the cutoff
 
-```{r}
+
+```{r, echo=TRUE}
 
 out <- rdrobust(data$demshare_t2, 
                 data$dem_margin, 
-                kernel = 'uniform',
-                c=-1,
-                p = 3, bwselect = 'mserd')
-
-
+                kernel = 'uniform', 
+                c= -1,
+                p = 3, 
+                bwselect = 'mserd')
 
 data.frame(coef=out$coef, se=out$se, z=out$z, ci=out$ci)|>
   slice_head(n=1)
 
+
 ```
+
+
 
 ## Vote share as a discontinuity
 
@@ -556,7 +569,6 @@ Whether this matters is partly a question of interpretation.
     -   Not everyone who is eligible for food stamps will enroll
     -   Some elected officials resign or never take their seats
     -   The thresholds themselves may be measured with error (blood alcohol content, registration, place of residence)
-
 -   This could be considered similar to the problem of "non-compliance": some units should be treated, but aren't. Methods are similar: estimate a 2 stage regression model to adjust for non-compliance
 
 ## Others
@@ -574,5 +586,6 @@ Posner: Regression discontinuity and cultural cleavage
 -   Do small changes to the method for fitting the running variable cause big changes in the estimated effect? If so, the results might be spurious.
 
 -   Does a placebo test give null results?
+
     -   Testing "fake" cutoffs shortly before or after the real one
     -   Checking for discontinuities on other variables that seem like they shouldn't be responsive to the treatment (i.e. do homicides also spiking around 21 might indicate a different process)
