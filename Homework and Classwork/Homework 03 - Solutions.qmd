@@ -1,0 +1,839 @@
+---
+title: "Homework 3"
+format:
+  html:
+    theme: [default, custom_styles]
+    df-print: paged
+    smaller: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-link: true
+    code-tools: true
+code-annotations: select
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+The code below will load replication data from: Hankinson, Michael. "When do renters behave like homeowners? High rent, price anxiety, and NIMBYism." American political science review 112.3 (2018): 473-493.
+
+The relevant variable descriptions can be downloaded from [this site](https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/CRPAA8/RSFP0V&version=1.0#) and are under the heading "TESS National Survey". (I've also included this table at the end of this document in case you can't find it.)
+
+```{r}
+
+library(tidyverse)
+library(modelsummary)
+library(kableExtra)
+
+socpoc <- dataverse::get_dataframe_by_name(
+  filename = "socpocAPSR.csv",
+  .f=read_csv,
+  dataset = "10.7910/DVN/CRPAA8&version=1.0", 
+  server = "dataverse.harvard.edu")|>
+  select(-1)
+
+
+
+ 
+```
+
+
+
+# Question 1
+
+Estimate the following bivariate model using a *linear probability model*, a *logit* and a *probit* model. `ban_dummy ~ own`
+
+## Part A
+
+Present your results in a properly formatted table.
+
+
+### Answer
+
+```{r}
+
+# making a factor to simplify some output later
+socpoc<-socpoc|>
+  mutate(own_factor = factor(own, 
+                      levels=c(0, 1), 
+                      labels=c("Renter", "Owner")))
+
+ols<- lm(ban_dummy ~ 
+           own_factor, 
+         data=socpoc)
+logit<- glm(ban_dummy ~ own_factor, 
+            data=socpoc, 
+            family='binomial')
+probit<- glm(ban_dummy ~ own_factor,
+             data=socpoc, 
+             family='binomial'(link='probit'))
+
+models_list<-list('ols' = ols,
+                  'logit' = logit,
+                  'probit' = probit
+                  )
+
+modelsummary(models_list, 
+             coef_map = c("own_factorOwner" = "Homeowner",
+                          "(Intercept)" = "Constant"
+                             ),
+             gof_omit = 'R2', # omit R2
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             # adding robust SEs to account for the heteroskedasticity in the LPM
+             vcov = c("robust", "iid", "iid") 
+             )
+
+```
+
+In the linear probability model, the coefficeint can be interpreted as the effect of home ownership relative to not being a homeowner: so homeowners are \~7.2 percentage points ($\pm$ 4.5 points) less likely to support a building ban in their area. This result is statistically significant at the 95% level.
+
+Since there’s a single dummy variable here, the intercept term also has a meaningful interpretation: it represents the probability of supporting if the respondent rents their home. So, there’s 35% support for the building ban renters and about 42% support among homeowners.
+
+The logit and probit coefficients don’t have this same intuitive interpretation, so we'll need to calculate some marginal effects on the predicted probabilities to get this information. At most, we can say that the effect of homeownership in both models is positive and statistically significant at the 95% level.
+
+Finally, you might also make a note of the number of observations that were dropped here: there are 3019 rows in the data but only 2072 in the final model. This is because the author of the paper treated "Neither agree nor disagree" responses as `NA` values when calculating the final results. In a more in-depth analysis, you might consider exploring whether/how recoding these respondents changes your results (or you could use an ordered logit model and include all the response categories!)
+
+
+## Part B
+
+Based on your model, what is the effect of a home ownership on support for a ban on new home construction? State your answer in terms of the change in predicted probability of supporting a ban on new home construction for homeowners compared to renters, and present a 95% confidence interval for your estimated marginal effect.
+
+### Answer
+
+
+Click the tabs below to see some different ways you could calculate these.
+
+::: panel-tabset
+#### Using the inverse link
+
+We can calculate these values "by hand" using the inverse link function. Using the `linkinv` element from the model object allows us to run essentially the same code to get logit or probit predictions:
+
+```{r}
+# get the inverse logit
+inverse_logit<-logit$family$linkinv
+
+logit_coefs<-coef(logit)
+# prediction for renters:
+logit_renter_pred<-inverse_logit(logit_coefs["(Intercept)"])
+# prediction for homeowners:
+logit_owner_pred<-inverse_logit(
+  logit_coefs["(Intercept)"] + logit_coefs["own_factorOwner"] * 1)
+
+
+
+tibble(
+       'homeowners %' = logit_owner_pred * 100,
+       'renters %' =logit_renter_pred * 100,
+       'Change in %' = (`homeowners %` - `renters %`) 
+       )|>
+  kbl(digits=1)|>
+  kable_classic(full_width=FALSE)
+```
+
+We also have several options for calculating a confidence interval. Here's an example that uses the simulation-based approach for the logit model only:
+
+```{r}
+library(mvtnorm)
+
+model<-logit
+set.seed(999)
+nreps <- 500
+#simulate random coefficients
+coefs <- rmvnorm(nreps, coef(model), vcov(model)) 
+
+# make a data frame with an intercept and renters/owners
+df<-data.frame(intercept = c(1, 1), 
+           own_factor = c(0,1)
+           )
+# calculate the new predictions for both groups using the simulated coefficients
+values<-model$family$linkinv(coefs %*% t(df))
+
+# calculate confidence intervals using the quantiles
+ci<-quantile(values[,2] - values[,1] , c(.025, .975))
+
+# formatting the CI and putting it all in a table
+ci_formatted<-paste0(round(ci* 100, digits=1), collapse=" - ")
+ci_formatted<-paste0("[", ci_formatted, "]")
+tibble(
+  "Homeowners %" = logit_owner_pred * 100,
+  "Renters %" = logit_renter_pred * 100,
+  'Change in %' = (`Homeowners %` - `Renters %`),
+  '95% conf. int' = ci_formatted
+) |>
+  kbl(digits = 1) |>
+  kable_classic(full_width = FALSE)
+
+
+
+
+
+```
+
+#### Using marginaleffects
+
+marginaleffects makes this all a lot simpler. We can get predicted probabilities at different levels of `own` with the `avg_predictions`
+
+```{r}
+library(marginaleffects)
+
+preds<-avg_predictions(logit, variables = 'own_factor')
+tidy(preds)
+
+```
+
+And we can get average marginal effects with `avg_comparisons`:
+
+```{r}
+mfx<-avg_comparisons(logit, variables='own_factor')
+tidy(mfx)
+
+```
+
+Also remember we can get simulation based or bootstrapping based confidence intervals from this package:
+
+```{r, cache=TRUE}
+
+mfx<-avg_comparisons(logit, variables='own_factor')
+
+
+inferences(mfx, method='simulation', R=500)
+
+
+
+```
+
+
+
+#### Using ggeffects
+
+We can also get these results using `ggeffects`. 
+
+```{r}
+library(ggeffects)
+
+preds<-predict_response(logit, terms='own_factor')
+
+preds
+
+
+```
+And we can use the `test_predictions` function to test whether a set of predicted probabilities are significantly distinct from each other:
+
+```{r}
+
+
+test_predictions(preds)
+
+
+
+
+```
+`ggeffects` also has some easy print methods:
+
+```{r}
+
+plot(preds) +
+  labs(y = "Support for ban", x="Group", 
+       title = 'Predicted probability of support for ban'
+       )
+
+```
+
+
+:::
+
+
+Regardless of your method for deriving them, the main thing you might note here is that the marginal effects for all three models are actually identical even though the raw coefficients are different. In simple cases like this, the linear probability model is largely indistinguishable from a binary response model:
+
+```{r}
+
+purrr::map(.x=models_list, .f = ~tidy(avg_comparisons(.x)))|>
+  bind_rows(.id = 'model')
+
+
+```
+
+
+# Question 2
+
+
+
+Estimate a linear probability and logit/probit model with the same dependent variable, but include additional controls for ideology, white (non-hispanic) and income:
+
+`ban_dummy ~ own + ideology + whitenh + income`
+
+
+
+## Part A
+
+
+
+Present your results from the three models in a properly formatted table and discuss any differences in model fit, significance, or the direction of effects.
+
+
+### Answer
+
+We'll do some additional refactoring just to make our output look more presentable, but this is basically the same process we followed in Q1.
+
+```{r}
+socpoc$income_50k<-socpoc$income/50000
+
+form<-ban_dummy ~ own_factor + ideology + whitenh + income_50k # the model formula
+
+ols2<-lm(form, data=socpoc)
+logit2<-glm(form, data=socpoc, family='binomial'(link='logit'))
+probit2<-glm(form, data=socpoc, family='binomial'(link='probit'))
+
+
+
+coefs<-c("own_factorOwner" = "Homeowner",
+         "ideology" = "Ideology (1=Ext. Conservative, 7=Ext. Liberal)",
+         "whitenh" ="White non-Hispanic",
+         "income_50k" = "Income (per $50,000)",
+         "(Intercept)" = "Constant"
+                             )
+
+models_list<-list('ols' = ols2,
+                  'logit' = logit2,
+                  'probit' = probit2
+                  )
+modelsummary(models_list, 
+             coef_rename = coefs,
+             gof_omit = 'R2', # omit R2
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             fmt = fmt_decimal(digits = 2),
+             vcov = c("robust", "iid", "iid") 
+
+             )
+
+
+```
+
+
+The coefficent values on homeownership are different in all three models, but this is to be expected given that they're using different link functions. Right now, all we can really say is that all three results are positive and statistically significant at the 95% level.
+
+Regarding fit, we can also see that the AIC/BIC is lower for the logit/probit models, suggesting they do a better job at explaining the data, and the logit/probit fits are almost identical.
+
+Looking at the diagnostics for the OLS model, we see clear evidence of heteroscedasticity and non-linearity in the residuals, and the posterior predictive check indicates a poor overall fit. This is not surprising given that out outcomes are binary.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 10
+
+performance::check_model(ols2)
+
+
+```
+The model diagnostics for the logit model don't show any major red flags. Note that the "binned residuals" plot is intended to stand in for some of the checks for non-linearity and heteroskedasticity that we might use with OLS. Data are grouped together based on their predicted probability of Y = 1 and then a residual is calculated based on the difference in the % observed Y = 1 vs. the % predicted. Ideally, we want the points to fall within the unshaded region and to be relatively evenly distributed around zero.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 10
+
+performance::check_model(logit2)
+
+```
+
+
+## Part B
+
+Calculate the marginal effect and a 95% confidence interval for the effect of home ownership for a white non-hispanic person whose income is \$67,500 per year at *each level* of `ideology`. Create a plot to show your estimated marginal effects and briefly discuss your results.
+
+### Answer
+
+The question doesn't ask for confidence intervals, so we can get what we need just using the built-in predict function with `type='response'`
+
+```{r}
+
+newdata<-tibble(
+  whitenh = 1,
+  ideology = seq(1, 7),
+  income_50k = 67500/50000)|>
+  cross_join(tibble(own_factor=c("Renter", "Owner")))
+
+
+newdata$preds<-predict(logit2, newdata = newdata, type='response')
+mfx<-newdata |>
+  pivot_wider(names_from = own_factor, values_from = preds) |>
+  mutate(mfx = Owner - Renter)
+
+mfx|>
+  ggplot(aes(x = ideology, y = mfx)) + 
+  geom_point() + 
+  geom_line() +
+  theme_bw() +
+    scale_x_continuous(
+    breaks = c(1, 7),         
+    labels = c("Ext. Cons.", "Ext. Lib.") 
+  ) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs('y' = "Marginal effect of homeownership",
+       'x' = 'Ideology'
+       )
+
+
+
+
+
+
+
+
+```
+
+Here's an example using `marginaleffects`. Note that the `datagrid` function is just a helper for setting up the new data argument. We also have 95% confidence intervals for these estimates, so we can present these alongside the marginal effects:
+
+```{r}
+
+nd <- datagrid(
+  model = logit2,
+  by = c('own_factor', 'ideology'),
+  income_50k = 67500 / 50000, 
+  whitenh  = 1)
+
+
+
+
+mfx<-avg_comparisons(logit2, 
+                newdata =nd,
+                by='ideology',
+                variables ='own_factor'
+                )
+
+
+ggplot(mfx,
+       aes(
+         x = ideology,
+         y = estimate,
+         ymin = conf.low,
+         ymax = conf.high
+       )) +
+  geom_ribbon(alpha=.5) +
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  scale_x_continuous(
+    breaks = c(1, 2, 3, 4, 5, 6, 7),
+    labels = c("Ext. Cons.", 2, 3, 4, 5, 6, "Ext. Lib.")
+  ) +
+  scale_y_continuous(labels = scales::label_percent(),
+                     limits = c(.01, .15)) +
+  labs('y' = "Marginal effect of homeownership", 'x' = 'Ideology') 
+
+```
+
+
+
+## Part C
+
+
+
+Estimate the average effect of homeownership across all observations using the observed values/counterfactual approach. Note any differences in your results and discuss the outcome in terms of both statistical significance and substantive importance.
+
+
+
+
+### Answer
+
+
+
+::: panel-tabset
+
+#### Manual calculation
+
+Here's an example of calculating these results "by hand". In this instance, I'm using a custom function to get the simulated marginal effects under two different scenarios for the probit model:
+
+```{r}
+
+simulated_mfx<-function(model, datalist, nreps=500){
+  require(mvtnorm)
+
+  coefs <- rmvnorm(nreps, coef(model), vcov(model))
+  estimates<-matrix(NA, nrow=nreps, ncol=length(datalist)+1)
+  colnames(estimates) <- c(names(datalist), "marginal effect")
+  for(i in 1:length(datalist)){
+    mm<-model.matrix(model$model, datalist[[i]])
+    values<-model$family$linkinv(coefs %*% t(mm))
+    estimates[,i]<-rowMeans(values)
+
+  }
+  estimates[,'marginal effect'] <-estimates[,1] - estimates[,2]
+  result<-apply(estimates, 2, function(x) quantile(x, c(.025, .5,  .975)))|>
+    t()
+  return(result)
+}
+
+
+# making a list of data frames:
+datalist<-list("Owners" = probit2$model|>mutate(own_factor =factor("Owner", 
+                                                                  levels=levels(own_factor))
+                                               ),
+               "Renters" = probit2$model|>mutate(own_factor =factor("Renter", 
+                                                                  levels=levels(own_factor))
+                                               )
+               )
+
+mfx<-simulated_mfx(probit2, datalist)
+mfx
+
+
+
+```
+
+
+#### Using marginaleffects
+
+The counterfactual approach is the default behavior for the `avg_comparisons` function, so we can get this using:
+
+```{r}
+
+avg_comparisons(logit2)|>
+  tidy()
+
+
+```
+
+To show just the ownership effect, we can use the "variables" argument:
+
+```{r}
+avg_comparisons(logit2, variables='own_factor')|>
+  tidy()
+
+```
+
+
+
+
+#### Using ggeffects
+
+We can also get the same results using `ggeffects`, but we need to do it in two steps:
+
+1. Get predictions for different values of `own_factor`, make sure to specify `margin="empirical"` to get counterfactual comparisons (this is *not* the default behavior in `ggeffects`)
+2. Use `test_predictions` on the resulting predictions object.
+
+```{r}
+
+preds<-predict_response(logit2, terms='own_factor', margin='empirical')
+
+test_predictions(preds)
+
+```
+::::
+
+
+
+
+The average effect here is pretty close to the effect estimated effect from the prior question at `ideology = 4`, but the most important thing to note is just that the marginal effect depends on what you're comparing. Keep in mind that the counterfactual approach is a good default, but in many cases it will be more interesting to talk about specific scenarios like "what would happen if homeownership increased by 10%?"
+
+Regarding the substantive significance, you could talk about how this effect size compares to the effects of other variables in the model that might be more familiar to people. For instance: the change from renter to owner is about the same as moving from being "Extremely conservative" to being "Slightly liberal", and it's more than twice as large as the effect of being white relative to non-white. You might also discuss how close elections are around this issue. The "housing ban" was based on a real initiative in 2015, which failed with 57% of voters opposing. Given the size of this gap, we might argue that policies like this are still unlikely to pass even under unrealistic scenarios like "everyone suddenly becomes a homeowner".
+
+
+## Part D
+
+The `name` variable contains the name of each respondent's home city. Estimate a fixed effects logit model (you can use the `fixest` package with the syntax `feglm(y ~ x | fe, family ='binomial')` to get a fixed effects logit model). Compare and contrast your results when using the fixed effects model. What differences do you see and what might explain these differences?
+
+### Answer
+
+
+```{r}
+library(fixest)
+
+felogit <- feglm(
+  ban_dummy ~ own_factor + ideology + whitenh + income_50k |name ,
+  data = socpoc,
+  cluster = ~ name,
+  family = binomial(link='logit')
+)
+
+models_list<-list(
+                  'logit' = logit2,
+                  'fixed effects' = felogit
+                  )
+
+
+
+modelsummary(models_list, 
+             coef_omit ='(Intercept)',
+             coef_rename = coefs,
+             gof_omit = 'R2', # omit R2
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             fmt = fmt_decimal(digits = 2)
+             )
+```
+
+Note that the estimated coefficient values for the fixed effects model is slightly larger, but we probably can't make a whole lot of useful comparisons between these models because the fixed effects version is missing ~500 additional observations of cases where there was only a single instance of a given location variable.
+
+
+Re-running the logit model using only valid observations from the fixed effects model shows that the estimated coefficients on the home ownership variable barely changes when including the fixed effects. Moreover, the BIC/AIC values increased in the fixed effects model. Taken together, it's probably reasonable to conclude that the fixed effects aren't especially helpful here (this might be a case where a random effects model could make sense)
+
+```{r}
+
+model_data<-socpoc[felogit$obs_selection$obsRemoved,]
+
+logit3<-glm(ban_dummy ~ own_factor + ideology + whitenh + income_50k,
+          data= model_data, family=binomial
+          )
+
+
+modelsummary(list("logit" =logit3, "fixed effects logit" = felogit), 
+             coef_omit ='(Intercept)',
+             coef_rename = coefs,
+             gof_omit = 'R2', # omit R2
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             fmt = fmt_decimal(digits = 2)
+             )
+
+
+```
+
+
+#### Marginal effects for feglm
+
+As of this writing, the `marginaleffects` package no longer calculates confidence intervals for non-linear fixed effects models from fixest, but we do these "by hand" using the clustered bootstrap:
+
+
+```{r, cache=TRUE}
+
+model_data<-socpoc[felogit$obs_selection$obsRemoved,]
+
+cities<-model_data$name|>unique()
+fx<-numeric(500)
+i<-1
+for(i in i:length(fx)) {
+  bootcities <- sample(cities, size = length(cities), replace = T)
+  bootmod <- model_data |>
+    filter(name %in% bootcities)
+  felogit <- feglm(
+    ban_dummy ~ own_factor + ideology + whitenh + income_50k | name ,
+    data = bootmod,
+    family = binomial(link = 'logit')
+  )
+  
+  pred1 <- predict(felogit,
+                   type = 'response',
+                   newdata = bootmod |> mutate(own_factor = "Owner"))
+  pred0 <- predict(felogit,
+                   type = 'response',
+                   newdata = bootmod |> mutate(own_factor = "Renter"))
+  fx[i] <- mean(pred1 - pred0)
+}
+
+quantile(fx, c(.025, .5, .975))
+
+
+```
+
+## Bonus
+
+`ban_dummy` is a dummy recoded version of `neighborhood_ban`, which was originally measured on a 7 point scale, with higher values indicating strong support. Re-estimate the model from question 2 using an ordered logit model. Then estimate the average marginal effect of homeownership on the probability of giving a response of "somewhat support", "support" or "strongly support"?
+
+
+
+The easiest way to do this is probably by just adding up the marginal effects from categories 5, 6, and 7:
+
+```{r}
+
+ologit <- MASS::polr(factor(neighborhood_ban) ~ own_factor + ideology + whitenh + income_50k,
+                     data = socpoc)
+
+
+mfx<-avg_comparisons(ologit, variables='own_factor')
+sum(mfx[5:7,"estimate"])
+
+
+
+
+```
+
+
+
+We can also use some of the more advanced functionality in `marginaleffects` to calculate a 95% confidence interval around this grouped estimate:
+
+```{r}
+
+# specify a method for calculating the marginal effect from prediction output
+hyp <- function(x) {
+  x|>
+    mutate(term = ifelse(x$group <= "4", "<=4", ">4"))|>
+    group_by(term, own_factor)|>
+    summarise(estimate = sum(estimate))|>
+    summarise(estimate = diff(estimate), term = '>4 vs. <=4')
+  
+}
+
+# test this using avg_predictions
+avg_predictions(ologit, variables='own_factor', hypothesis = hyp)
+
+
+
+
+```
+
+
+
+
+## Extra: Bayesian model example
+
+Here's another example of using a Bayesian model for this same regression.
+
+```{r}
+library(rstanarm)
+library(ggdist)
+
+# using default priors
+bayesian_model <- stan_glm(
+  ban_dummy ~ own_factor + ideology + whitenh + income_50k ,
+  data = socpoc,
+  family = binomial(link = "logit"),
+  seed = 999,
+  refresh = 0
+)
+
+```
+
+```{r, cache=TRUE}
+
+
+models_list<-list(
+                  'logit' = logit2,
+                  'bayesian logit' = bayesian_model
+                  )
+modelsummary(models_list, 
+             coef_rename = coefs,
+             gof_map = c('nobs', "RMSE"), 
+             estimate  = "{estimate}",  
+             statistic = c("conf.int"),
+             conf_level = .95,        
+             note = "95% CI in brackets",
+             fmt = fmt_decimal(digits = 2)
+             )
+
+
+```
+
+
+
+
+```{r}
+mfx<-avg_comparisons(bayesian_model)
+get_draws(mfx) |>
+  mutate(term = case_when(term == "ideology"  ~ "Ideology (1=Ext. Conservative, 7=Ext. Liberal)",
+                          term == "own_factor"  ~ "Homeowner",
+                          term == "whitenh"  ~ "White non-Hispanic",
+                          term == "income_50k" ~ "Income (per $50,000)" 
+                          )) |>
+  ggplot(aes(x = draw, y = term, label = contrast)) +
+    geom_vline(xintercept =0, lty=2)+
+  stat_slab(aes(fill = after_stat(level)),
+            .width = c(0.5, 0.975, 1),
+            alpha = 0.7) +
+  stat_pointinterval() +
+  geom_text(
+    stat = "summary",
+    fun = "mean", 
+    vjust = 1.5, 
+    color = 'black'
+  ) +
+  labs(x = "Marginal Effects", y = "Posterior density", fill = "variable") +
+  theme_bw() +
+  scale_fill_brewer('blues', name = 'Credible interval') 
+
+
+
+
+
+
+```
+
+We can try making predictions about some specific cases by sampling from the posterior. For instance, here's a comparison of the predicted support for a building ban in New York City under three different scenarios:
+
+```{r, cache=TRUE}
+
+nydata<-bayesian_model$data|>filter(name =='New York, New York')|>
+  select(ban_dummy, own_factor, ideology, whitenh, income_50k )|>
+  drop_na()
+
+# Wealthy renters become homeowners
+richdata<-nydata
+rich_renters<-which(nydata$own_factor=="Renter" & nydata$income_50k>=1.85)
+richdata$own_factor[rich_renters] <- "Owner"
+
+# Poor renters become homeowners
+poordata<-nydata
+poor_renters<-which(nydata$own_factor=="Renter" & nydata$income_50k<=0.55)
+poordata$own_factor[poor_renters] <- "Owner"
+
+alldata<-bind_rows(nydata, 
+                   richdata, 
+                   poordata, 
+                   .id="case")|>
+  mutate(case = factor(case, labels=c("At observed",
+                                      "All renters >=$92,500 buy homes",
+                                      "All renters <=$27,500 buy homes"
+                                      )))
+
+
+# getting long formatted predictions by group
+preds<-posterior_predict(bayesian_model, 
+                                   newdata=alldata)|>
+  t()|>
+  rowsum(group = alldata$case)|>
+  data.frame()|>
+  rownames_to_column()|>
+  pivot_longer(cols = -rowname)|>
+  mutate(value = value/nrow(nydata))|>
+  group_by(rowname)|>
+  mutate(medvalue = median(value),
+         )|>
+  ungroup()|>
+  mutate(rowname = reorder(factor(rowname),medvalue))
+
+ggplot(preds, aes(x=value, y=rowname, fill=rowname)) +
+    stat_slabinterval(position ='dodge', alpha=.5) +
+  theme_minimal() +
+  labs(color = "") +
+  theme(legend.position = "none") +
+  coord_flip() +
+  scale_x_continuous(labels = scales::label_percent()) +
+  scale_fill_manual(values=c("#E69F00", "#56B4E9","#009E73"
+                             )) +
+  labs(x ="Scenario", y="% support for ban on new building")
+  
+
+
+```
+
+
+
+# Variable Descriptions
+
+|  |  |
+|-------------------|-----------------------------------------------------|
+| Variable | Description |
+| own | “1” = Homeowner, “0” = Renter. |
+| city_supply | “From your ZIP code, you live in \[INSERT CITY NAME\], which has \[INSERT TOTAL NUMBER OF UNITS BY CITY\] housing units (homes and apartments). Imagine \[INSERT CITY NAME\] lowers development restrictions, making it easier to build new housing units. As a result, \[INSERT TEN PERCENT TOTAL UNITS VALUE\] more units, with a similar mix of homes and apartments, will be built over the next five years. Would you support the lowering of development restrictions in \[INSERT CITY NAME\] to allow the construction of \[INSERT TEN PERCENT TOTAL UNITS VALUE\] more housing units over the next five years?” (1 = “Strongly Oppose”, 2 = “Oppose”, 3 = “Somewhat Oppose”, 4 = “Neutral/Uncertain”, 5 = “Somewhat Support”, 6 = “Support”, 7 = “Strongly Support”.) |
+| supply_dummy | Dichotomize city_supply (“1” = “Somewhat Support”, “Support”, and “Strongly Support”; “0” = “Somewhat Oppose”, “Oppose”, “Strongly Oppose”; NA = “Neutral/Uncertain”.) |
+| ideology | “In general, do you think of yourself as… ("Extremely liberal"="7", "Liberal"="6", "Slightly liberal"="5", "Moderate, middle of the road"="4", "Slightly conservative"="3", "Conservative"="2", "Extremely conservative"="1".) |
+| income | Household income ("Less than \$5,000"="1", "\$5,000 to \$7,499"="2", "\$7,500 to \$9,999"="3", "\$10,000 to \$12,499"="4","\$12,500 to \$14,999"="5", "\$15,000 to \$19,999"="6", "\$20,000 to \$24,999"="7", "\$25,000 to \$29,999"="8", "\$30,000 to \$34,999"="9", "\$35,000 to \$39,999"="10", "\$40,000 to \$49,999"="11", "\$50,000 to \$59,999"="12", "\$60,000 to \$74,999"="13", "\$75,000 to \$84,999"="14", "\$85,000 to \$99,999"="15", "\$100,000 to \$124,999"="16", "\$125,000 to \$149,999"="17", "\$150,000 to \$174,999"="18", "\$175,000 or more"="19".) |
+| whitenh | Dummy variable (“1” = White, Non-Hispanic, “0” = All other possibilities) |
+| age | Transformed from ranges to average value of range ("18-24"="21","25-34"="29","35-44"="39","45-54"="49", "55-64"="59","65-74"="69","75+"="79")) |
+| male | “1” = Male, “0” = Female. |
+| name | Name of municipality. |
+| zri_city | Citywide average rent, Zillow.com, June 2016. |
+| zri | ZIP code average rent, Zillow.com, June 2016. |
+| neighborhood_ban | “Would you support a ban on the construction of new housing (homes and apartments) in your neighborhood?” (1 = “Strongly Oppose”, 2 = “Oppose”, 3 = “Somewhat Oppose”, 4 = “Neutral/Uncertain”, 5 = “Somewhat Support”, 6 = “Support”, 7 = “Strongly Support”.) |
+| ban_dummy | Dichotomize neighborhood_ban (1 = “Somewhat Support”, “Support”, and “Strongly Support”; 0 = “Somewhat Oppose”, “Oppose”, “Strongly Oppose”; NA = “Neutral/Uncertain”.) |
